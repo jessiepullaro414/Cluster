@@ -10,18 +10,27 @@ workflow (see the sibling projects' READMEs for the toolchain itself).
 
 ## Status
 
-Architecture is fully decided (see below). **Schematic scaffold started
-2026-09-22**: `build_schematic.py` generates the power stage (reused
-verbatim from `manifold-pcb`/`thermo-pcb`) + the S32K144 MCU core's
-fixed pins (crystal/SWD/RESET/power) — round-trips clean and
-`kicad-cli sch erc` shows only the same 4 expected tool-limitation
-findings every sibling board hits at this stage (power pins ERC can't
-trace through a passive, SWCLK driven off-sheet by the debug probe).
-**Not wired yet**: the 4x GC9A01 aux-gauge SPI bus, the BT817AQ QSPI +
-its RGB link to the ST7701S speedo module, the CAN transceiver, and the
-sensor/ADC front end — each needs its own real S32K144 pin-mux research
-pass first (see `build_schematic.py`'s own header for exactly what's
-deferred and why).
+Architecture is fully decided (see below), and a build-out plan for the
+schematic is in place (see `build_schematic.py`'s own header for the
+step-by-step breakdown). **Schematic scaffold started 2026-09-22**:
+`build_schematic.py` generates the power stage (reused verbatim from
+`manifold-pcb`/`thermo-pcb`) + the S32K144 MCU core's fixed pins
+(crystal/SWD/RESET/power) — round-trips clean.
+
+**Step 1 done, same day**: real S32K144 peripheral pin-mux research
+against NXP's own S32K1xx Reference Manual (the actual embedded IO-
+signal-table attachment, not a summary) landed 25 conflict-checked pins
+on U1 — LPSPI1 (BT817AQ's QSPI link), LPSPI2 (shared aux-gauge SPI
+bus), FlexCAN0, 4x ADC channel, and 9 plain GPIO (CS/DC/reset/backlight/
+power-down). `kicad-cli sch erc` shows 36 findings, all expected:
+25 forward-looking label stubs + the 8 input pins on their end not yet
+driven by anything, plus the same 3 pre-existing power-tracing findings
+— zero unexpected results.
+
+**Not wired yet** (Steps 2-5): the 4x GC9A01 aux-gauge symbols, the
+BT817AQ symbol + its RGB link to the ST7701S speedo module, the
+TJA1043T CAN transceiver (reusing `ecu-pcb`'s real part/pinout), and the
+sensor/ADC divider front end.
 
 ## Why this project exists
 

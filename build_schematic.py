@@ -18,19 +18,27 @@ README.md's "MCU pin/peripheral budget" section for the real,
 already-completed research confirming this part/package comfortably
 covers Cluster's real peripheral needs.
 
-*** WHAT THIS PASS DELIBERATELY DOES NOT INCLUDE YET *** (not
-guessed, not stubbed with placeholder pins): the 4x GC9A01 aux-gauge
-SPI bus, the BT817AQ QSPI + its link to the ST7701S speedo module, the
-CAN transceiver, and the sensor/ADC front end (fuel/oil/temp/battery).
-Every one of those needs a real S32K144 pin-mux research pass (which
-LPSPI/FlexCAN/ADC instance lands on which physical pin, checked against
-every pin this file already claims) before it can be wired - the same
-discipline ecu-pcb's own memory documents for its MPC5606B eMIOS/DSPI
-research. Wiring them with guessed pin numbers would be exactly the
-mistake this whole project family has repeatedly caught and corrected
-in its own history (see kicad-file-generation-gotchas). This pass gets
-the toolchain proven end-to-end on real, already-verified circuitry
-first - same order ecu-pcb and thermo-pcb both started in.
+*** PIN-MUX RESEARCH DONE 2026-09-22 (plan Step 1) ***: U1 now exposes
+25 real, conflict-checked peripheral pins (LPSPI1 for BT817AQ's QSPI,
+LPSPI2 for the shared aux-gauge SPI bus, FlexCAN0, 4x ADC channel, and
+9 plain GPIO for CS/DC/reset/backlight/power-down control) - see the
+detailed citation comment right above U1's registration below for the
+real source (NXP's own S32K1xx Reference Manual embedded IO-signal-
+table attachment) and the exact pin list. Every one of those 25 pins is
+wired only as far as a real, named label stub this pass, not yet to any
+actual peripheral chip.
+
+*** WHAT THIS PASS STILL DOES NOT INCLUDE *** (not guessed, not
+stubbed with placeholder pins beyond the MCU-side labels above): the
+4x GC9A01 aux-gauge symbols/wiring, the BT817AQ symbol + its link to
+the ST7701S speedo module, the TJA1043T CAN transceiver, and the
+sensor/ADC divider front end. Each of those needs its own real
+datasheet pin-table registration (BT817AQ's real VQFN-64 pinout,
+GC9A01's real 8-pin table, TJA1043T reused from ecu-pcb) before it can
+be wired - see plan Steps 2-5. Wiring any of them with guessed pins/
+values would be exactly the mistake this whole project family has
+repeatedly caught and corrected in its own history (see
+kicad-file-generation-gotchas).
 
 Connectivity model (same convention as every sibling project):
   * REAL WIRES for the main signal flow.
@@ -415,39 +423,81 @@ register_symbol(f"{LIB}:IC_LDO33", "U", "TLV733P-Q1", "Package_TO_SOT_SMD:SOT-23
 
 # --- MCU core: NXP S32K144, same exact part/package manifold-pcb/thermo-pcb
 # use (real, verified 64-pin LQFP pinout - see thermo-pcb's own
-# build_schematic.py comment for the full research citation). ONLY the
-# fixed pins every sibling board already dedicates regardless of
-# application are wired this pass: crystal (11/12), SWD (64/62), RESET
-# (63), power (7/41/8/10/40), VREFH(9)->VDDA. Real budget math (see
-# README.md's "MCU pin/peripheral budget" section, verified 2026-09-22
-# against NXP's own S32K1xx Data Sheet Rev.15): this exact 64-pin package
-# leaves ~58 GPIO after these fixed pins, comfortably covering the ~26
-# pins Cluster's real peripheral set (4x GC9A01 SPI bus, BT817AQ QSPI,
-# CAN0, 4x ADC) will need once each one's specific pin-mux is researched -
-# deliberately NOT done this pass, see this file's header docstring.
+# build_schematic.py comment for the full research citation). Fixed pins
+# every sibling board already dedicates regardless of application: crystal
+# (11/12), SWD (64/62), RESET (63), power (7/41/8/10/40), VREFH(9)->VDDA.
+#
+# Peripheral pin-mux research done 2026-09-22 (plan Step 1): real S32K144
+# alternate-function table pulled directly from NXP's own S32K1xx
+# Reference Manual - not a datasheet summary, the actual embedded
+# attachment (`S32K144_IO_Signal_Description_Input_Multiplexing.xlsx`,
+# extracted via `pypdf`'s `.attachments` API from the RM PDF, same
+# technique manifold-pcb's own original MCU pinout research established
+# and ecu-pcb's MPC5606B eMIOS/DSPI research reused). Every pin below is
+# real, physically present on the 64-pin LQFP package (checked against
+# the xlsx's own "S32K144_64lqfp" column, not assumed to exist just
+# because a bigger package has it), and cross-checked pin-by-pin against
+# every pin already claimed above - zero collisions confirmed
+# programmatically, not just by eye.
+#   - LPSPI1 (BT817AQ QSPI link, single-SPI mode to start): SCK=pin2
+#     (PTD0), SIN=pin1(PTD1), SOUT=pin46(PTD2), PCS0=pin45(PTD3) - a
+#     genuinely complete, single-module LPSPI1 bus (same "one clean
+#     module" standard thermo-pcb's own LPSPI0 pick set), all real.
+#   - LPSPI2 (shared SPI bus to the 4x GC9A01 aux gauges - no MISO
+#     needed, these displays never talk back): SCK=pin29(PTC15),
+#     SIN=pin26(PTC0), SOUT=pin25(PTC1), PCS0=pin30(PTC14) - another
+#     complete single-module LPSPI2 bus.
+#   - FlexCAN0: RX=pin6(PTE4), TX=pin5(PTE5).
+#   - 4x ADC channel (split across the real ADC0/ADC1 instances, which
+#     is normal - not a defect): FUEL=pin50(PTA0, ADC0_SE0),
+#     OIL=pin49(PTA1, ADC0_SE1), TEMP=pin48(PTA2, ADC1_SE0),
+#     BATT=pin47(PTA3, ADC1_SE1).
+#   - Plain GPIO (4x CS + 4x DC for the aux gauges, 1x shared reset,
+#     1x shared backlight enable, 1x BT817AQ power-down control) - none
+#     of these need a specific peripheral function, so any confirmed-
+#     free GPIO-capable pin works: CS0=pin13(PTE3), CS1=pin14(PTD16),
+#     CS2=pin15(PTD15), CS3=pin16(PTE9), DC0=pin17(PTE8), DC1=pin22(PTD7),
+#     DC2=pin23(PTD6), DC3=pin24(PTD5), AUX_RST=pin42(PTB13),
+#     BL_EN=pin39(PTE7), BT817_PDN=pin43(PTB12).
+# All 25 of these are wired only as far as a real, named label stub this
+# pass - connecting to GC9A01/BT817AQ/TJA1043T/sensor-divider circuitry
+# is plan Steps 2-5, deliberately not done in this same edit (each of
+# those needs its own real datasheet pin-table registration first).
 MCU_LEFT = [P(11, "OSC_IN", "passive"), P(12, "OSC_OUT", "passive"),
-            P(64, "SWDIO", "bidirectional"), P(62, "SWCLK", "input")]
+            P(64, "SWDIO", "bidirectional"), P(62, "SWCLK", "input"),
+            P(2, "LPSPI1_SCK", "output"), P(1, "LPSPI1_SIN", "input"),
+            P(46, "LPSPI1_SOUT", "output"), P(45, "LPSPI1_CS", "output"),
+            P(29, "LPSPI2_SCK", "output"), P(26, "LPSPI2_SIN", "input"),
+            P(25, "LPSPI2_SOUT", "output")]
+MCU_RIGHT = [P(6, "CAN0_RX", "input"), P(5, "CAN0_TX", "output"),
+             P(50, "ADC_FUEL", "input"), P(49, "ADC_OIL", "input"),
+             P(48, "ADC_TEMP", "input"), P(47, "ADC_BATT", "input"),
+             P(13, "AUX_CS0", "output"), P(14, "AUX_CS1", "output"),
+             P(15, "AUX_CS2", "output"), P(16, "AUX_CS3", "output"),
+             P(17, "AUX_DC0", "output"), P(22, "AUX_DC1", "output"),
+             P(23, "AUX_DC2", "output"), P(24, "AUX_DC3", "output")]
+MCU_BOTTOM_EXTRA = [P(30, "LPSPI2_CS", "output"), P(42, "AUX_RST", "output"),
+                    P(39, "BL_EN", "output"), P(43, "BT817_PDN", "output")]
 register_symbol(f"{LIB}:MCU_STM32", "U", "NXP S32K144 automotive (AEC-Q100)",
                 "Package_QFP:LQFP-64_10x10mm_P0.5mm",
                 {'L': MCU_LEFT,
+                 'R': MCU_RIGHT,
                  # Pin 9 = VREFH, the ADC's positive voltage-reference input -
                  # tied to the already-filtered analog supply (VDDA) rather
                  # than left floating, same treatment manifold-pcb/thermo-pcb
                  # both use for this exact pin. Cluster WILL use the internal
-                 # ADC for real (fuel/oil/temp/battery sensing) once that
-                 # pin-mux research lands, unlike thermo-pcb (which reads its
-                 # sensor over an external SPI ADC instead) - so this pin is
+                 # ADC for real (fuel/oil/temp/battery sensing) - this pin is
                  # genuinely load-bearing here, not just bias-for-safety.
                  'T': [P(7, "VDD", "power_in"), P(41, "VDD", "power_in"),
                        P(8, "VDDA", "power_in"), P(9, "VREFH", "power_in")],
                  'B': [P(10, "VSS", "power_in"), P(40, "VSS", "power_in"),
-                       P(63, "RESET", "input")]},
+                       P(63, "RESET", "input")] + MCU_BOTTOM_EXTRA},
                 datasheet="https://www.nxp.com/products/processors-and-microcontrollers/s32-automotive-platform/s32k-auto-general-purpose-mcus:S32K-MCUS")
-# Real 58 other free GPIO pins this package has are simply NOT included on
-# this symbol at all yet - same "symbol exposes only what's actually wired
-# so far" approach thermo-pcb's own MCU registration comment documents.
-# Peripheral pins (LPSPI x2, FlexCAN0, 4x ADC channel) get added here in a
-# follow-up pass once their real pin-mux is researched, not guessed now.
+# Real 58-25-11=22 other free GPIO pins this package has are simply NOT
+# included on this symbol at all yet - same "symbol exposes only what's
+# actually wired so far" approach thermo-pcb's own MCU registration
+# comment documents. Headroom remains for anything Steps 2-6 turn up a
+# real need for beyond this pass's own estimate.
 
 register_symbol(f"{LIB}:CONN_SWD", "J", "SWD (Tag-Connect)",
                 "Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical",

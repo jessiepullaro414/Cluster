@@ -210,7 +210,12 @@ def register_pwr_flag(net):
 # Schematic scaffolding
 # ---------------------------------------------------------------------------
 sch = Schematic.create_new()
-sch.paper = PageSettings(paperSize="A2")
+# Grown from A2 to A1 while wiring plan Step 3 (aux gauges) - A2's 420mm
+# height had no room left for a 4th subsystem row below the existing
+# power/MCU/CAN0 content, same "grow the page when real content doesn't
+# fit" move thermo-pcb (A3->A2) and fascia-pcb (straight to A0 given
+# known complexity) both already established for this project family.
+sch.paper = PageSettings(paperSize="A1")
 sch.uuid = U()
 sch.titleBlock = TitleBlock(
     title="Cluster - digital instrument cluster, 1966 Mustang, automotive board",
@@ -443,26 +448,35 @@ register_symbol(f"{LIB}:IC_LDO33", "U", "TLV733P-Q1", "Package_TO_SOT_SMD:SOT-23
 #     (PTD0), SIN=pin1(PTD1), SOUT=pin46(PTD2), PCS0=pin45(PTD3) - a
 #     genuinely complete, single-module LPSPI1 bus (same "one clean
 #     module" standard thermo-pcb's own LPSPI0 pick set), all real.
-#   - LPSPI2 (shared SPI bus to the 4x GC9A01 aux gauges - no MISO
-#     needed, these displays never talk back): SCK=pin29(PTC15),
-#     SIN=pin26(PTC0), SOUT=pin25(PTC1), PCS0=pin30(PTC14) - another
-#     complete single-module LPSPI2 bus.
+#   - LPSPI2 (shared SPI bus to the 4x GC9A01 aux gauges): SCK=pin29
+#     (PTC15), SIN=pin26(PTC0, real pin kept for possible future
+#     diagnostic use even though no GC9A01 currently drives it - see its
+#     own real pull-down, R11, in the placement section below), SOUT=
+#     pin25(PTC1), PCS0=pin30(PTC14, claimed here but marked no_connect
+#     in the placement section - each of the 4 displays needs its OWN
+#     chip select, so 4 individual bit-banged GPIO (AUX_CS0-3) are used
+#     instead of this single hardware PCS0 pin).
 #   - FlexCAN0: RX=pin6(PTE4), TX=pin5(PTE5).
 #   - 4x ADC channel (split across the real ADC0/ADC1 instances, which
 #     is normal - not a defect): FUEL=pin50(PTA0, ADC0_SE0),
 #     OIL=pin49(PTA1, ADC0_SE1), TEMP=pin48(PTA2, ADC1_SE0),
 #     BATT=pin47(PTA3, ADC1_SE1).
 #   - Plain GPIO (4x CS + 4x DC for the aux gauges, 1x shared reset,
-#     1x shared backlight enable, 1x BT817AQ power-down control) - none
-#     of these need a specific peripheral function, so any confirmed-
-#     free GPIO-capable pin works: CS0=pin13(PTE3), CS1=pin14(PTD16),
-#     CS2=pin15(PTD15), CS3=pin16(PTE9), DC0=pin17(PTE8), DC1=pin22(PTD7),
-#     DC2=pin23(PTD6), DC3=pin24(PTD5), AUX_RST=pin42(PTB13),
-#     BL_EN=pin39(PTE7), BT817_PDN=pin43(PTB12).
-# All 25 of these are wired only as far as a real, named label stub this
-# pass - connecting to GC9A01/BT817AQ/TJA1043T/sensor-divider circuitry
-# is plan Steps 2-5, deliberately not done in this same edit (each of
-# those needs its own real datasheet pin-table registration first).
+#     1x shared backlight enable, 1x BT817AQ power-down control, 2x CAN0
+#     mode control) - none of these need a specific peripheral function,
+#     so any confirmed-free GPIO-capable pin works: CS0=pin13(PTE3),
+#     CS1=pin14(PTD16), CS2=pin15(PTD15), CS3=pin16(PTE9), DC0=pin17(PTE8),
+#     DC1=pin22(PTD7), DC2=pin23(PTD6), DC3=pin24(PTD5), AUX_RST=pin42
+#     (PTB13), BL_EN=pin39(PTE7), BT817_PDN=pin43(PTB12), CAN0_EN=pin18
+#     (PTB5), CAN0_STB_N=pin19(PTB4) - the latter two added in plan Step 2
+#     alongside the TJA1043T transceiver itself, same real EN+STB_N mode-
+#     control pattern ecu-pcb's own TJA1043T wiring already established
+#     (real 4-state mode select, not a single 3-state pin - see that
+#     project's own registration comment for the full reasoning).
+# All 27 of these are wired only as far as a real, named label stub this
+# pass except CAN0_EN/STB_N and CAN0_TX/RX, which Step 2 (below) connects
+# to a real TJA1043T transceiver - connecting the rest to GC9A01/BT817AQ/
+# sensor-divider circuitry is plan Steps 3-5, not done in this same edit.
 MCU_LEFT = [P(11, "OSC_IN", "passive"), P(12, "OSC_OUT", "passive"),
             P(64, "SWDIO", "bidirectional"), P(62, "SWCLK", "input"),
             P(2, "LPSPI1_SCK", "output"), P(1, "LPSPI1_SIN", "input"),
@@ -477,7 +491,8 @@ MCU_RIGHT = [P(6, "CAN0_RX", "input"), P(5, "CAN0_TX", "output"),
              P(17, "AUX_DC0", "output"), P(22, "AUX_DC1", "output"),
              P(23, "AUX_DC2", "output"), P(24, "AUX_DC3", "output")]
 MCU_BOTTOM_EXTRA = [P(30, "LPSPI2_CS", "output"), P(42, "AUX_RST", "output"),
-                    P(39, "BL_EN", "output"), P(43, "BT817_PDN", "output")]
+                    P(39, "BL_EN", "output"), P(43, "BT817_PDN", "output"),
+                    P(18, "CAN0_EN", "output"), P(19, "CAN0_STB_N", "output")]
 register_symbol(f"{LIB}:MCU_STM32", "U", "NXP S32K144 automotive (AEC-Q100)",
                 "Package_QFP:LQFP-64_10x10mm_P0.5mm",
                 {'L': MCU_LEFT,
@@ -493,10 +508,10 @@ register_symbol(f"{LIB}:MCU_STM32", "U", "NXP S32K144 automotive (AEC-Q100)",
                  'B': [P(10, "VSS", "power_in"), P(40, "VSS", "power_in"),
                        P(63, "RESET", "input")] + MCU_BOTTOM_EXTRA},
                 datasheet="https://www.nxp.com/products/processors-and-microcontrollers/s32-automotive-platform/s32k-auto-general-purpose-mcus:S32K-MCUS")
-# Real 58-25-11=22 other free GPIO pins this package has are simply NOT
+# Real 58-27-11=20 other free GPIO pins this package has are simply NOT
 # included on this symbol at all yet - same "symbol exposes only what's
 # actually wired so far" approach thermo-pcb's own MCU registration
-# comment documents. Headroom remains for anything Steps 2-6 turn up a
+# comment documents. Headroom remains for anything Steps 3-6 turn up a
 # real need for beyond this pass's own estimate.
 
 register_symbol(f"{LIB}:CONN_SWD", "J", "SWD (Tag-Connect)",
@@ -518,6 +533,76 @@ register_symbol(f"{LIB}:CONN_PWR", "J", "Phoenix MKDS 1,5/2-5,08 (board side; DT
 # termination). Not yet re-verified this is the right choice for Cluster
 # specifically (a dash-mounted board, not an engine-bay one like Thermo) -
 # flagged for the connector-strategy pass, not assumed final.
+
+# --- CAN0 transceiver (plan Step 2): real TJA1043T (SO-14), pin table and
+# wiring topology reused VERBATIM from ecu-pcb's own already-verified
+# circuit (ecu-pcb/build_schematic.py, its TJA1043T registration and
+# CAN_BUSES loop) - single instance here (CAN0 only) instead of that
+# board's dual-CAN setup, otherwise identical: VCC->+5V, VIO->+3V3 (both
+# match the MCU's own logic level, no level shifter needed - confirmed by
+# ecu-pcb's own research), VBAT->VIN_PROT (the always-on protected rail,
+# NOT the relay-gated one, so a CAN bus-wake event can revive the board
+# with ignition off - same real automotive reasoning), TXD/RXD wired to
+# the MCU's CAN0_TX/CAN0_RX pins (matching net NAME, not geometric
+# alignment - same trick Thermo used for its own MCU<->ADC link), EN/
+# STB_N to real MCU GPIO (4-state mode select, not a single 3-state pin -
+# see ecu-pcb's own registration comment for the full reasoning), INH/
+# ERR_N no_connect (fault telemetry / external-regulator control, real
+# future-nice-to-haves not required here), WAKE tied inactive (GND, no
+# dedicated remote-wake line on this board), and the real split-
+# termination network (2x 60R + 4.7nF, differentially equivalent to a
+# standard 120R end-of-bus resistor - DNP unless this board is a physical
+# bus end-node, same documented caveat as ecu-pcb).
+register_symbol(f"{LIB}:TJA1043T", "U", "NXP TJA1043T automotive CAN transceiver (AEC-Q100)",
+                "Package_SO:SOIC-14_3.9x8.7mm_P1.27mm",
+                {'T': [P(3, "VCC", "power_in"), P(5, "VIO", "power_in"),
+                       P(10, "VBAT", "power_in")],
+                 'B': [P(2, "GND", "power_in")],
+                 'L': [P(1, "TXD", "input"), P(4, "RXD", "output"),
+                       P(6, "EN", "input"), P(14, "STB_N", "input")],
+                 'R': [P(7, "INH", "output"), P(8, "ERR_N", "output"),
+                       P(9, "WAKE", "input"), P(11, "SPLIT", "output"),
+                       P(12, "CANL", "passive"), P(13, "CANH", "passive")]},
+                datasheet="https://www.nxp.com/products/TJA1043")
+
+# --- GC9A01 aux gauges x4 (plan Step 3): real 18-pin FPC table pulled
+# directly from Raystar's own RFA401280B-AYW-DNF1 datasheet (the chosen
+# real part, 1.28" 240x240 GC9A01 round module WITH PCAP touch - touch
+# isn't part of this board's design, its 4 signal pins are simply left
+# no_connect below, same treatment as any genuinely-unused-but-present
+# real pin elsewhere in this family). Real, non-obvious finding from
+# actually reading the datasheet rather than assuming a generic GC9A01
+# breakout's usual "BLK" logic pin: this module's backlight is a bare
+# LED anode/cathode pair (VLED+/VLED-, real spec 3.0-3.4V/40mA max, typ
+# 3.2V), not a logic-level enable input - driven with a per-display
+# series resistor from +5V (comfortable headroom over the LED's 3.2V
+# typ forward voltage, unlike +3V3 which would leave almost none) and a
+# SHARED low-side N-MOSFET switch on the common VLED- return (same real
+# "shared switch on the low side" pattern thermo-pcb's own heater-MOSFET
+# circuit already uses), not 4 independent GPIO-driven logic pins.
+register_symbol(f"{LIB}:GC9A01_MODULE", "U", "Raystar RFA401280B-AYW-DNF1 (1.28in 240x240 GC9A01 round TFT, PCAP touch unused)",
+                "Connector_FFC-FPC:Amphenol_F32Q-1A7x1-11018_1x18-1MP_P0.5mm_Horizontal",
+                {'L': [P(10, "CS", "input"), P(11, "SCL", "input"),
+                       P(12, "SDA", "input"), P(13, "RS", "input"),
+                       P(15, "RESET", "input"), P(14, "TE", "output")],
+                 'R': [P(7, "VLED+", "passive"), P(8, "VLED-", "passive"),
+                       P(16, "VCI3V3", "power_in"),
+                       P(9, "GND", "power_in"), P(18, "GND", "power_in")],
+                 'T': [P(1, "TP_INT", "no_connect"), P(2, "TP_SDA", "no_connect"),
+                       P(3, "TP_SCL", "no_connect"), P(4, "TP_RESET", "no_connect"),
+                       P(5, "TP_GND", "power_in"), P(6, "TP_VDD3V3", "no_connect")],
+                 'B': [P(17, "NC", "no_connect")]},
+                datasheet="https://www.raystar-optronics.com/upload_files/tft-lcd-display-module/1-28-tft/capacitive-touch-screen-display/RFA401280B-AYW-DNF1-datasheet.pdf")
+# Footprint: real, bundled KiCad part (Amphenol F32Q-1A7x1-11018,
+# 1x18-1MP, 0.5mm pitch, horizontal) matching the module's own real FPC
+# spec exactly (18 positions, 0.5mm pitch per the datasheet's own contour
+# drawing: "P0.5*(18-1)=8.50"). Confirmed to actually exist in KiCad's
+# bundled Connector_FFC-FPC library (an earlier guessed generic name did
+# not - caught by kicad-cli sch erc's real footprint_link_issues check,
+# fixed by listing the real library directory rather than guessing a
+# second time). Not yet checked whether this specific Amphenol connector
+# is the right MATED HEIGHT/contact style for this board's real
+# mechanical stack-up - flagged for plan Step 6 (connectors) / PCB layout.
 
 # ---------------------------------------------------------------------------
 # Placement + wiring
@@ -594,6 +679,15 @@ wire_pins("U2", 12, "L1", 1, label="SW")
 # --- MCU core (fixed pins only) ---
 place(f"{LIB}:MCU_STM32", "U1", "NXP S32K144 automotive (AEC-Q100)", 110, 250,
       conn={'11': ('wire',), '12': ('wire',),
+            # LPSPI2's real hardware PCS0 (pin 30) is genuinely unused by
+            # design (plan Step 3): the 4 GC9A01 aux gauges share one SPI
+            # bus but each needs its OWN chip select, so 4 individual
+            # bit-banged GPIO (AUX_CS0-3) are used instead of the single
+            # hardware PCS0 - a real, deliberate choice, not an oversight,
+            # documented with a real no-connect flag rather than left as
+            # a dangling same-named label (same established distinction
+            # this whole project family draws elsewhere).
+            '30': ('nc',),
             '7': ('pwr', '+3V3', 2.54), '41': ('pwr', '+3V3', 7.62),
             '10': ('pwr', 'GND', 2.54), '40': ('pwr', 'GND', 7.62),
             '9': ('label', 'VDDA', 7.62)})
@@ -624,6 +718,107 @@ place(f"{LIB}:CONN_SWD", "J2", "SWD Tag-Connect", 110, 320,
       conn={'1': ('label', 'SWDIO'), '3': ('label', 'SWCLK'),
             '5': ('label', 'RESET'),
             '2': ('pwr', '+3V3', 5.08), '6': ('pwr', 'GND', 5.08)})
+
+# --- CAN0 transceiver (plan Step 2) ---
+section_text("CAN0: NXP TJA1043T TRANSCEIVER (PLAN STEP 2)", 400, 175)
+place(f"{LIB}:TJA1043T", "U5", "NXP TJA1043T automotive CAN transceiver (AEC-Q100)",
+      400, 250,
+      conn={'3': ('pwr', '+5V', 5.08), '5': ('pwr', '+3V3', 5.08),
+            '10': ('label', 'VIN_PROT', 5.08), '2': ('pwr', 'GND', 2.54),
+            '1': ('label', 'CAN0_TX', 7.62), '4': ('label', 'CAN0_RX', 7.62),
+            '6': ('label', 'CAN0_EN', 7.62), '14': ('label', 'CAN0_STB_N', 7.62),
+            '7': ('nc',), '8': ('nc',),
+            '9': ('pwr', 'GND', 5.08),
+            '11': ('label', 'CAN0_SPLIT'),
+            '12': ('label', 'CAN0_L', 7.62), '13': ('label', 'CAN0_H', 7.62)})
+place(f"{LIB}:C_V", "C13", "100nF VCC decouple (AEC-Q200)", 370, 220,
+      conn={'1': ('pwr', '+5V'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C14", "100nF VIO decouple (AEC-Q200)", 345, 220,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C15", "100nF VBAT decouple (AEC-Q200)", 320, 220,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R4", "60R split termination (AEC-Q200) - DNP unless bus end-node",
+      550, 230,
+      conn={'1': ('label', 'CAN0_H'), '2': ('label', 'CAN0_SPLIT')})
+place(f"{LIB}:R_V", "R5", "60R split termination (AEC-Q200) - DNP unless bus end-node",
+      550, 260,
+      conn={'1': ('label', 'CAN0_SPLIT'), '2': ('label', 'CAN0_L')})
+place(f"{LIB}:C_V", "C16", "4.7nF SPLIT stabilization (AEC-Q200)", 580, 245,
+      conn={'1': ('label', 'CAN0_SPLIT'), '2': ('pwr', 'GND')})
+# CAN0_TX/CAN0_RX/CAN0_EN/CAN0_STB_N connect to U1 purely by matching net
+# NAME (both symbols already use these exact same label strings on their
+# own respective pins) - same trick thermo-pcb used for its MCU<->ADC
+# link, not geometric alignment (U1 and U5 aren't row-aligned).
+# CAN0_H/CAN0_L/the vehicle-harness landing for this bus are real, named,
+# forward-looking stubs pending plan Step 6 (connector strategy).
+
+# --- 4x GC9A01 aux gauges (plan Step 3) ---
+section_text("4x GC9A01 AUX GAUGES: FUEL / OIL / COOLANT TEMP / BATTERY (PLAN STEP 3)", 30, 430)
+AUX_GAUGES = [
+    ("U6", "AUX_CS0", "AUX_DC0", "Fuel level"),
+    ("U7", "AUX_CS1", "AUX_DC1", "Oil pressure"),
+    ("U8", "AUX_CS2", "AUX_DC2", "Coolant temp"),
+    ("U9", "AUX_CS3", "AUX_DC3", "Battery voltage"),
+]
+for i, (u_ref, cs_label, dc_label, role) in enumerate(AUX_GAUGES):
+    x0 = 30 + i * 120
+    place(f"{LIB}:GC9A01_MODULE", u_ref, f"Raystar RFA401280B-AYW-DNF1 - {role} gauge", x0, 480,
+          conn={'10': ('label', cs_label), '11': ('label', 'LPSPI2_SCK'),
+                '12': ('label', 'LPSPI2_SOUT'), '13': ('label', dc_label),
+                '15': ('label', 'AUX_RST'), '14': ('nc',),
+                '7': ('label', f'{u_ref}_VLED', 5.08), '8': ('label', 'AUX_VLED_RTN', 5.08),
+                # VCI3V3's power-symbol riser (a 'pwr' connection on an L/R
+                # side climbs one extra PITCH) would otherwise land exactly
+                # on pin 8's own 5.08 stub endpoint (adjacent R-side pins,
+                # one PITCH apart) - caught by the script's own net-
+                # collision check, fixed the same established way as every
+                # prior instance of this bug class in this family: give the
+                # riser-bearing pin a different stub length (10.16, not 5.08).
+                '16': ('pwr', '+3V3', 10.16),
+                '9': ('pwr', 'GND', 5.08), '18': ('pwr', 'GND', 7.62),
+                '1': ('nc',), '2': ('nc',), '3': ('nc',), '4': ('nc',),
+                '5': ('pwr', 'GND', 5.08), '6': ('nc',),
+                '17': ('nc',)})
+    place(f"{LIB}:R_V", f"R{6 + i}",
+          "120R VLED series (self-calculated for ~15mA at 5V, real LED Vf 3.0-3.4V typ 3.2V per datasheet - AEC-Q200)",
+          x0, 440,
+          conn={'1': ('pwr', '+5V'), '2': ('label', f'{u_ref}_VLED')})
+    place(f"{LIB}:C_V", f"C{17 + i}", "100nF VCI decouple (AEC-Q200)", x0 + 30, 440,
+          conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+# Shared low-side N-MOSFET switch on the common VLED- return (real part
+# reuse: same PMV37ENEA already verified/placed as Q1 in the power stage
+# - its Vth max (2.7V) is comfortably below a 3.3V GPIO's full-swing
+# drive for this simple ON/OFF switch use, unlike the light-load analog-
+# regulation context that flagged it as a marginal fit for Q1's own
+# LM74700-Q1 application - a genuinely different circuit, not the same
+# concern recurring). All 4 displays' VLED- commons onto one node ahead
+# of the switch - real combined current (~60mA max) is trivial next to
+# this part's real multi-amp rating.
+place(f"{LIB}:MOSFET_N", "Q2", "PMV37ENEA automotive (AEC-Q101) - shared aux-gauge backlight switch",
+      450, 460,
+      conn={'2': ('label', 'AUX_VLED_RTN'), '3': ('pwr', 'GND'),
+            '1': ('label', 'BL_GATE', 5.08)})
+place(f"{LIB}:R_V", "R10", "100R BL_EN gate resistor (AEC-Q200)", 450, 430,
+      conn={'1': ('label', 'BL_EN'), '2': ('label', 'BL_GATE')})
+# LPSPI2_SIN (the shared aux-gauge SPI bus's MISO line) is a real,
+# exposed MCU pin kept for future use (e.g. reading GC9A01's own status
+# register to detect a disconnected display) but genuinely unused by any
+# part actually wired this pass - none of the 4 GC9A01 modules drive it
+# (no MISO on this display, confirmed by Raystar's own pin table). Left
+# floating, that's a real always-flagged ERC exception at best and a
+# genuinely undefined logic level at worst; a cheap pull-down defines its
+# idle state, same real practice as thermo-pcb's own SPI_CS pull-up on an
+# otherwise-floating-during-reset line.
+place(f"{LIB}:R_V", "R11", "10k LPSPI2_SIN pull-down, idle-state definition (AEC-Q200)",
+      500, 430,
+      conn={'1': ('label', 'LPSPI2_SIN'), '2': ('pwr', 'GND')})
+# CS/SCL/SDA/DC/RESET connect to U1 purely by matching net NAME (LPSPI2_
+# SCK/LPSPI2_SOUT/AUX_CSn/AUX_DCn/AUX_RST all already exist as real
+# labeled stubs on U1 from plan Step 1) - same trick used throughout this
+# file, not geometric alignment. TE (tearing-effect sync) and all 4 PCAP
+# touch signal pins are genuinely unused by this design and left
+# no_connect, same treatment as any other real-but-unused pin elsewhere
+# in this project family.
 
 NOTE_LINES = [
     "NOTES:",

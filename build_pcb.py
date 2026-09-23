@@ -451,16 +451,24 @@ for disp_ref, (c_placed, c_w, c_h) in local_packed.items():
     for ref, (x, y) in c_placed.items():
         placed_rel[ref] = (x + cluster_left, y + cluster_bottom - c_h)
 
-# Place core zones, left-to-right with equal real spacing.
+# Place core zones, left-to-right with equal real spacing. Also record
+# the real X center of each GAP between zones (including before the
+# first and after the last) - used below to place extra mounting holes
+# in space that's genuinely empty BY CONSTRUCTION, not a guessed
+# fractional position (a first attempt at MH5/MH6 used raw 1/3 and 2/3
+# board-width fractions and landed squarely on R4/R5 and U1 - a real
+# collision caught by the overlap self-check, not assumed safe).
 zone_total_w = sum(z_w for _, _, _, z_w, _ in zone_packed)
 zone_gap = (TARGET_W - zone_total_w) / (len(zone_packed) + 1)
 zone_gap = max(zone_gap, 8.0)  # real minimum breathing room even if this
                                 # somehow left less than 8mm between zones
 zone_x = zone_gap
+zone_gap_centers = [zone_x / 2]   # center of the gap before the first zone
 for name, refs, z_placed, z_w, z_h in zone_packed:
     for ref, (x, y) in z_placed.items():
         placed_rel[ref] = (x + zone_x, y + CORE_TOP_MARGIN)
     zone_x += z_w + zone_gap
+    zone_gap_centers.append(zone_x - zone_gap / 2)
 
 board_width = TARGET_W + 2 * BOARD_MARGIN
 assert board_height <= TARGET_H, (
@@ -529,6 +537,52 @@ for ref, info in parts.items():
         print(f"  {ref}: {len(unmatched)} pad(s) with no schematic net "
               f"(spare/mechanical): {unmatched}")
     board.footprints.append(fp)
+
+# ---------------------------------------------------------------------------
+# 5b. Standoff/mounting holes (user request). Same real bundled part
+#     every sibling board uses (MountingHole_3.2mm_M3, real M3 clearance
+#     hole). 4 corners alone would leave ~410mm of unsupported span
+#     between the top-left and top-right holes on this board - a real
+#     vibration/flex concern for a dash-mounted, engine-adjacent
+#     automotive board, not just a cosmetic gap - so 2 more holes are
+#     added along the TOP edge, giving 6 real support points across the
+#     board's own length.
+#
+#     Real bug caught by the overlap self-check, not assumed safe: a
+#     first attempt placed these 2 extra holes at raw 1/3 and 2/3
+#     board-width fractions, which landed squarely on R4/R5 (CAN0 split
+#     termination) and U1 (the MCU) - the core zones aren't evenly
+#     spaced by simple fractions, they're packed tightly with real gaps
+#     ONLY between zones. Fixed by using zone_gap_centers (computed
+#     above, while the zones were actually being placed) - the real,
+#     by-construction-empty gap between zones 1-2 and zones 4-5 (indices
+#     1 and 4 of 6 real gaps: before/between-each/after the 5 zones),
+#     not a guessed position.
+# ---------------------------------------------------------------------------
+MOUNTING_HOLE_FP = "MountingHole:MountingHole_3.2mm_M3"
+MOUNTING_HOLE_INSET = 7.0
+_mh5_x = BOARD_OFFSET_X + zone_gap_centers[1]
+_mh6_x = BOARD_OFFSET_X + zone_gap_centers[4]
+_mh_positions = [
+    ("MH1", BOARD_OFFSET_X + MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
+    ("MH2", BOARD_OFFSET_X + board_width - MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
+    ("MH3", BOARD_OFFSET_X + MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + board_height - MOUNTING_HOLE_INSET),
+    ("MH4", BOARD_OFFSET_X + board_width - MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + board_height - MOUNTING_HOLE_INSET),
+    ("MH5", _mh5_x, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
+    ("MH6", _mh6_x, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
+]
+for mh_ref, mh_x, mh_y in _mh_positions:
+    mh_fp = load_footprint(MOUNTING_HOLE_FP)
+    mh_fp.position = Position(round(mh_x, 3), round(mh_y, 3), 0)
+    mh_fp.path = f"/{uuid_module.uuid4()}"
+    mh_fp.properties["Reference"] = mh_ref
+    ref_label_pos[mh_ref] = (0.0, -4.15)  # same real bundled-footprint
+                                            # Reference offset every
+                                            # sibling board's own mounting
+                                            # holes already use
+    board.footprints.append(mh_fp)
+print(f"Added {len(_mh_positions)} M3 mounting holes (4 corners + 2 along "
+      f"the top edge, real support for this board's own long/thin shape)")
 
 print(f"Board outline: {board_width:.1f} x {board_height:.1f} mm, "
       f"{len(board.footprints)} footprints, {len(net_registry)} nets")
@@ -632,11 +686,25 @@ def _polar(cx, cy, r, deg):
 board_cx = BOARD_OFFSET_X + board_width / 2
 board_cy = BOARD_OFFSET_Y + board_height / 2
 
+# Real vertical safe zone for the back-side art, derived from the real
+# mounting holes (added in section 5b, before this section runs) rather
+# than guessed: MH5/MH6 sit at y=BOARD_OFFSET_Y+MOUNTING_HOLE_INSET near
+# the top edge, and need real keepout below them (a first attempt at a
+# board_cy-centered gauge overlapped MH5/MH6 - real thru-holes, caught
+# by the "thru_hole_boxes" collision check below, not assumed clear).
+MH_KEEPOUT_BELOW = 6.0
+SAFE_TOP = BOARD_OFFSET_Y + MOUNTING_HOLE_INSET + MH_KEEPOUT_BELOW
+SAFE_BOTTOM = BOARD_OFFSET_Y + board_height - BOARD_MARGIN
+SAFE_CY = (SAFE_TOP + SAFE_BOTTOM) / 2
+
 # Real automotive tach-face layout: 0 at bottom-left (225 deg), sweeping
 # CLOCKWISE through 12 o'clock to 8 (redline) at bottom-right (-45 deg) -
 # a real 270-degree sweep, 9 major ticks (0-8), matching how an actual
 # tachometer face is laid out, not an arbitrary circle of numbers.
-GAUGE_R = min(board_height * 0.42, 42.0)
+# Radius sized from the REAL safe vertical band (between the top
+# mounting holes and the bottom edge margin), not a fraction of the
+# whole board height, which used to run the gauge straight into MH5/MH6.
+GAUGE_R = min((SAFE_BOTTOM - SAFE_TOP) / 2 - 2.0, 42.0)
 # left-of-center, so the CLUSTER wordmark has real room to its right -
 # uses the board's own wide aspect ratio instead of fighting it. Wider
 # gap than the gauge's own radius alone would suggest - a first attempt
@@ -645,7 +713,7 @@ GAUGE_R = min(board_height * 0.42, 42.0)
 # suggests), caught and fixed with real margin, not a precise-but-
 # fragile minimum gap.
 GAUGE_CX = board_cx - 95.0
-GAUGE_CY = board_cy
+GAUGE_CY = SAFE_CY
 START_DEG, END_DEG = 225.0, -45.0
 N_TICKS = 9
 
@@ -654,7 +722,7 @@ def _gauge_bbox():
             GAUGE_CX + GAUGE_R + 8, GAUGE_CY + GAUGE_R + 12)
 
 def _wordmark_bbox():
-    return (board_cx + 5, board_cy - 14, board_cx + 145, board_cy + 14)
+    return (board_cx + 5, SAFE_CY - 14, board_cx + 145, SAFE_CY + 14)
 
 _gx0, _gy0, _gx1, _gy1 = _gauge_bbox()
 _wx0, _wy0, _wx1, _wy1 = _wordmark_bbox()
@@ -707,49 +775,59 @@ def _gr_text(text, pos, size, thickness, bold=False, angle=0):
         effects=Effects(font=Font(height=size, width=size, thickness=thickness,
                                    bold=bold), justify=Justify(mirror=True))))
 
+# Every fixed mm offset/text size below was tuned for a GAUGE_R=42mm
+# design - real bug caught by the DRC loop (27 real silk_overlap hits
+# once the mounting-hole rework shrank GAUGE_R to 15.6mm): fixed mm
+# offsets don't shrink with the circle, so numbers/ticks that used to
+# sit neatly inside a 42mm ring collided with each other and the rim
+# once the ring got smaller but the labels didn't. Fixed by scaling
+# every offset and text size by S = GAUGE_R/42.0, so the whole face
+# stays proportional at any real radius this board's own height forces.
+S = GAUGE_R / 42.0
+
 # Outer rim + inner rim (a real tach face has a double ring)
 _gr_circle((GAUGE_CX, GAUGE_CY), GAUGE_R, width=0.5)
-_gr_circle((GAUGE_CX, GAUGE_CY), GAUGE_R - 2.5, width=0.2)
+_gr_circle((GAUGE_CX, GAUGE_CY), GAUGE_R - 2.5 * S, width=0.2)
 
 # 9 major ticks (0-8) + a minor tick at every half-step (17 total) -
 # real gauge-face convention: major ticks reach further in, get a
 # number; minor ticks are short and unlabeled.
 for i in range(N_TICKS):
     deg = START_DEG + i * (END_DEG - START_DEG) / (N_TICKS - 1)
-    p_out = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 1, deg)
-    p_in = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 8, deg)
+    p_out = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 1 * S, deg)
+    p_in = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 8 * S, deg)
     _gr_line(p_out, p_in, width=0.4)
-    p_num = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 13, deg)
-    _gr_text(str(i), p_num, size=3.0, thickness=0.4, bold=True)
+    p_num = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 13 * S, deg)
+    _gr_text(str(i), p_num, size=max(3.0 * S, 1.0), thickness=max(0.4 * S, 0.15), bold=True)
     if i < N_TICKS - 1:
         deg_mid = deg + (END_DEG - START_DEG) / (N_TICKS - 1) / 2
-        pm_out = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 1, deg_mid)
-        pm_in = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 4.5, deg_mid)
+        pm_out = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 1 * S, deg_mid)
+        pm_in = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 4.5 * S, deg_mid)
         _gr_line(pm_out, pm_in, width=0.2)
 
 # Redline arc (ticks 6-8, the last third of the sweep) - drawn bold/
 # thick so it reads as a real redline band, not just another tick.
 _redline_start_deg = START_DEG + 6 * (END_DEG - START_DEG) / (N_TICKS - 1)
 _redline_mid_deg = START_DEG + 7 * (END_DEG - START_DEG) / (N_TICKS - 1)
-_gr_arc(_polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5, _redline_start_deg),
-        _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5, _redline_mid_deg),
-        _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5, END_DEG), width=1.6)
+_gr_arc(_polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5 * S, _redline_start_deg),
+        _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5 * S, _redline_mid_deg),
+        _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5 * S, END_DEG), width=max(1.6 * S, 0.3))
 
 # Needle, parked at a real "resting" angle (well below redline) rather
 # than pointing at 0 or max - reads more like a live gauge snapshot.
 _needle_deg = START_DEG + 2.3 * (END_DEG - START_DEG) / (N_TICKS - 1)
-_gr_line((GAUGE_CX, GAUGE_CY), _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 10, _needle_deg), width=0.8)
-_gr_circle((GAUGE_CX, GAUGE_CY), 2.2, width=0.3)
+_gr_line((GAUGE_CX, GAUGE_CY), _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 10 * S, _needle_deg), width=max(0.8 * S, 0.2))
+_gr_circle((GAUGE_CX, GAUGE_CY), max(2.2 * S, 0.8), width=0.3)
 
 # "x1000 RPM" caption under the face, real tach convention
 _gr_text("x1000 RPM", _polar(GAUGE_CX, GAUGE_CY, GAUGE_R * 0.45, 270),
-          size=2.0, thickness=0.25)
+          size=max(2.0 * S, 0.8), thickness=max(0.25 * S, 0.1))
 
 # CLUSTER wordmark, right of the gauge face - big, bold, using the
 # board's own real wide aspect ratio instead of fighting it.
-_gr_text("CLUSTER", (board_cx + 8, board_cy - 4), size=13.0, thickness=1.8, bold=True)
-_gr_text("DIGITAL INSTRUMENT CLUSTER", (board_cx + 8, board_cy + 8), size=2.6, thickness=0.35)
-_gr_text("JESSIE'S CARS", (board_cx + 8, board_cy + 15), size=2.2, thickness=0.3)
+_gr_text("CLUSTER", (board_cx + 8, SAFE_CY - 4), size=13.0, thickness=1.8, bold=True)
+_gr_text("DIGITAL INSTRUMENT CLUSTER", (board_cx + 8, SAFE_CY + 8), size=2.6, thickness=0.35)
+_gr_text("JESSIE'S CARS", (board_cx + 8, SAFE_CY + 15), size=2.2, thickness=0.3)
 
 print(f"Added original tach-face + CLUSTER wordmark art to B.SilkS "
       f"(gauge R={GAUGE_R:.1f}mm at ({GAUGE_CX:.1f},{GAUGE_CY:.1f}))")
@@ -757,23 +835,26 @@ print(f"Added original tach-face + CLUSTER wordmark art to B.SilkS "
 # ---------------------------------------------------------------------------
 # 7. Verification on the IN-MEMORY board (before writing/upgrading)
 # ---------------------------------------------------------------------------
-assert len(board.footprints) == len(parts), \
-    f"footprint count mismatch: {len(board.footprints)} vs {len(parts)} parts"
+MECHANICAL_FOOTPRINT_COUNT = len(_mh_positions)  # MH1-6, not schematic parts
+assert len(board.footprints) == len(parts) + MECHANICAL_FOOTPRINT_COUNT, \
+    (f"footprint count mismatch: {len(board.footprints)} vs {len(parts)} parts "
+     f"+ {MECHANICAL_FOOTPRINT_COUNT} mechanical")
 
 boxes = []
 for fp in board.footprints:
     x0, y0, x1, y1 = footprint_bbox(fp)
     if fp.position.angle == 90:
         x0, y0, x1, y1 = y0, -x1, y1, -x0
-    boxes.append((fp.path, fp.position.X + x0, fp.position.Y + y0,
+    boxes.append((fp.properties.get("Reference", fp.path), fp.position.X + x0, fp.position.Y + y0,
                  fp.position.X + x1, fp.position.Y + y1))
 overlaps = []
 for i in range(len(boxes)):
     for j in range(i + 1, len(boxes)):
-        _, ax0, ay0, ax1, ay1 = boxes[i]
-        _, bx0, by0, bx1, by1 = boxes[j]
+        ra, ax0, ay0, ax1, ay1 = boxes[i]
+        rb, bx0, by0, bx1, by1 = boxes[j]
         if ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1:
-            overlaps.append((boxes[i][0], boxes[j][0]))
+            overlaps.append((ra, (round(ax0,1),round(ay0,1),round(ax1,1),round(ay1,1)),
+                              rb, (round(bx0,1),round(by0,1),round(bx1,1),round(by1,1))))
 assert not overlaps, f"overlapping footprint bounding boxes: {overlaps}"
 print("Placement OK: no overlapping footprint bounding boxes")
 

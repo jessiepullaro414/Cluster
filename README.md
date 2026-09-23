@@ -301,7 +301,22 @@ follows the module's own documented bit order, not a guess.
    findings: the same benign `lib_footprint_mismatch` category every
    sibling board's finished PCB carries, plus silk-clearance findings
    from the screen-outline circles (deliberately bigger than their own
-   connector, by design — the real glass overhangs it). **Not done
-   yet:** routing, a real board-outline shape (currently a plain
-   rectangle — the real housing has a scalloped/contoured profile, not
-   a rectangle), mounting holes, and BOM.
+   connector, by design — the real glass overhangs it).
+
+   **6 real M3 mounting/standoff holes added** (4 corners + 2 along the
+   top edge) — a board this long and thin needs more than 2 support
+   points to avoid real flex/vibration in a dash-mounted automotive
+   environment. Adding them shrank the tach-face artwork's own safe
+   drawing area, which surfaced two more real bugs, both fixed: the
+   first attempt placed the 2 extra holes at naive 1/3 and 2/3
+   board-width fractions and landed directly on real components (fixed
+   by using the actual empty gaps between core zones instead of a
+   guessed position), and the gauge face's internal tick/number/caption
+   sizes were tuned for its original ~42mm radius and didn't shrink
+   when the real safe area forced a smaller radius, causing real
+   overlapping numbers (fixed by scaling every internal offset and text
+   size proportionally to the actual radius).
+
+   **Not done yet:** routing, a real board-outline shape (currently a
+   plain rectangle — the real housing has a scalloped/contoured
+   profile, not a rectangle), and BOM.

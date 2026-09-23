@@ -267,14 +267,41 @@ follows the module's own documented bit order, not a guess.
    directly above it (backlight resistor/cap; the speedo's whole
    BT817AQ+LDO+crystal subsystem sits above J3), and the board-wide
    subsystems (power input, MCU, CAN0, the aux-gauge backlight switch,
-   the sender dividers) are arranged left-to-right above those —
-   reworked from an initial single-blob pack that left most of the
-   board empty (user feedback: "make it look cool"). The back silkscreen
-   carries the same real logo every sibling board does. Board came out
-   447.1 x 102.5mm, comfortably inside the real 457.2 x 116.69mm
-   dash-opening hard limit. `kicad-cli pcb drc` is clean except the same
-   benign `lib_footprint_mismatch` category every sibling board's
-   finished PCB also carries. **Not done yet:** routing, a real
-   board-outline shape (currently a plain rectangle — the real housing
-   has a scalloped/contoured profile, not a rectangle), mounting holes,
-   and BOM.
+   the sender dividers) are arranged left-to-right above those.
+
+   Board is **447.1 x 51.3mm**. The width genuinely can't shrink below
+   the real 441mm target (the 5 connectors have to reach across the
+   dash opening's real width to land under their own gauge holes,
+   regardless of how little circuitry exists) — but the height started
+   at 102.5mm only because the code anchored the display row to the
+   *opening's own* 105.5mm inner height, which nothing actually
+   requires the board to fill (user: "i think we can make it smaller.
+   no reason to make it so big right?" — correct). Reworked to size
+   height from the real, packed content instead (bottom margin +
+   display row + each display's own local cluster + the core
+   subsystems, stacked) — landed at 51.3mm, under half the original,
+   still comfortably inside the 116.69mm hard limit.
+
+   Front silkscreen also marks where each of the 5 real display modules
+   actually sits (user: "where are the screens?") — the GC9A01/ST7701S
+   glass isn't a PCB footprint (it's off-board, plugged into a small
+   edge connector via FPC), so nothing round showed up in a render by
+   default. A real circle at each display's position, sized from its
+   own datasheet Active Area spec (32.4mm aux gauges, 53.28mm speedo),
+   is a genuine mechanical reference for checking alignment against the
+   reprinted faceplate, not just decoration.
+
+   Back silkscreen carries an original tachometer-face design (0-8
+   sweep, redline arc, resting needle, "x1000 RPM" caption) plus a
+   CLUSTER wordmark — replacing the reused sibling-board logo per user
+   request ("make it look cool") — drawn directly as KiCad vector
+   primitives, not traced from any existing artwork.
+
+   `kicad-cli pcb drc` is clean except real, documented, expected
+   findings: the same benign `lib_footprint_mismatch` category every
+   sibling board's finished PCB carries, plus silk-clearance findings
+   from the screen-outline circles (deliberately bigger than their own
+   connector, by design — the real glass overhangs it). **Not done
+   yet:** routing, a real board-outline shape (currently a plain
+   rectangle — the real housing has a scalloped/contoured profile, not
+   a rectangle), mounting holes, and BOM.

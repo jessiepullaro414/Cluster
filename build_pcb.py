@@ -332,42 +332,7 @@ _edge_inset = max(_disp_w.values()) / 2 + 15.0
 _row_span = TARGET_W - 2 * _edge_inset
 _row_x = {ref: _edge_inset + i * (_row_span / (len(DISPLAY_REFS) - 1))
           for i, ref in enumerate(DISPLAY_REFS)}
-# Connector row sits along the board's own bottom edge (the real-world
-# "front" of the board, closest to the reprinted faceplate) - real
-# support passives for each display (VLED resistors, decoupling caps,
-# the backlight switch) get their own small reserve directly above each
-# connector, same "keep a real thermal/signal-integrity relationship
-# short" reasoning as thermo-pcb's own analog/motor column reserves,
-# applied here to "keep each display's own support parts near it"
-# instead.
-# Real DRC finding (first run): BOARD_MARGIN (3mm) wasn't enough clearance
-# for these connectors' own silkscreen outline against the board's bottom
-# edge (10 real silk_edge_clearance hits, all 5 display connectors) - a
-# bigger, dedicated bottom margin fixes it rather than guessing a small
-# nudge.
-DISPLAY_ROW_BOTTOM_MARGIN = 6.0
-ROW_Y = TARGET_H - max(_disp_h.values()) / 2 - DISPLAY_ROW_BOTTOM_MARGIN
 placed_rel = {}
-for ref in DISPLAY_REFS:
-    x0, y0, x1, y1 = _disp_bbox[ref]
-    cx, cy = _row_x[ref], ROW_Y
-    # Real coordinate-math bug caught by the first DRC run (silk clipped
-    # past the board edge by ~0.56-0.95mm, unchanged no matter how much
-    # margin got added - a dead giveaway the margin wasn't the actual
-    # variable in play): placing a footprint's ORIGIN such that its bbox
-    # CENTER lands at (cx, cy) is `origin = (cx, cy) - bbox_midpoint`, i.e.
-    # `(cx - (x0+x1)/2, cy - (y0+y1)/2)`. The extra `- x0`/`- y0` terms
-    # this line previously had belong to a DIFFERENT formula entirely
-    # (placing the bbox's own (x0,y0) CORNER at a target, not its center)
-    # - conflating the two put every display connector's real footprint
-    # origin ~4mm further down/right than intended, silently eating into
-    # the bottom-edge clearance this same section was trying to budget
-    # for with DISPLAY_ROW_BOTTOM_MARGIN.
-    placed_rel[ref] = (cx - (x0 + x1) / 2, cy - (y0 + y1) / 2)
-
-print(f"Display row: {len(DISPLAY_REFS)} connectors at x="
-      f"{sorted(round(v) for v in _row_x.values())}, y~{ROW_Y:.1f}mm "
-      f"(evenly-spaced estimate, not real dimensioned hole-center data)")
 
 # --- Everything else: real functional zones, spread across the full
 # width, instead of one tight blob in a corner (2026-09-23 rework - the
@@ -416,27 +381,33 @@ assert not _extra, f"zone refs that don't exist in the schematic: {sorted(_extra
 
 rotated_refs = set()
 
-# 1. Local clusters, packed tightly and centered directly above their
-# own display's real X position.
+# Real question asked (2026-09-23): "no reason to make it so big right?"
+# - correct. The board's WIDTH genuinely can't shrink below TARGET_W (the
+# 5 connectors have to reach across the real dash-opening width to land
+# under their own real gauge holes, regardless of how little circuitry
+# exists), but nothing forces the HEIGHT to fill the full 105.5mm inner
+# opening - that was this project's own earlier assumption, not a real
+# constraint (the board only needs to be as tall as its own real content,
+# same as every sibling board's own height derivation). Fixed by packing
+# every piece FIRST (both kinds of zone, below) to find their real sizes,
+# THEN computing board_height from what's actually needed stacked
+# bottom-to-top, instead of anchoring the display row to an oversized
+# fixed target height.
+
+# 1. Local clusters: pack each tightly first (don't place yet - real
+# height not known until every cluster's been packed).
 LOCAL_GAP = 4.0   # breathing room between a display connector and its own cluster
+local_packed = {}
+local_max_h = 0.0
 for disp_ref, cluster_refs in LOCAL_CLUSTERS.items():
     c_placed, c_rot, c_w, c_h = best_skyline_pack(cluster_refs, max_width=60.0, margin=MARGIN)
     rotated_refs |= c_rot
-    disp_x0, disp_y0, disp_x1, disp_y1 = _disp_bbox[disp_ref]
-    cluster_left = _row_x[disp_ref] - c_w / 2
-    # ROW_Y is the display's own bbox CENTER (see the centering-bug fix
-    # above) - its real top edge is ROW_Y minus half its own real height,
-    # not the raw bbox y0/y1 values (which are in the footprint's own
-    # LOCAL frame, not offset from center).
-    cluster_bottom = ROW_Y - (disp_y1 - disp_y0) / 2 - LOCAL_GAP
-    for ref, (x, y) in c_placed.items():
-        placed_rel[ref] = (x + cluster_left, y + cluster_bottom - c_h)
+    local_packed[disp_ref] = (c_placed, c_w, c_h)
+    local_max_h = max(local_max_h, c_h)
     print(f"  local cluster above {disp_ref}: {len(cluster_refs)} parts, "
           f"{c_w:.1f}x{c_h:.1f}mm")
 
-# 2. Core zones, each packed tightly, then arranged left-to-right with
-# real equal spacing across the board's own full width - not hugging
-# the left edge the way a single shared skyline naturally would.
+# 2. Core zones: same, pack first, place later once board_height is real.
 zone_packed = []
 for name, refs in CORE_ZONES:
     z_placed, z_rot, z_w, z_h = best_skyline_pack(refs, max_width=90.0, margin=MARGIN)
@@ -445,31 +416,58 @@ for name, refs in CORE_ZONES:
     print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
 
 CORE_TOP_MARGIN = BOARD_MARGIN + MARGIN
+CORE_LOCAL_GAP = 6.0        # breathing room between core zones and local clusters
+DISPLAY_ROW_BOTTOM_MARGIN = 6.0  # same real DRC-driven value established earlier
+core_max_h = max((z_h for _, _, _, z_w, z_h in zone_packed), default=0.0)
+display_h = max(_disp_h.values())
+
+# The real, minimal height this board actually needs, stacked bottom-to-
+# top: bottom margin + display row + gap + tallest local cluster + gap +
+# tallest core zone + top margin. Compared against TARGET_H only to
+# report how much smaller this really is - never used to inflate it.
+board_height = (CORE_TOP_MARGIN + core_max_h + CORE_LOCAL_GAP + local_max_h +
+                LOCAL_GAP + display_h + DISPLAY_ROW_BOTTOM_MARGIN)
+print(f"Real minimal board height: {board_height:.1f}mm (vs the "
+      f"{TARGET_H:.1f}mm dash-opening inner dimension this board doesn't "
+      f"need to fill - the opening's real height was never a target, "
+      f"just an available maximum)")
+
+ROW_Y = board_height - DISPLAY_ROW_BOTTOM_MARGIN - display_h / 2
+
+# Now place the display row, using the real (not oversized) ROW_Y.
+for ref in DISPLAY_REFS:
+    x0, y0, x1, y1 = _disp_bbox[ref]
+    cx, cy = _row_x[ref], ROW_Y
+    placed_rel[ref] = (cx - (x0 + x1) / 2, cy - (y0 + y1) / 2)
+print(f"Display row: {len(DISPLAY_REFS)} connectors at x="
+      f"{sorted(round(v) for v in _row_x.values())}, y~{ROW_Y:.1f}mm "
+      f"(evenly-spaced estimate, not real dimensioned hole-center data)")
+
+# Place local clusters, directly above their own display.
+for disp_ref, (c_placed, c_w, c_h) in local_packed.items():
+    disp_x0, disp_y0, disp_x1, disp_y1 = _disp_bbox[disp_ref]
+    cluster_left = _row_x[disp_ref] - c_w / 2
+    cluster_bottom = ROW_Y - (disp_y1 - disp_y0) / 2 - LOCAL_GAP
+    for ref, (x, y) in c_placed.items():
+        placed_rel[ref] = (x + cluster_left, y + cluster_bottom - c_h)
+
+# Place core zones, left-to-right with equal real spacing.
 zone_total_w = sum(z_w for _, _, _, z_w, _ in zone_packed)
 zone_gap = (TARGET_W - zone_total_w) / (len(zone_packed) + 1)
 zone_gap = max(zone_gap, 8.0)  # real minimum breathing room even if this
                                 # somehow left less than 8mm between zones
 zone_x = zone_gap
-core_max_h = 0.0
 for name, refs, z_placed, z_w, z_h in zone_packed:
     for ref, (x, y) in z_placed.items():
         placed_rel[ref] = (x + zone_x, y + CORE_TOP_MARGIN)
     zone_x += z_w + zone_gap
-    core_max_h = max(core_max_h, z_h)
 
-used_w = TARGET_W
-used_h = CORE_TOP_MARGIN + core_max_h
-
-board_width = max(used_w, TARGET_W) + 2 * BOARD_MARGIN
-board_height = max(used_h + MARGIN, ROW_Y + max(_disp_h.values()) / 2) + BOARD_MARGIN
-PACK_H_BUDGET = ROW_Y - max(_disp_h.values()) / 2 - BOARD_MARGIN
-if used_h > PACK_H_BUDGET:
-    print(f"NOTE: core zones used {used_h:.1f}mm of height, more than the "
-          f"{PACK_H_BUDGET:.1f}mm budgeted above the display row - board "
-          f"grew to {board_height:.1f}mm, past the real {TARGET_H:.1f}mm "
-          f"target (still comfortably under the {DASH_OPENING_H:.1f}mm hard "
-          f"outer opening limit if so - check the printed height below "
-          f"against that limit).")
+board_width = TARGET_W + 2 * BOARD_MARGIN
+assert board_height <= TARGET_H, (
+    f"board_height {board_height:.1f}mm exceeds the real {TARGET_H:.1f}mm "
+    f"dash-opening inner dimension - the real content needs more room "
+    f"than the opening allows, a genuine design problem, not solved by "
+    f"just growing the board further")
 
 print(f"Board outline target: {board_width:.1f} x {board_height:.1f}mm "
       f"(real dash-opening hard limit: {DASH_OPENING_W:.1f} x {DASH_OPENING_H:.1f}mm)")

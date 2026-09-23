@@ -604,6 +604,174 @@ register_symbol(f"{LIB}:GC9A01_MODULE", "U", "Raystar RFA401280B-AYW-DNF1 (1.28i
 # is the right MATED HEIGHT/contact style for this board's real
 # mechanical stack-up - flagged for plan Step 6 (connectors) / PCB layout.
 
+# --- BT817AQ + ST7701S speedo module (plan Step 4) ---
+# Real, non-obvious finding from reading BT817A's own datasheet directly
+# (Bridgetek DS_BT817A.pdf, "4.9.1 Power Supply"): VCC1V2 (the digital
+# core rail) is a genuine EXTERNAL 1.28V supply input, NOT internally
+# regulated from VCC - real spec range 1.24-1.32V (Table in section 6.3,
+# "VCC1V2 core operating supply voltage"). This board has no existing
+# rail anywhere near that, so a DEDICATED regulator is real, required
+# new circuitry, not an oversight from the original architecture pass.
+# Real part found and verified against its own TI datasheet (SBVS188E):
+# TPS7A16-Q1 (adjustable variant, real AEC-Q100, DGN/HVSSOP-8 package,
+# VREF=1.193V typ, 2% accuracy - comfortably inside VCC1V2's 1.24-1.32V
+# window once the FB divider is sized for 1.28V). Real pin table (TI's
+# own Table 5-1): OUT=1, FB/NC=2, PG=3, GND=4, EN=5, NC=6, DELAY=7, IN=8
+# + exposed thermal pad (tied GND, standard convention for this package
+# class). EN tied to IN (always-on, same pattern U4/TLV733P-Q1 already
+# uses); PG and DELAY genuinely unused this pass (real optional features,
+# not required for basic operation) - left NC/open per the datasheet's
+# own "leave open if not needed" guidance.
+register_symbol(f"{LIB}:IC_LDO_ADJ", "U", "TPS7A16-Q1", "Package_SO:Texas_DGN0008D_VSSOP-8-1EP_3x3mm_P0.65mm_EP2x2.94mm_Mask1.57x1.89mm",
+                {'L': [P(8, "IN", "power_in"), P(5, "EN", "input")],
+                 'R': [P(1, "OUT", "power_out"), P(2, "FB", "input")],
+                 'T': [P(4, "GND", "power_in")],
+                 'B': [P(3, "PG", "no_connect"), P(6, "NC", "no_connect"),
+                       P(7, "DELAY", "no_connect"), P(9, "EP", "power_in")]},
+                datasheet="https://www.ti.com/lit/ds/symlink/tps7a16-q1.pdf")
+# Footprint EP variant (DGN0008D, EP2x2.94mm) picked as a plausible match
+# among 3 real bundled DGN0008 candidates (B/D/G, differing EP sizes) -
+# NOT independently confirmed against TPS7A16-Q1's own real package
+# drawing yet, same honest "real family, exact EP TBD" flag Thermo's own
+# early IC footprints carried before their dedicated verification passes.
+
+# Real BT817AQ pin table, pulled directly from Bridgetek's own datasheet
+# (DS_BT817A.pdf, Table 3-1 "BT817A Pin Description") - every one of the
+# 64 real pads + the exposed thermal pad, not a partial/simplified
+# exposure. Real, load-bearing findings from actually reading this table
+# (not assumed from the earlier high-level AEC-Q100/QSPI/RGB research):
+#   - VCCIO1 (host interface I/O power) ties to +3V3, matching the
+#     S32K144's own logic level - no level shifter needed on the QSPI link.
+#   - VCCIO2 (RGB + touch I/O power) ALSO ties to +3V3 - the BH021WVC02
+#     module's own VCI pin (its logic supply) is likewise +3V3, so
+#     BT817AQ's RGB outputs and the module's RGB inputs share the same
+#     real logic level throughout - the voltage-level compatibility this
+#     plan's own Step 4 description flagged as needing confirmation
+#     before wiring directly (see README.md) is CONFIRMED, no level
+#     shifter required.
+#   - VCCIO3 (SPI-flash-interface I/O power) still needs a real supply
+#     even though this design doesn't use external SPI flash (per the
+#     datasheet, the SPIM_* pins themselves can float/tie-off, but the
+#     rail pin itself is not documented as optional) - tied to +3V3 too.
+#   - AUDIO_L/VCCA (audio output + its supply) are genuinely unused (no
+#     audio in this design) - VCCA still tied to +3V3 (a real supply
+#     pin, same reasoning as VCCIO3), AUDIO_L left no_connect.
+#   - SPIM_* (external SPI-flash interface, pins 14-20 except VCCIO3):
+#     no external flash on this design. Per the datasheet's own per-pin
+#     guidance, SPIM_SCLK/SS_N/MOSI/IO2/IO3 are left no_connect (real
+#     "leave floating if not used" instruction) while SPIM_MISO is tied
+#     to GND (the one SPIM pin the datasheet explicitly says to ground
+#     rather than float when unused).
+#   - CTP_* (capacitive touch controller interface, pins 29-32): no
+#     touch controller on this design (the BH021WVC02 module's own touch
+#     pins are likewise left no_connect below) - all 4 left no_connect.
+#   - GPIO0-2 are real, deliberately claimed for the module's 3-wire
+#     serial interface (SDA/SCK/CS, per the BH021WVC02's own real pin
+#     table - confirmed only 3 signal pins, no separate D/CX pin, since
+#     ST7701S's 3-line serial mode embeds D/CX in the bit stream itself).
+#     GPIO3 drives the module's own real RESET pin (active-low, per its
+#     datasheet) - a hard reset line genuinely can't be left floating, so
+#     this spare GPIO gets a real job rather than staying unused. INT_N
+#     is genuinely unused this pass (real spare capacity, no async event
+#     this design needs to react to yet) - left no_connect.
+#   - PD_N connects to the real BT817_PDN pin already claimed on U1 back
+#     in plan Step 1.
+register_symbol(f"{LIB}:BT817AQ", "U", "Bridgetek BT817AQ automotive (AEC-Q100 G2)",
+                "Package_DFN_QFN:QFN-64-1EP_9x9mm_P0.5mm_EP4.1x4.1mm",
+                {'L': [P(3, "SCK", "input"), P(4, "MISO", "output"),
+                       P(5, "MOSI", "input"), P(6, "CS_N", "input"),
+                       P(12, "PD_N", "input"), P(11, "INT_N", "no_connect"),
+                       P(7, "GPIO0", "output"), P(8, "GPIO1", "output"),
+                       P(10, "GPIO2", "output"), P(13, "GPIO3", "output")],
+                 'R': [P(35, "DE", "output"), P(36, "VSYNC", "output"),
+                       P(37, "HSYNC", "output"), P(38, "DISP", "output"),
+                       P(39, "PCLK", "output"), P(34, "BACKLIGHT", "output")],
+                 'T': [P(21, "X1", "input"), P(22, "X2", "output"),
+                       P(24, "VCC", "power_in"), P(2, "VCC1V2", "power_in"),
+                       P(25, "VCC1V2", "power_in"), P(57, "VCC1V2", "power_in"),
+                       P(9, "VCCIO1", "power_in"), P(17, "VCCIO3", "power_in"),
+                       P(27, "VCCA", "power_in"), P(28, "VCCIO2", "power_in")],
+                 'B': [P(23, "GND", "power_in"), P(33, "GND", "power_in"),
+                       P(48, "GND", "power_in"),
+                       P(14, "SPIM_SCLK", "no_connect"), P(15, "SPIM_SS_N", "no_connect"),
+                       P(16, "SPIM_MOSI", "no_connect"), P(18, "SPIM_MISO", "power_in"),
+                       P(19, "SPIM_IO2", "no_connect"), P(20, "SPIM_IO3", "no_connect"),
+                       P(26, "AUDIO_L", "no_connect"),
+                       P(29, "CTP_RST_N", "no_connect"), P(30, "CTP_INT_N", "no_connect"),
+                       P(31, "CTP_SCL", "no_connect"), P(32, "CTP_SDA", "no_connect"),
+                       P(1, "R0", "output"), P(40, "B7", "output"), P(41, "B6", "output"),
+                       P(42, "B5", "output"), P(43, "B4", "output"), P(44, "B3", "output"),
+                       P(45, "B2", "output"), P(46, "B1", "output"), P(47, "B0", "output"),
+                       P(49, "G7", "output"), P(50, "G6", "output"), P(51, "G5", "output"),
+                       P(52, "G4", "output"), P(53, "G3", "output"), P(54, "G2", "output"),
+                       P(55, "G1", "output"), P(56, "G0", "output"),
+                       P(58, "R7", "output"), P(59, "R6", "output"), P(60, "R5", "output"),
+                       P(61, "R4", "output"), P(62, "R3", "output"), P(63, "R2", "output"),
+                       P(64, "R1", "output"), P(65, "EP", "power_in")]},
+                datasheet="https://brtchip.com/wp-content/uploads/sites/3/2022/04/DS_BT817A.pdf")
+# Footprint: real bundled 64-pin QFN, 9x9mm/0.5mm pitch family matching
+# the datasheet's own stated body size - EP size (4.1x4.1mm, one of
+# several real bundled candidates at this body/pitch) NOT yet
+# independently confirmed against BT817A's own package drawing, same
+# honest flag as U10 above. R0 is real pin 1 (not part of the R7-R1
+# contiguous block at 58-64) - confirmed directly from the datasheet's
+# own table, not assumed to be adjacent.
+
+register_symbol(f"{LIB}:XTAL_BT817", "Y", "12MHz (AEC-Q200)", "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm",
+                {'R': [P(1, "X1", "passive"), P(2, "X2", "passive")],
+                 'L': [P(3, "X1", "passive"), P(4, "X2", "passive")]},
+                hide_pin_names=True)
+# Real crystal frequency (12MHz, BT817A's own documented system-clock
+# source per its datasheet's oscillator section) - load cap VALUES are a
+# typical placeholder (same 18pF used for U1's own crystal), not derived
+# from BT817A's own real internal load-capacitance spec, which wasn't
+# part of this pass's research scope - flag for confirmation before fab.
+
+# Real BH021WVC02 pin table, pulled directly from Panox Display's own
+# datasheet (Rev 1.0, "2 Pin Assignment") - genuinely simpler than
+# expected: only 3 real serial-interface pins (SDA/SCK/CS - no separate
+# D/CX pin, confirming ST7701S's 3-line serial mode embeds that bit in
+# the stream itself, exactly as its own datasheet's interface-mode table
+# already indicated), and an explicit, real RGB666 bit-ordering note
+# (DB0=Blue LSB...DB5=Blue MSB, DB6=Green LSB...DB11=Green MSB,
+# DB12=Red LSB...DB17=Red MSB) - used directly below to wire BT817AQ's
+# R7-R2/G7-G2/B7-B2 (the 18 most-significant bits of its real 24-bit RGB
+# output, standard RGB888-to-RGB666 convention: drop the 2 LSBs per
+# channel) to the matching DB pins in the RIGHT MSB/LSB order, not
+# guessed. Backlight is again a bare LED anode/2x-cathode pair (pins
+# 1-3), same real "series resistor + shared low-side MOSFET switch"
+# treatment as the GC9A01 aux gauges, this time PWM-dimmable via
+# BT817AQ's own real BACKLIGHT output pin instead of a simple on/off GPIO.
+register_symbol(f"{LIB}:ST7701S_MODULE", "J", "Panox BH021WVC02 (2.1in 480x480 ST7701S round TFT, PCAP touch unused)",
+                "Connector_FFC-FPC:Amphenol_F32Q-1A7x1-11040_1x40-1MP_P0.5mm_Horizontal",
+                {'L': [P(9, "SDA", "input"), P(10, "SCK", "input"),
+                       P(11, "CS", "input"), P(6, "RESET", "input")],
+                 'R': [P(12, "PCLK", "input"), P(13, "DE", "input"),
+                       P(14, "VSYNC", "input"), P(15, "HSYNC", "input"),
+                       P(1, "LEDA", "passive"), P(2, "LEDK", "passive"),
+                       P(3, "LEDK", "passive")],
+                 'T': [P(16, "DB0", "input"), P(17, "DB1", "input"),
+                       P(18, "DB2", "input"), P(19, "DB3", "input"),
+                       P(20, "DB4", "input"), P(21, "DB5", "input"),
+                       P(22, "DB6", "input"), P(23, "DB7", "input"),
+                       P(24, "DB8", "input"), P(25, "DB9", "input")],
+                 'B': [P(26, "DB10", "input"), P(27, "DB11", "input"),
+                       P(28, "DB12", "input"), P(29, "DB13", "input"),
+                       P(30, "DB14", "input"), P(31, "DB15", "input"),
+                       P(32, "DB16", "input"), P(33, "DB17", "input"),
+                       P(5, "VCI", "power_in"), P(4, "GND", "power_in"),
+                       P(34, "GND", "power_in"), P(40, "GND", "power_in"),
+                       P(7, "NC", "no_connect"), P(8, "NC", "no_connect"),
+                       P(35, "TP_INT", "no_connect"), P(36, "TP_SDA", "no_connect"),
+                       P(37, "TP_SCL", "no_connect"), P(38, "TP_RESET", "no_connect"),
+                       P(39, "TP_VCI", "no_connect")]},
+                datasheet="https://www.panoxdisplay.com/uploadfile/datasheet/BH021WVC02.pdf")
+# Footprint: real, bundled Amphenol 40-position 0.5mm horizontal FPC
+# connector, checked against the real library listing this time (not
+# guessed) after U6-U9's own footprint_link_issues catch earlier this
+# session. Mated-height/contact-style verification still pending plan
+# Step 6, same flag as the aux gauges' own connector.
+
 # ---------------------------------------------------------------------------
 # Placement + wiring
 # ---------------------------------------------------------------------------
@@ -819,6 +987,157 @@ place(f"{LIB}:R_V", "R11", "10k LPSPI2_SIN pull-down, idle-state definition (AEC
 # touch signal pins are genuinely unused by this design and left
 # no_connect, same treatment as any other real-but-unused pin elsewhere
 # in this project family.
+
+# --- BT817AQ + ST7701S speedo module (plan Step 4) ---
+section_text("BT817AQ + ST7701S SPEEDO MODULE (PLAN STEP 4)", 650, 175)
+
+# VCC1V2 regulator: real TPS7A16-Q1 adjustable LDO, FB divider sized for
+# 1.28V (see the registration comment above for the real VREF/math).
+place(f"{LIB}:IC_LDO_ADJ", "U10", "TPS7A16-Q1 (AEC-Q100 G1)", 480, 150,
+      conn={'8': ('pwr', '+3V3', 5.08), '5': ('pwr', '+3V3', 7.62),
+            '1': ('label', 'VCC1V2', 5.08), '2': ('label', 'FB1V2'),
+            '4': ('pwr', 'GND', 5.08), '9': ('pwr', 'GND', 10.16),
+            '3': ('nc',), '6': ('nc',), '7': ('nc',)})
+place(f"{LIB}:C_V", "C21", "10uF IN cap (AEC-Q200)", 450, 130,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C22", "10uF OUT cap, real min 2.2uF per TI's own stability requirement (AEC-Q200)",
+      510, 130,
+      conn={'1': ('label', 'VCC1V2'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R12", "7.32k FB divider top, self-calculated for 1.28V (AEC-Q200)", 540, 160,
+      conn={'1': ('label', 'VCC1V2'), '2': ('label', 'FB1V2')})
+place(f"{LIB}:R_V", "R13", "100k FB divider bottom, self-calculated for 1.28V (AEC-Q200)", 540, 180,
+      conn={'1': ('label', 'FB1V2'), '2': ('pwr', 'GND')})
+# U10's own cluster (VCC1V2 regulator + FB divider) is placed well clear
+# of Y2/U11 below - an earlier placement (U10 at x=650 next to Y2 at
+# x=630) visually overlapped and produced a real ERC pin_to_pin/
+# multiple_net_names error (BT817_X1/X2 shorting to +3V3), confirmed via
+# a rendered PDF crop showing the two symbols' pin fields interleaved -
+# not just a cosmetic issue, a genuine connectivity bug from placing
+# unrelated parts too close together. Fixed by real separation, not a
+# coordinate nudge.
+
+# BT817AQ core. DE/VSYNC/HSYNC/PCLK deliberately fall through to their
+# own default label stub on BOTH this symbol and J3 below - they were
+# registered with the SAME pin names on both parts specifically so they
+# auto-connect by matching default labels, no explicit conn entry
+# needed, same trick used throughout this file.
+#
+# RGB666 bit map: BT817AQ real pin number -> shared net label. Only the
+# top 6 bits of each 8-bit channel are used (standard RGB888->RGB666
+# convention, dropping the 2 LSBs/channel) - the real BH021WVC02 pin
+# table's own bit-order note (DB0=Blue LSB...DB17=Red MSB) is what fixes
+# which BT817AQ bit maps to which DB pin, not a guess.
+RGB_BITS = {
+    58: "SPD_R7", 59: "SPD_R6", 60: "SPD_R5", 61: "SPD_R4", 62: "SPD_R3", 63: "SPD_R2",
+    49: "SPD_G7", 50: "SPD_G6", 51: "SPD_G5", 52: "SPD_G4", 53: "SPD_G3", 54: "SPD_G2",
+    40: "SPD_B7", 41: "SPD_B6", 42: "SPD_B5", 43: "SPD_B4", 44: "SPD_B3", 45: "SPD_B2",
+}
+bt817_conn = {str(pin): ('label', label) for pin, label in RGB_BITS.items()}
+bt817_conn.update({
+    '3': ('label', 'LPSPI1_SCK'), '4': ('label', 'LPSPI1_SIN'),
+    '5': ('label', 'LPSPI1_SOUT'), '6': ('label', 'LPSPI1_CS'),
+    '12': ('label', 'BT817_PDN'), '11': ('nc',),
+    '7': ('label', 'ST7701_SDA'), '8': ('label', 'ST7701_SCK'),
+    '10': ('label', 'ST7701_CS'), '13': ('label', 'ST7701_RESET'),
+    '38': ('nc',),   # DISP - real pin, no matching input on this module
+    '34': ('label', 'SPD_BL_PWM', 7.62),
+    # X1/X2 use label-based connection to Y2, not wire_pins - U11's X1/X2
+    # sit on its horizontal 'T' side while the crystal symbol's pins are
+    # on a vertical L/R side, the same real orientation-mismatch class
+    # thermo-pcb's own MCU crystal wiring already hit and documented
+    # (wire_pins asserts on misaligned coordinates by design, catching
+    # exactly this rather than silently drawing a diagonal wire).
+    '21': ('label', 'BT817_X1'), '22': ('label', 'BT817_X2'),
+    '24': ('pwr', '+3V3', 2.54), '9': ('pwr', '+3V3', 7.62),
+    '17': ('pwr', '+3V3', 10.16), '27': ('pwr', '+3V3', 12.7),
+    '28': ('pwr', '+3V3', 15.24),
+    '2': ('label', 'VCC1V2', 2.54), '25': ('label', 'VCC1V2', 7.62),
+    '57': ('label', 'VCC1V2', 10.16),
+    '23': ('pwr', 'GND', 2.54), '33': ('pwr', 'GND', 7.62),
+    '48': ('pwr', 'GND', 10.16), '65': ('pwr', 'GND', 12.7),
+    '14': ('nc',), '15': ('nc',), '16': ('nc',),
+    '18': ('pwr', 'GND', 15.24), '19': ('nc',), '20': ('nc',),
+    '26': ('nc',),
+    '29': ('nc',), '30': ('nc',), '31': ('nc',), '32': ('nc',),
+    # Real-but-unused pins: R0(1)/R1(64)/G0(56)/G1(55)/B0(47)/B1(46) are
+    # the 2 dropped LSBs per channel (RGB666 convention, see RGB_BITS
+    # above for which 6 of each 8 real bits ARE used).
+    '1': ('nc',), '64': ('nc',), '56': ('nc',), '55': ('nc',),
+    '47': ('nc',), '46': ('nc',),
+})
+place(f"{LIB}:BT817AQ", "U11", "Bridgetek BT817AQ automotive (AEC-Q100 G2)", 700, 300,
+      conn=bt817_conn)
+
+place(f"{LIB}:XTAL_BT817", "Y2", "12MHz (AEC-Q200)", 630, 150,
+      conn={'1': ('label', 'BT817_X1'), '2': ('label', 'BT817_X2'),
+            '3': ('label', 'BT817_X1'), '4': ('label', 'BT817_X2')})
+place(f"{LIB}:C_V", "C23", "18pF (AEC-Q200)", 610, 180,
+      conn={'1': ('label', 'BT817_X1'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C24", "18pF (AEC-Q200)", 650, 180,
+      conn={'1': ('label', 'BT817_X2'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C25", "100nF VCC decouple (AEC-Q200)", 750, 250,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C26", "1uF VCC1V2 decouple (AEC-Q200)", 775, 250,
+      conn={'1': ('label', 'VCC1V2'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C27", "100nF VCCIO decouple (AEC-Q200)", 800, 250,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+
+# ST7701S module (J3) - real BH021WVC02 pin table. DB0-17 -> matching
+# SPD_* labels per the real bit-order note in the module's own datasheet
+# (DB0=Blue LSB...DB17=Red MSB) - pin numbers 16-25=DB0-DB9, 26-33=
+# DB10-DB17, mapped explicitly here since J3's own pin names ("DB0" etc)
+# don't textually match BT817AQ's own pin names ("R7" etc), unlike the
+# DE/VSYNC/HSYNC/PCLK pins which auto-connect by a shared default label.
+DB_TO_SPD = {
+    16: "SPD_B2", 17: "SPD_B3", 18: "SPD_B4", 19: "SPD_B5", 20: "SPD_B6",
+    21: "SPD_B7", 22: "SPD_G2", 23: "SPD_G3", 24: "SPD_G4", 25: "SPD_G5",
+    26: "SPD_G6", 27: "SPD_G7", 28: "SPD_R2", 29: "SPD_R3", 30: "SPD_R4",
+    31: "SPD_R5", 32: "SPD_R6", 33: "SPD_R7",
+}
+j3_conn = {str(pin): ('label', label) for pin, label in DB_TO_SPD.items()}
+j3_conn.update({
+    '9': ('label', 'ST7701_SDA'), '10': ('label', 'ST7701_SCK'),
+    '11': ('label', 'ST7701_CS'), '6': ('label', 'ST7701_RESET'),
+    '1': ('label', 'J3_LEDA', 5.08), '2': ('label', 'SPD_VLED_RTN', 5.08),
+    '3': ('label', 'SPD_VLED_RTN', 5.08),
+    '5': ('pwr', '+3V3', 10.16),
+    '4': ('pwr', 'GND', 5.08), '34': ('pwr', 'GND', 7.62),
+    '40': ('pwr', 'GND', 10.16),
+    '7': ('nc',), '8': ('nc',),
+    '35': ('nc',), '36': ('nc',), '37': ('nc',), '38': ('nc',),
+    '39': ('nc',),
+})
+place(f"{LIB}:ST7701S_MODULE", "J3", "Panox BH021WVC02 - center speedo", 850, 300,
+      conn=j3_conn)
+place(f"{LIB}:R_V", "R14", "120R LEDA series (self-calculated, ~15mA at 5V - AEC-Q200)",
+      850, 250,
+      conn={'1': ('pwr', '+5V'), '2': ('label', 'J3_LEDA')})
+# Placed well clear of J3's own R-side pin field (which reaches to about
+# x=880) to avoid a genuine placement collision - caught by the script's
+# own net-collision check (J3's default VSYNC stub landed on R15's own
+# SPD_BL_GATE stub at nearly the same coordinate), not a riser-class bug
+# this time, just two components placed too close together.
+place(f"{LIB}:MOSFET_N", "Q3", "PMV37ENEA automotive (AEC-Q101) - speedo backlight PWM switch",
+      950, 340,
+      conn={'2': ('label', 'SPD_VLED_RTN'), '3': ('pwr', 'GND'),
+            '1': ('label', 'SPD_BL_GATE', 5.08)})
+place(f"{LIB}:R_V", "R15", "100R SPD_BL_PWM gate resistor (AEC-Q200)", 950, 310,
+      conn={'1': ('label', 'SPD_BL_PWM'), '2': ('label', 'SPD_BL_GATE')})
+# Same real "series resistor from +5V + shared low-side MOSFET switch"
+# backlight treatment as the 4 GC9A01 aux gauges (see that section's own
+# comment for the full reasoning) - this time the switch's gate is driven
+# by BT817AQ's own real BACKLIGHT PWM output (via a gate resistor) rather
+# than a simple GPIO on/off line, giving the speedo real PWM dimming
+# independent of the aux gauges' shared BL_EN.
+#
+# RGB bus/GPIO-interface/PD_N connections between U11 and J3/U1 all
+# resolve purely by matching net NAME (SPD_R7..SPD_B2, ST7701_SDA/SCK/
+# CS/RESET, BT817_PDN, LPSPI1_*) - same trick used throughout this file,
+# not geometric alignment. INT_N, DISP, and all 4 PCAP touch pins on
+# both U11 and J3 are genuinely unused by this design and left
+# no_connect. SPD_BL_PWM is a real BT817AQ output (software-controlled
+# PWM duty cycle via its REG_PWM_DUTY register), giving firmware real
+# independent brightness control over the speedo vs. the aux gauges.
 
 NOTE_LINES = [
     "NOTES:",

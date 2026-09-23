@@ -210,12 +210,15 @@ def register_pwr_flag(net):
 # Schematic scaffolding
 # ---------------------------------------------------------------------------
 sch = Schematic.create_new()
-# Grown from A2 to A1 while wiring plan Step 3 (aux gauges) - A2's 420mm
-# height had no room left for a 4th subsystem row below the existing
-# power/MCU/CAN0 content, same "grow the page when real content doesn't
-# fit" move thermo-pcb (A3->A2) and fascia-pcb (straight to A0 given
-# known complexity) both already established for this project family.
-sch.paper = PageSettings(paperSize="A1")
+# Grown A2->A1 during plan Step 3 (aux gauges, A2's 420mm height ran out
+# of room), then A1->A0 during plan Step 4/5's final review: J3 (the
+# speedo module) sits at x=850, past A1's own 841mm width - confirmed by
+# rendering the full page and finding it genuinely clipped at the right
+# edge, the same "always verify with a real render, page-bound math
+# alone isn't enough" lesson fascia-pcb's/manifold-pcb's own NOTE_LINES/
+# text-clipping bugs already taught this family. A0 (1189x841mm) gives
+# real headroom for J3 plus whatever plan Step 6 (connectors) still adds.
+sch.paper = PageSettings(paperSize="A0")
 sch.uuid = U()
 sch.titleBlock = TitleBlock(
     title="Cluster - digital instrument cluster, 1966 Mustang, automotive board",
@@ -1138,6 +1141,69 @@ place(f"{LIB}:R_V", "R15", "100R SPD_BL_PWM gate resistor (AEC-Q200)", 950, 310,
 # no_connect. SPD_BL_PWM is a real BT817AQ output (software-controlled
 # PWM duty cycle via its REG_PWM_DUTY register), giving firmware real
 # independent brightness control over the speedo vs. the aux gauges.
+
+# --- Sensor / ADC front end (plan Step 5) ---
+section_text("SENSOR ADC FRONT END: FUEL / OIL / TEMP / BATTERY (PLAN STEP 5)", 30, 560)
+# Fuel level and oil pressure senders share the same real resistance
+# range (fuel: ~10-73R per README.md; oil: ~10-70R) - close enough that
+# ONE pull-up value serves both without a separate calculation. 47R
+# (real E96 value) centers a real, usable swing across that whole range:
+# at 10R, Vout=3.3x10/57=0.58V; at 73R, Vout=3.3x73/120=2.01V - a strong
+# ~1.4V swing comfortably inside the ADC's 0-3.3V input range, same
+# "center resolution on the real operating band" discipline thermo-pcb's
+# own R12 calculation already established for its own resistive sender.
+place(f"{LIB}:R_V", "R16", "47R fuel pull-up, self-calculated for the sender's 10-73R range (AEC-Q200)",
+      30, 590,
+      conn={'1': ('pwr', '+3V3'), '2': ('label', 'ADC_FUEL')})
+place(f"{LIB}:C_V", "C28", "100nF ADC_FUEL smoothing (AEC-Q200)", 60, 590,
+      conn={'1': ('label', 'ADC_FUEL'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R17", "47R oil pressure pull-up, self-calculated for the sender's 10-70R range (AEC-Q200)",
+      110, 590,
+      conn={'1': ('pwr', '+3V3'), '2': ('label', 'ADC_OIL')})
+place(f"{LIB}:C_V", "C29", "100nF ADC_OIL smoothing (AEC-Q200)", 140, 590,
+      conn={'1': ('label', 'ADC_OIL'), '2': ('pwr', 'GND')})
+# Coolant temp sender's real range is much wider (~10-300R, per README.md
+# - 250F down to 70F) - a bigger pull-up centers resolution on THIS
+# sender's own real band instead: 100R gives Vout=0.30V at 10R (250F,
+# hot) up to Vout=2.48V at 300R (70F, cold) - a real, wide, usable swing
+# across the sender's genuine full range, not reused from the fuel/oil
+# value just because it's convenient.
+place(f"{LIB}:R_V", "R18", "100R coolant temp pull-up, self-calculated for the sender's 10-300R range (AEC-Q200)",
+      190, 590,
+      conn={'1': ('pwr', '+3V3'), '2': ('label', 'ADC_TEMP')})
+place(f"{LIB}:C_V", "C30", "100nF ADC_TEMP smoothing (AEC-Q200)", 220, 590,
+      conn={'1': ('label', 'ADC_TEMP'), '2': ('pwr', 'GND')})
+# Battery/alternator voltage divider - real automotive range 9-16V
+# (normal cranking-to-charging band), scaled with margin so a real
+# transient that gets past the shared TVS on VIN_PROT doesn't railroad
+# the ADC: R19=49.9k(top)/R20=10k(bottom) (both real E96 values) puts
+# 18V at Vout=18x10/59.9=3.01V (comfortably under the ADC's 3.3V rail,
+# not right at the edge) while still giving a real, usable ~1.84-2.50V
+# swing across the normal 11-15V alternator-charging band.
+place(f"{LIB}:R_V", "R19", "49.9k battery divider top, self-calculated for 9-16V range with transient margin (AEC-Q200)",
+      270, 570,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('label', 'ADC_BATT')})
+place(f"{LIB}:R_V", "R20", "10k battery divider bottom, self-calculated for 9-16V range with transient margin (AEC-Q200)",
+      270, 590,
+      conn={'1': ('label', 'ADC_BATT'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C31", "100nF ADC_BATT smoothing (AEC-Q200)", 300, 590,
+      conn={'1': ('label', 'ADC_BATT'), '2': ('pwr', 'GND')})
+# Battery divider reads VIN_PROT (the shared reverse-battery/transient-
+# protected rail every other 12V-side circuit on this board already
+# uses), not a fresh unprotected tap - same real protection every other
+# consumer of that rail already gets, not a new exception.
+#
+# All 4 dividers connect to U1 purely by matching net NAME (ADC_FUEL/
+# ADC_OIL/ADC_TEMP/ADC_BATT all already exist as real labeled stubs on
+# U1 from plan Step 1) - same trick used throughout this file. The
+# senders' own off-board connections (FUEL/OIL/TEMP resistive senders,
+# the battery tap) are real, named, forward-looking stubs at each
+# resistor's own node, pending plan Step 6 (vehicle-harness connector).
+# Firmware needs 3 real non-linear resistance-to-value lookup tables
+# (fuel/oil/temp, all log-scale per their real published curves - see
+# README.md) plus one linear scale for battery voltage - same real
+# scope thermo-pcb's own resistive-sender firmware already established
+# the pattern for, not a new kind of problem.
 
 NOTE_LINES = [
     "NOTES:",

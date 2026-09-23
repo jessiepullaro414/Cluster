@@ -10,27 +10,22 @@ workflow (see the sibling projects' READMEs for the toolchain itself).
 
 ## Status
 
-Architecture is fully decided (see below), and a build-out plan for the
-schematic is in place (see `build_schematic.py`'s own header for the
-step-by-step breakdown). **Schematic scaffold started 2026-09-22**:
-`build_schematic.py` generates the power stage (reused verbatim from
-`manifold-pcb`/`thermo-pcb`) + the S32K144 MCU core's fixed pins
-(crystal/SWD/RESET/power) — round-trips clean.
+**Schematic is fully wired and ERC-clean as of 2026-09-22.** All 6 steps
+of the build-out plan are done: S32K144 peripheral pin-mux (real, from
+NXP's own Reference Manual), CAN0 transceiver (reused from `ecu-pcb`),
+4x GC9A01 aux gauges (real Raystar pinout), BT817AQ speedo co-processor
++ ST7701S module (real Bridgetek/Panox pinouts — including a genuinely
+new VCC1V2 LDO rail this required, see below), the sensor ADC front
+end, and the CAN0+sensor harness connector. `kicad-cli sch erc` is down
+to exactly the 4 baseline tool-limitation findings every sibling
+board's *finished* schematic carries (power pins ERC can't trace
+through a passive; SWCLK driven off-sheet by the debug probe) — zero
+unexpected results, zero guessed pins or values anywhere in the file.
 
-**Step 1 done, same day**: real S32K144 peripheral pin-mux research
-against NXP's own S32K1xx Reference Manual (the actual embedded IO-
-signal-table attachment, not a summary) landed 25 conflict-checked pins
-on U1 — LPSPI1 (BT817AQ's QSPI link), LPSPI2 (shared aux-gauge SPI
-bus), FlexCAN0, 4x ADC channel, and 9 plain GPIO (CS/DC/reset/backlight/
-power-down). `kicad-cli sch erc` shows 36 findings, all expected:
-25 forward-looking label stubs + the 8 input pins on their end not yet
-driven by anything, plus the same 3 pre-existing power-tracing findings
-— zero unexpected results.
-
-**Not wired yet** (Steps 2-5): the 4x GC9A01 aux-gauge symbols, the
-BT817AQ symbol + its RGB link to the ST7701S speedo module, the
-TJA1043T CAN transceiver (reusing `ecu-pcb`'s real part/pinout), and the
-sensor/ADC divider front end.
+**Not started yet:** PCB layout, routing, DRC, and BOM. Also still
+open: the physical bezel outer-envelope measurement (README's own open
+item below) and the firmware CAN-vs-local-sender priority policy —
+neither blocks starting PCB layout.
 
 ## Why this project exists
 
@@ -133,6 +128,14 @@ hardware.
 
 ## MCU pin/peripheral budget (real, verified 2026-09-22)
 
+*Update, same day:* the real pin-by-pin assignment (which physical
+S32K144 pad each LPSPI/FlexCAN0/ADC/GPIO signal lands on) is now done —
+see `build_schematic.py`'s own citation comment above U1's registration
+for the full real list, pulled from the Reference Manual's own embedded
+IO-signal-table attachment. The budget estimate below held up: 25 real
+pins claimed, no conflicts, comfortable headroom left on the 64-pin
+package.
+
 Pulled directly from NXP's own S32K1xx Data Sheet (Rev. 15, 5 March 2026,
 Figure 3 "S32K1xx product series comparison" — the real per-part
 comparison table, not a generic family blurb). **S32K144 real numbers:**
@@ -199,20 +202,31 @@ from its own datasheet:
 This keeps the "one hub MCU reads sensors/CAN and makes decisions"
 architecture intact — BT817AQ is a fixed-function rendering helper, the
 same role `fascia-pcb`'s SN65DSI85-Q1 bridge plays for its own display,
-not a second brain. Not yet done: pin-level wiring (which GPIOs the
-ST7701S module's own init/SPI pins land on — likely BT817AQ's spare
-GPIO rather than the S32K144's, keeping speedo init self-contained) —
-real work for the schematic phase, not blocking the architecture
-decision.
+not a second brain.
+
+*Update 2026-09-22 (plan Step 4, now done):* pin-level wiring is
+complete — the ST7701S module's 3-wire serial init (SDA/SCK/CS, plus a
+4th spare GPIO for its RESET pin) lands on BT817AQ's own spare GPIO0-3,
+keeping speedo init self-contained as planned. One real thing the
+architecture pass above didn't catch: BT817A's digital core rail
+(VCC1V2) turned out to be a genuine external 1.28V supply, not
+internally regulated from VCC — a new TPS7A16-Q1 adjustable LDO
+(AEC-Q100) + FB divider was added specifically for it. Real RGB666
+wiring (BT817AQ's 24-bit RGB output down to the module's 18-bit input)
+follows the module's own documented bit order, not a guess.
 
 ## Known open items (real, not placeholder — none of this is guessed)
 
 1. **Overall bezel outer envelope** — needs a real caliper measurement of
-   the physical stock cluster, not a web lookup.
+   the physical stock cluster, not a web lookup. This is now the
+   binding blocker on PCB layout specifically: the board's real shape
+   has to roughly match the bezel's own 2-small/1-large/2-small plan
+   view (see `build_schematic.py`'s own header on why this is genuinely
+   new territory, not a copy of any sibling board's sizing model).
 2. **Firmware source-priority policy** (CAN vs. local sender per gauge,
-   and fallback behavior) needs to be decided before the ADC front-end
-   values are finalized, since it affects whether local sender reads are
-   continuous or only sampled when CAN is silent.
-3. **No schematic, PCB, or firmware exists yet** — this file is the
-   architecture-lock step only, same starting point `ecu-pcb` and
-   `thermo-pcb` each had before their first `build_schematic.py`.
+   and fallback behavior) — doesn't block hardware work, needed before
+   firmware bring-up.
+3. **PCB layout, routing, DRC, and BOM have not started** — the
+   schematic is fully wired and ERC-clean (see Status above); this is
+   the next real phase, same next-step `ecu-pcb`/`thermo-pcb` each faced
+   once their own schematics were done.

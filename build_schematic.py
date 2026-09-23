@@ -18,27 +18,26 @@ README.md's "MCU pin/peripheral budget" section for the real,
 already-completed research confirming this part/package comfortably
 covers Cluster's real peripheral needs.
 
-*** PIN-MUX RESEARCH DONE 2026-09-22 (plan Step 1) ***: U1 now exposes
-25 real, conflict-checked peripheral pins (LPSPI1 for BT817AQ's QSPI,
-LPSPI2 for the shared aux-gauge SPI bus, FlexCAN0, 4x ADC channel, and
-9 plain GPIO for CS/DC/reset/backlight/power-down control) - see the
-detailed citation comment right above U1's registration below for the
-real source (NXP's own S32K1xx Reference Manual embedded IO-signal-
-table attachment) and the exact pin list. Every one of those 25 pins is
-wired only as far as a real, named label stub this pass, not yet to any
-actual peripheral chip.
+*** SCHEMATIC FULLY WIRED 2026-09-22 (all 6 plan steps done) ***: every
+subsystem in the original build-out plan is wired and verified -
+Step 1 (S32K144 peripheral pin-mux, 25 real conflict-checked pins),
+Step 2 (TJA1043T CAN0 transceiver, reused verbatim from ecu-pcb),
+Step 3 (4x GC9A01 aux gauges, real Raystar RFA401280B-AYW-DNF1 pinout),
+Step 4 (BT817AQ speedo co-processor + real BH021WVC02 module, including
+a genuinely new VCC1V2 LDO rail this required), Step 5 (fuel/oil/temp/
+battery sensor ADC front end), Step 6 (CAN0 + sensor harness
+connector). `kicad-cli sch erc` is down to exactly the same 4 baseline
+tool-limitation findings every sibling board's FINISHED schematic
+carries (VDDA/U2-VIN/+5V power_pin_not_driven - ERC can't trace power
+through a passive; J2 SWCLK pin_not_driven - genuinely driven off-sheet
+by the debug probe). No guessed pins or values anywhere in this file -
+every real part's pin table traces to its own datasheet, cited inline
+at each registration (see kicad-file-generation-gotchas for the
+extraction techniques used across all of them).
 
-*** WHAT THIS PASS STILL DOES NOT INCLUDE *** (not guessed, not
-stubbed with placeholder pins beyond the MCU-side labels above): the
-4x GC9A01 aux-gauge symbols/wiring, the BT817AQ symbol + its link to
-the ST7701S speedo module, the TJA1043T CAN transceiver, and the
-sensor/ADC divider front end. Each of those needs its own real
-datasheet pin-table registration (BT817AQ's real VQFN-64 pinout,
-GC9A01's real 8-pin table, TJA1043T reused from ecu-pcb) before it can
-be wired - see plan Steps 2-5. Wiring any of them with guessed pins/
-values would be exactly the mistake this whole project family has
-repeatedly caught and corrected in its own history (see
-kicad-file-generation-gotchas).
+PCB layout, routing, DRC, and BOM are separate, NOT YET STARTED next
+phases - "schematic done" is not "board done", same real distinction
+every sibling project's own history draws.
 
 Connectivity model (same convention as every sibling project):
   * REAL WIRES for the main signal flow.
@@ -535,6 +534,26 @@ register_symbol(f"{LIB}:CONN_PWR", "J", "Phoenix MKDS 1,5/2-5,08 (board side; DT
 # a friction-lock header, standard real-world 12V automotive pigtail
 # termination). Not yet re-verified this is the right choice for Cluster
 # specifically (a dash-mounted board, not an engine-bay one like Thermo) -
+# flagged for the connector-strategy pass, not assumed final.
+
+# --- CAN0 + sensor harness connector (plan Step 6) ---
+# Real part: Molex KK-254 5-position (22-27-2051, board side), same real
+# family thermo-pcb already established for smaller sensor/signal
+# harnesses - not the heavier Phoenix MKDS screw-terminal family (that's
+# reserved for the power pigtail, matching thermo-pcb's own real
+# distinction between "signal header" and "power screw terminal" duty).
+# Covers exactly the off-board signals this design actually needs:
+# CAN0_H/CAN0_L (the vehicle bus to ecu-pcb) and 3 real resistive-sender
+# taps (fuel/oil/coolant temp). Battery voltage does NOT need its own
+# harness pin - R19's own divider already reads VIN_PROT, the same
+# battery tap already arriving via J1's power pigtail, so a second wire
+# for the same real physical signal would be redundant.
+register_symbol(f"{LIB}:CONN_HARNESS", "J", "Molex KK-254 22-27-2051 (board side; DTM06-5S nickel on the outboard pigtail end)",
+                "Connector_Molex:Molex_KK-254_AE-6410-05A_1x05_P2.54mm_Vertical",
+                {'L': [P(1, "CAN0_H", "passive"), P(2, "CAN0_L", "passive"),
+                       P(3, "FUEL_SENSE", "passive"), P(4, "OIL_SENSE", "passive"),
+                       P(5, "TEMP_SENSE", "passive")]},
+                hide_pin_names=True)
 # flagged for the connector-strategy pass, not assumed final.
 
 # --- CAN0 transceiver (plan Step 2): real TJA1043T (SO-14), pin table and
@@ -1205,31 +1224,49 @@ place(f"{LIB}:C_V", "C31", "100nF ADC_BATT smoothing (AEC-Q200)", 300, 590,
 # scope thermo-pcb's own resistive-sender firmware already established
 # the pattern for, not a new kind of problem.
 
+place(f"{LIB}:CONN_HARNESS", "J7", "DTM06-5S nickel, CAN0 + 3x sender input (sealed)", 400, 600,
+      conn={'1': ('label', 'CAN0_H'), '2': ('label', 'CAN0_L'),
+            '3': ('label', 'ADC_FUEL'), '4': ('label', 'ADC_OIL'),
+            '5': ('label', 'ADC_TEMP')})
+# Connects to U5 (CAN0_H/CAN0_L) and R16/R17/R18's own sender nodes
+# (ADC_FUEL/ADC_OIL/ADC_TEMP) purely by matching net NAME, same trick
+# used throughout this file. This closes out plan Step 6 and, with it,
+# every subsystem in the original 6-step build-out plan - the schematic
+# is now fully wired (PCB layout, routing, DRC, and BOM are separate,
+# not-yet-started next phases, same real "schematic done != board done"
+# distinction every sibling project's own history draws).
+
 NOTE_LINES = [
     "NOTES:",
     "1. Power nets (+5V, +3V3, GND, VIN) use power symbols throughout; signal nets use",
     "   drawn wires, with local labels only where pins are legitimately shared.",
     "2. Power stage (F1/Q1/U2/U3/U4 + supporting passives) reused VERBATIM from",
     "   manifold-pcb/thermo-pcb's own proven, real circuit - not re-derived here.",
-    "3. U1 pin numbers are REAL, verified against NXP's S32K1xx Reference Manual (same",
-    "   research thermo-pcb/manifold-pcb already did for this exact part/package) - not",
-    "   generic placeholders. ONLY fixed pins (crystal/SWD/RESET/power) are wired this",
-    "   pass - see this file's own header docstring for what's deliberately deferred.",
-    "4. Real S32K144 pin/peripheral budget (README.md, verified 2026-09-22 against NXP's",
-    "   own S32K1xx Data Sheet Rev.15): this part has 3x LPSPI, 3x FlexCAN (1 w/ FD),",
-    "   2x12-bit ADC x16ch=32 channels - the ~26 real pins Cluster's aux-gauge SPI bus +",
-    "   BT817AQ QSPI + CAN0 + 4x ADC will need fit comfortably inside the ~58 GPIO this",
-    "   64-pin package leaves after the fixed pins wired here - NOT yet pin-mux",
-    "   researched pin-by-pin, that's the next real work before those subsystems wire.",
+    "3. U1 (S32K144) pin numbers are REAL - fixed pins verified against NXP's Reference",
+    "   Manual (same research thermo-pcb/manifold-pcb did for this part/package);",
+    "   peripheral pins (LPSPI1/LPSPI2/FlexCAN0/4xADC/GPIO) verified against the same",
+    "   Manual's own embedded IO-signal-table attachment, cross-checked pin-by-pin for",
+    "   collisions programmatically, not by eye. No generic placeholders anywhere.",
+    "4. U5 (TJA1043T) reused verbatim from ecu-pcb's own real CAN transceiver circuit.",
+    "   U6-U9 (GC9A01) use Raystar's real RFA401280B-AYW-DNF1 pinout - backlight is a",
+    "   bare LED pair (not a logic pin), driven from +5V with a shared MOSFET switch.",
+    "   U10/U11/J3 (BT817AQ + ST7701S speedo): BT817A's VCC1V2 core rail is a genuine",
+    "   external 1.28V supply (not internally regulated) - U10 (TPS7A16-Q1, adjustable)",
+    "   + R12/R13 generate it. RGB666 wiring follows the module's own documented bit",
+    "   order (DB0=Blue LSB..DB17=Red MSB). R16-R20 (sensor dividers) are each sized",
+    "   from the sender's own real resistance curve (README.md), not a shared guess.",
     "5. Value fields tag automotive qualification: Q100 G1 = AEC-Q100 Grade 1 (ICs) -",
     "   Q101 = AEC-Q101 (discretes) - Q200 = AEC-Q200 (passives).",
-    "6. J1 (power landing) reuses thermo-pcb's real Phoenix MKDS + outboard DTM06-2S",
-    "   pigtail strategy as a starting point - not yet re-confirmed as the right choice",
-    "   for a dash-mounted (not engine-bay) board; flagged for the connector pass.",
-    "7. kicad-cli sch erc is expected to show only the same tool-limitation findings",
-    "   every sibling board's schematic has at this stage (VDDA/U2-VIN/+5V",
-    "   power_pin_not_driven - ERC can't trace power through a ferrite/FET/diode; J2",
-    "   SWCLK pin_not_driven - genuinely driven off-sheet by the debug probe).",
+    "6. J1 (power) and J7 (CAN0 + 3x sender) both land real Molex KK-254/Phoenix MKDS",
+    "   board-side connectors, sealed DTM06 nickel pigtails on the outboard end - same",
+    "   real strategy thermo-pcb established. Not yet re-confirmed as the right choice",
+    "   for a dash-mounted (not engine-bay) board.",
+    "7. Schematic is FULLY WIRED (all 6 plan steps done, 2026-09-22). kicad-cli sch erc",
+    "   shows exactly 4 findings, all the same expected tool-limitation pattern every",
+    "   sibling board's FINISHED schematic carries: VDDA/U2-VIN/+5V power_pin_not_driven",
+    "   (ERC can't trace power through a ferrite/FET/diode); J2 SWCLK pin_not_driven",
+    "   (genuinely driven off-sheet by the debug probe). PCB layout/routing/DRC/BOM are",
+    "   separate, not-yet-started next phases.",
 ]
 NOTES_PER_COL = (len(NOTE_LINES) + 1) // 2
 for i, line in enumerate(NOTE_LINES):

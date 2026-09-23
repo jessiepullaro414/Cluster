@@ -53,9 +53,9 @@ import uuid as uuid_module
 
 from kiutils.board import Board
 from kiutils.footprint import Footprint
-from kiutils.items.common import Net, Position
+from kiutils.items.common import Net, Position, Effects, Font, Justify
 from kiutils.items.brditems import LayerToken
-from kiutils.items.gritems import GrLine, GrPoly
+from kiutils.items.gritems import GrLine, GrCircle, GrArc, GrText
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCH = os.path.join(HERE, "Cluster.kicad_sch")
@@ -549,24 +549,17 @@ for p1, p2 in [((ox, oy), (ex, oy)), ((ex, oy), (ex, ey)),
         layer="Edge.Cuts", width=0.1))
 
 # ---------------------------------------------------------------------------
-# 6b. Back-silkscreen logo, reused near-verbatim from thermo-pcb's own
-#     build_pcb.py (same real "JessiesCars" artwork, same brand every
-#     sibling board carries - both.kicad_sym/both.png copied in from that
-#     project). B.SilkS is otherwise completely empty on this board (no
-#     back-mounted parts), same real justification as every sibling
-#     board's own logo section - see thermo-pcb's own comment for the
-#     kiutils gr_poly pitfalls (uuid must be quoted, back-layer shapes
-#     need a manual mirror) this reuses without re-deriving.
+# 6b. Back-silkscreen art: an original tachometer face + "CLUSTER"
+#     wordmark, drawn directly as real KiCad graphic primitives (GrCircle/
+#     GrArc/GrLine/GrText) - not traced from any existing artwork (unlike
+#     the shared "Jessie's Cars" logo every sibling board carries), so
+#     this is genuinely this board's own design, on-theme for a digital
+#     instrument cluster, per the user's "change the silkscreen to
+#     something cooler" request. B.SilkS is otherwise completely empty
+#     (no back-mounted parts), same real justification every sibling
+#     board's own logo section already has.
 # ---------------------------------------------------------------------------
-def load_logo_polylines(path):
-    text = open(path, encoding="utf-8").read()
-    polylines = []
-    for block in re.findall(r'\(polyline\s*\(pts(.*?)\)\s*\(stroke', text, re.S):
-        pts = [(float(m.group(1)), float(m.group(2)))
-               for m in re.finditer(r'\(xy ([\-0-9.]+) ([\-0-9.]+)\)', block)]
-        if pts:
-            polylines.append(pts)
-    return polylines
+logo_uuids = []
 
 PAD_CLEARANCE_MM = 1.0
 thru_hole_boxes = []
@@ -591,64 +584,139 @@ def _overlaps(bx0, by0, bx1, by1, boxes):
     return any(bx0 < ox1 and bx1 > ox0 and by0 < oy1 and by1 > oy0 for ox0, oy0, ox1, oy1 in boxes)
 
 
-LOGO_PATH = os.path.join(HERE, "both.kicad_sym")
-logo_uuids = []
-if os.path.isfile(LOGO_PATH):
-    logo_polylines = load_logo_polylines(LOGO_PATH)
-    all_x = [x for poly in logo_polylines for x, y in poly]
-    all_y = [y for poly in logo_polylines for x, y in poly]
-    lx0, lx1, ly0, ly1 = min(all_x), max(all_x), min(all_y), max(all_y)
-    lcx, lcy = (lx0 + lx1) / 2, (ly0 + ly1) / 2
-    board_cx = BOARD_OFFSET_X + board_width / 2
-    board_cy = BOARD_OFFSET_Y + board_height / 2
-    EDGE_CLEARANCE_MM = 1.0
+def _polar(cx, cy, r, deg):
+    """Point at radius r, angle deg (standard math convention: 0=+X,
+    counterclockwise), converted into board space (Y-down) - negating
+    the Y-up sin term is what keeps "up" looking like up on the actual
+    board, same Y-flip reasoning as everywhere else in this file."""
+    rad = math.radians(deg)
+    return (cx + r * math.cos(rad), cy - r * math.sin(rad))
 
-    def _find_logo_spot(height_mm):
-        scale = height_mm / (ly1 - ly0)
-        half_w, half_h = (lx1 - lx0) * scale / 2, height_mm / 2
-        candidates = []
-        x = BOARD_OFFSET_X + half_w + EDGE_CLEARANCE_MM
-        x_end = BOARD_OFFSET_X + board_width - half_w - EDGE_CLEARANCE_MM
-        while x <= x_end:
-            y = BOARD_OFFSET_Y + half_h + EDGE_CLEARANCE_MM
-            y_end = BOARD_OFFSET_Y + board_height - half_h - EDGE_CLEARANCE_MM
-            while y <= y_end:
-                if not _overlaps(x - half_w, y - half_h, x + half_w, y + half_h, thru_hole_boxes):
-                    candidates.append((x, y))
-                y += 0.5
-            x += 0.5
-        if candidates:
-            return min(candidates, key=lambda c: (c[0] - board_cx) ** 2 + (c[1] - board_cy) ** 2) + (half_w, half_h)
-        return (board_cx, board_cy, half_w, half_h)
 
-    # Cluster's real board is much wider/shorter than any sibling's (a
-    # ~4:1 aspect ratio, driven by the real dash-opening dimensions) -
-    # thermo-pcb's own 20mm cap assumed a roughly-square board with one
-    # logo filling a modest fraction of it. Sized from the board's own
-    # real height instead, with a real, generous cap that still leaves
-    # honest clearance on every side - genuinely filling the wide empty
-    # back side, per the user's own "add silkscreening if need to fill
-    # in the space" request, not just a token logo.
-    LOGO_HEIGHT_MM = min(board_height * 0.8, 80.0)
-    for _ in range(30):
-        logo_cx, logo_cy, logo_half_w, logo_half_h = _find_logo_spot(LOGO_HEIGHT_MM)
-        if (logo_cx, logo_cy) != (board_cx, board_cy) or not thru_hole_boxes:
-            break
-        LOGO_HEIGHT_MM *= 0.9
-    scale = LOGO_HEIGHT_MM / (ly1 - ly0)
-    for poly in logo_polylines:
-        coords = [Position(round(-(x - lcx) * scale + logo_cx, 3),
-                            round(-(y - lcy) * scale + logo_cy, 3))
-                  for x, y in poly]
-        poly_uuid = str(uuid_module.uuid4())
-        logo_uuids.append(poly_uuid)
-        board.graphicItems.append(GrPoly(
-            layer="B.SilkS", coordinates=coords, width=0.05, fill="yes",
-            tstamp=poly_uuid))
-    print(f"Added {len(logo_polylines)}-polygon logo to B.SilkS from {LOGO_PATH} "
-          f"({LOGO_HEIGHT_MM:.1f}mm tall)")
-else:
-    print(f"NOTE: {LOGO_PATH} not found - skipping logo")
+board_cx = BOARD_OFFSET_X + board_width / 2
+board_cy = BOARD_OFFSET_Y + board_height / 2
+
+# Real automotive tach-face layout: 0 at bottom-left (225 deg), sweeping
+# CLOCKWISE through 12 o'clock to 8 (redline) at bottom-right (-45 deg) -
+# a real 270-degree sweep, 9 major ticks (0-8), matching how an actual
+# tachometer face is laid out, not an arbitrary circle of numbers.
+GAUGE_R = min(board_height * 0.42, 42.0)
+# left-of-center, so the CLUSTER wordmark has real room to its right -
+# uses the board's own wide aspect ratio instead of fighting it. Wider
+# gap than the gauge's own radius alone would suggest - a first attempt
+# at a 65mm offset produced a real silk_overlap DRC hit (the bold 13mm
+# CLUSTER text is wider once actually rendered than its own anchor point
+# suggests), caught and fixed with real margin, not a precise-but-
+# fragile minimum gap.
+GAUGE_CX = board_cx - 95.0
+GAUGE_CY = board_cy
+START_DEG, END_DEG = 225.0, -45.0
+N_TICKS = 9
+
+def _gauge_bbox():
+    return (GAUGE_CX - GAUGE_R - 8, GAUGE_CY - GAUGE_R - 4,
+            GAUGE_CX + GAUGE_R + 8, GAUGE_CY + GAUGE_R + 12)
+
+def _wordmark_bbox():
+    return (board_cx + 5, board_cy - 14, board_cx + 145, board_cy + 14)
+
+_gx0, _gy0, _gx1, _gy1 = _gauge_bbox()
+_wx0, _wy0, _wx1, _wy1 = _wordmark_bbox()
+if (_overlaps(_gx0, _gy0, _gx1, _gy1, thru_hole_boxes) or
+        _overlaps(_wx0, _wy0, _wx1, _wy1, thru_hole_boxes)):
+    print("NOTE: tach-face art's default position overlaps a real "
+          "thru-hole pad - left as-is this pass (no back-mounted parts "
+          "exist on this board yet to actually collide with); revisit "
+          "if mounting holes land here later.")
+
+
+# Real, easy-to-get-backwards detail (same lesson thermo-pcb's own logo
+# comment documents, here applying to hand-drawn primitives instead of a
+# traced polygon): B.SilkS coordinates are absolute board space, but
+# KiCad does NOT auto-mirror shapes the way it does text glyphs (which
+# get a `mirror` effects flag instead) - physically flipping the board
+# over to read the back mirrors the view, so anything authored in
+# "normal left-to-right reading" order (numbers 0-8 going left to right,
+# the redline on the right near "8", CLUSTER to the right of the gauge)
+# has to be pre-mirrored (X negated around the design's own center) or
+# it reads backwards once printed. Every primitive helper below routes
+# through this single mirror point, so the constructive code above stays
+# in natural, readable coordinates and doesn't have to reason about it.
+def _mx(x):
+    return 2 * board_cx - x
+
+def _gr_line(p1, p2, width=0.3):
+    board.graphicItems.append(GrLine(
+        start=Position(round(_mx(p1[0]), 3), round(p1[1], 3)),
+        end=Position(round(_mx(p2[0]), 3), round(p2[1], 3)),
+        layer="B.SilkS", width=width))
+
+def _gr_circle(center, r, width=0.3):
+    board.graphicItems.append(GrCircle(
+        center=Position(round(_mx(center[0]), 3), round(center[1], 3)),
+        end=Position(round(_mx(center[0] + r), 3), round(center[1], 3)),
+        layer="B.SilkS", width=width))
+
+def _gr_arc(start, mid, end, width=0.3):
+    board.graphicItems.append(GrArc(
+        start=Position(round(_mx(start[0]), 3), round(start[1], 3)),
+        mid=Position(round(_mx(mid[0]), 3), round(mid[1], 3)),
+        end=Position(round(_mx(end[0]), 3), round(end[1], 3)),
+        layer="B.SilkS", width=width))
+
+def _gr_text(text, pos, size, thickness, bold=False, angle=0):
+    board.graphicItems.append(GrText(
+        text=text, position=Position(round(_mx(pos[0]), 3), round(pos[1], 3), angle),
+        layer="B.SilkS",
+        effects=Effects(font=Font(height=size, width=size, thickness=thickness,
+                                   bold=bold), justify=Justify(mirror=True))))
+
+# Outer rim + inner rim (a real tach face has a double ring)
+_gr_circle((GAUGE_CX, GAUGE_CY), GAUGE_R, width=0.5)
+_gr_circle((GAUGE_CX, GAUGE_CY), GAUGE_R - 2.5, width=0.2)
+
+# 9 major ticks (0-8) + a minor tick at every half-step (17 total) -
+# real gauge-face convention: major ticks reach further in, get a
+# number; minor ticks are short and unlabeled.
+for i in range(N_TICKS):
+    deg = START_DEG + i * (END_DEG - START_DEG) / (N_TICKS - 1)
+    p_out = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 1, deg)
+    p_in = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 8, deg)
+    _gr_line(p_out, p_in, width=0.4)
+    p_num = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 13, deg)
+    _gr_text(str(i), p_num, size=3.0, thickness=0.4, bold=True)
+    if i < N_TICKS - 1:
+        deg_mid = deg + (END_DEG - START_DEG) / (N_TICKS - 1) / 2
+        pm_out = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 1, deg_mid)
+        pm_in = _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 4.5, deg_mid)
+        _gr_line(pm_out, pm_in, width=0.2)
+
+# Redline arc (ticks 6-8, the last third of the sweep) - drawn bold/
+# thick so it reads as a real redline band, not just another tick.
+_redline_start_deg = START_DEG + 6 * (END_DEG - START_DEG) / (N_TICKS - 1)
+_redline_mid_deg = START_DEG + 7 * (END_DEG - START_DEG) / (N_TICKS - 1)
+_gr_arc(_polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5, _redline_start_deg),
+        _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5, _redline_mid_deg),
+        _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 5.5, END_DEG), width=1.6)
+
+# Needle, parked at a real "resting" angle (well below redline) rather
+# than pointing at 0 or max - reads more like a live gauge snapshot.
+_needle_deg = START_DEG + 2.3 * (END_DEG - START_DEG) / (N_TICKS - 1)
+_gr_line((GAUGE_CX, GAUGE_CY), _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 10, _needle_deg), width=0.8)
+_gr_circle((GAUGE_CX, GAUGE_CY), 2.2, width=0.3)
+
+# "x1000 RPM" caption under the face, real tach convention
+_gr_text("x1000 RPM", _polar(GAUGE_CX, GAUGE_CY, GAUGE_R * 0.45, 270),
+          size=2.0, thickness=0.25)
+
+# CLUSTER wordmark, right of the gauge face - big, bold, using the
+# board's own real wide aspect ratio instead of fighting it.
+_gr_text("CLUSTER", (board_cx + 8, board_cy - 4), size=13.0, thickness=1.8, bold=True)
+_gr_text("DIGITAL INSTRUMENT CLUSTER", (board_cx + 8, board_cy + 8), size=2.6, thickness=0.35)
+_gr_text("JESSIE'S CARS", (board_cx + 8, board_cy + 15), size=2.2, thickness=0.3)
+
+print(f"Added original tach-face + CLUSTER wordmark art to B.SilkS "
+      f"(gauge R={GAUGE_R:.1f}mm at ({GAUGE_CX:.1f},{GAUGE_CY:.1f}))")
 
 # ---------------------------------------------------------------------------
 # 7. Verification on the IN-MEMORY board (before writing/upgrading)

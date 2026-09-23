@@ -494,6 +494,17 @@ PAGE_W, PAGE_H = 594.0, 420.0  # A2 landscape - A3 (420x297) turned out
                                 # real bug caught by the first DRC run's
                                 # edge-clearance findings citing an
                                 # Edge.Cuts segment at x=-13.5)
+# kiutils' Board.create_new() (called back at board = Board.create_new(),
+# long before board_width/height are known) defaults board.paper to A4 and
+# never gets told otherwise - PAGE_W/PAGE_H above were only ever used for
+# the centering math, so the actual (paper ...) token written to the file
+# silently stayed A4 while every footprint was positioned as if the sheet
+# were A2. Harmless for fab (Edge.Cuts is what matters there, not the
+# drawing-sheet frame) but real: `kicad-cli pcb export svg` renders the
+# A4 frame with the 447mm board hanging off the edge of it. Found by
+# routing this same mismatch's SVG output rather than any DRC check, since
+# DRC has no opinion on the paper size.
+board.paper.paperSize = "A2"
 BOARD_OFFSET_X = round((PAGE_W - board_width) / 2, 2)
 BOARD_OFFSET_Y = round((PAGE_H - board_height) / 2, 2)
 placed = {ref: (round(x + BOARD_OFFSET_X, 2), round(y + BOARD_OFFSET_Y, 2))
@@ -878,6 +889,30 @@ mismatches = {n: (sch_net_pins[n], pcb_net_pins.get(n, 0)) for n in sch_net_pins
 assert not mismatches, f"net pin-count mismatches (schematic vs PCB): {mismatches}"
 print(f"Net check OK: all {len(sch_net_pins)} nets have matching pin "
       f"counts between schematic and PCB")
+
+# ---------------------------------------------------------------------------
+# Post-route trunk widening (applied by route_board.py, not here)
+# ---------------------------------------------------------------------------
+# VIN_PROT is Cluster's only real trunk power net - the harness's 2A-fused
+# input, same F1 (Littelfuse 297 MINI blade, 2A) as every sibling board's own
+# power stage. It's on the PowerDist net class (Cluster.kicad_pro), which
+# routes at the DEFAULT 0.2mm on purpose: VIN_PROT's path touches U2
+# (LMR33630-Q1, 0.5mm-pitch VQFN) directly (Q1 pin 3 -> U2 pin 2), and
+# forcing a wide trace at that escape produces an unrouted board, not a wide
+# one - same tradeoff thermo-pcb's own PowerDist class documents. route_
+# board.py's widen_trunks() neck-downs it back up to real width afterwards,
+# same regime, applied post-route rather than at routing time.
+#
+# Capability on 1oz external copper (IPC-2221, 10C rise):
+#   0.60mm -> ~2.24A   0.50mm -> ~1.96A   0.40mm -> ~1.67A   0.30mm -> ~1.33A
+# against the 2A fuse - real headroom at the top of the ladder, not sized to
+# exactly the fuse rating.
+#
+# No motor-style multi-net trunk here: Cluster has no motor phases (unlike
+# thermo-pcb's Motor class), only this one power net.
+assert "VIN_PROT" in pcb_net_pins, "VIN_PROT is not a real net on this board"
+TRUNK_WIDTH_LADDER = [0.6, 0.5, 0.4, 0.3]
+TRUNK_NETS = ["VIN_PROT"]
 
 board.to_file(PCB)
 print("Wrote", PCB)

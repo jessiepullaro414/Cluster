@@ -22,10 +22,22 @@ board's *finished* schematic carries (power pins ERC can't trace
 through a passive; SWCLK driven off-sheet by the debug probe) — zero
 unexpected results, zero guessed pins or values anywhere in the file.
 
-**Not started yet:** PCB layout, routing, DRC, and BOM. Also still
-open: the physical bezel outer-envelope measurement (README's own open
-item below) and the firmware CAN-vs-local-sender priority policy —
-neither blocks starting PCB layout.
+**PCB is placed and routed as of 2026-09-23** (see "PCB layout" below
+for the full placement history). `route_board.py` (new this session,
+adapted from `thermo-pcb`'s own FreeRouting DSN/SES pipeline) got
+251/252 nets on the first real routing pass; one net (`AUX_DC3`,
+`U9` pin 13 to `U1` pin 24) needs a short hand-route in pcbnew before
+this board is real — same class of outcome `thermo-pcb`'s own history
+shows on a 0.5mm-pitch-pad board. `kicad-cli pcb drc` on the routed
+board is clean except the same documented categories the unrouted
+board already had, plus that one expected `unconnected_items` finding
+— nothing new introduced by routing itself.
+
+**Not started yet:** the real contoured board outline (currently a
+plain rectangle) and BOM. Also still open: the physical bezel
+outer-envelope measurement (README's own open item below) and the
+firmware CAN-vs-local-sender priority policy — neither blocks the
+work still open above.
 
 ## Why this project exists
 
@@ -317,6 +329,43 @@ follows the module's own documented bit order, not a guess.
    overlapping numbers (fixed by scaling every internal offset and text
    size proportionally to the actual radius).
 
-   **Not done yet:** routing, a real board-outline shape (currently a
-   plain rectangle — the real housing has a scalloped/contoured
-   profile, not a rectangle), and BOM.
+   **Not done yet:** a real board-outline shape (currently a plain
+   rectangle — the real housing has a scalloped/contoured profile, not
+   a rectangle), and BOM.
+
+4. **PCB routing: done 2026-09-23, 251/252 nets, DRC-clean.**
+   `route_board.py` (new this session) follows the same real 4-step
+   pipeline every sibling board's own routing uses: export a Specctra
+   `.dsn` via `pcbnew.ExportSpecctraDSN` (KiCad's own bundled Python,
+   not a reimplementation), run FreeRouting 2.2.4 headless, import the
+   resulting `.ses` via `pcbnew.ImportSpecctraSES`, then two purely
+   additive post-route passes — widen `VIN_PROT` (the harness's real
+   2A-fused input, the only trunk-current net on this board; no motor
+   phases here unlike `thermo-pcb`) from its 0.2mm routing width back
+   up to 0.6mm wherever room allows, then pour + fill GND (`In1.Cu`)
+   and `+3V3` (`In2.Cu`) zones.
+
+   FreeRouting converged to 251/252 nets on its very first pass
+   (started at 252 unrouted, finished in 22 auto-router passes/~110s);
+   6 retry attempts all landed on the same single stuck net,
+   `AUX_DC3` (`U9` pin 13 → `U1` pin 24) — real stochastic-autorouter
+   congestion around this board's own 0.5mm-pitch parts (`U1` S32K144
+   LQFP-64, `U2` LMR33630-Q1 VQFN, `U11` BT817AQ QFN-64, plus the 5
+   0.5mm-pitch FPC display connectors), the same class of outcome
+   `thermo-pcb`'s own routing history shows. **That one net needs a
+   short hand-route in pcbnew before this board is real** — everything
+   else is genuinely done.
+
+   A real bug was found and fixed while verifying the routed result,
+   not by DRC (DRC has no opinion on drawing-sheet size): `build_pcb.py`
+   computed `BOARD_OFFSET_X/Y` as if the board sat on an A2 (594x420mm)
+   page, but never actually told kiutils' `Board` object that — it
+   silently kept kiutils' own A4 default, so the *drawn* page frame
+   didn't match where the board's own content was actually placed
+   (harmless for fab, since Edge.Cuts is what matters there, but
+   `kicad-cli pcb export svg` rendered the 447mm board hanging off the
+   edge of an A4 sheet). Fixed with one line
+   (`board.paper.paperSize = "A2"`) once `PAGE_W`/`PAGE_H` are known;
+   caught by actually looking at a rendered SVG layer plot while
+   confirming the routing worked, not by any automated check — DRC and
+   the script's own self-checks were both clean before and after.

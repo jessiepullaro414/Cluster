@@ -39,19 +39,48 @@ still fits the factory dash cutout with no cutting; the individual gauge
 *openings* are free to grow, because the chrome faceplate itself is being
 reprinted rather than reused.
 
-## Real mechanical reference (verified against '65-'66 Mustang parts data)
+## Real mechanical reference (user-supplied dimensioned drawing, 2026-09-23)
 
-- **Speedo opening (center):** 3-3/8" (85.7mm) face, 3-7/16" (87.3mm)
-  mounting hole.
-- **4 auxiliary gauge openings:** 2-1/16" (52.4mm) stock; reproduction
-  cluster housings for this generation also support up to 2-5/8" (66.7mm)
-  with a modified bezel, which is the headroom the reprinted faceplate can
-  use if a bigger display reads better at a glance.
-- **Not yet measured:** the cluster's overall outer envelope (width,
-  height, mounting-tab positions) — there's no reliable published number
-  for this, unlike the individual gauge holes. Needs a real caliper
-  measurement of the physical stock part before board outline / mounting
-  hole placement can be finalized.
+The user supplied a real dimensioned reference drawing — **the
+*inside* dash-opening dimensions, not the decorative outer chrome
+bezel** (that's a separate, larger trim piece that overlaps the dash
+surface around this opening; not dimensioned here) — with all 5 gauge
+openings called out via a width x height / diameter legend. This
+supersedes the earlier web-researched approximations below, which are
+kept only for the sender/sensor research that's still independently
+useful.
+
+| Feature | Size (real, from the reference drawing) |
+|---|---|
+| Dash opening (outer, the hole everything must fit through) | 18.00" x 4.594" (457.2 x 116.69mm) |
+| Inner panel dimension (inside the opening) | 17.361" x 4.155" (441.09 x 105.54mm) |
+| Center speedo opening | dia 3.60" (91.44mm) |
+| 4x auxiliary gauge openings | dia 1.810" each (45.97mm) |
+
+**This closes the "overall bezel outer envelope" open item** — PCB
+layout can now target a real outline that fits within this dash
+opening (18.00" x 4.594" is the hard outer limit; 17.361" x 4.155" is
+the real usable inner dimension once inside it). The separate chrome
+trim ring shown in the very first reference photo is NOT yet
+dimensioned — it's cosmetic (screws to the dash face over this
+opening) and doesn't constrain the board's own size the way the
+opening itself does. Exact hole-center X positions along the row
+aren't individually dimensioned on the drawing — inferred
+proportionally from it for first-pass placement, refined once real FPC
+connector positions are chosen during layout.
+
+Earlier web research (kept for the sender/sensor findings, which don't
+depend on the exact bezel dimensions):
+- Speedo opening was earlier estimated at 3-3/8" (85.7mm) face / 3-7/16"
+  (87.3mm) mount hole — the real drawing's 3.60" (91.44mm) is close but
+  not identical; use the real drawing's number.
+- Aux gauge openings were earlier estimated at 2-1/16" (52.4mm) stock —
+  the real drawing's 1.810" (45.97mm) is meaningfully smaller; use the
+  real drawing's number. (The "up to 2-5/8" with a modified bezel"
+  headroom claim was about reproduction-housing tolerance, not this
+  specific drawing — worth a sanity check once real displays are in
+  hand, but the reprinted-faceplate opening can be sized to whatever the
+  chosen display module actually needs regardless.)
 
 ## Real sensor reference (verified against '65-'66 Mustang service data)
 

@@ -255,19 +255,26 @@ follows the module's own documented bit order, not a guess.
 2. **Firmware source-priority policy** (CAN vs. local sender per gauge,
    and fallback behavior) — doesn't block hardware work, needed before
    firmware bring-up.
-3. **PCB layout: first pass done 2026-09-23, DRC-clean (unrouted).**
-   `build_pcb.py` places all 74 real parts — the 5 display connectors
-   (J3 speedo + 4x GC9A01 aux gauges) in a row along the board's bottom
-   edge at evenly-spaced X positions (real hole-center spacing isn't
-   individually dimensioned in the user's reference image, only sizes —
-   explicit, flagged estimate, confirmed with the user as the right way
-   to proceed rather than blocking), everything else skyline-packed
-   above them. Board came out 447.1 x 102.5mm, comfortably inside the
-   real 457.2 x 116.69mm dash-opening hard limit. `kicad-cli pcb drc`
-   is clean except the same benign `lib_footprint_mismatch` category
-   every sibling board's finished PCB also carries. **Not done yet:**
-   routing, a real board-outline shape (currently a plain rectangle —
-   the real housing has a scalloped/contoured profile, not a rectangle),
-   spreading the packed parts across the board's real available width
-   instead of leaving them bunched in one corner, mounting holes, and
-   BOM.
+3. **PCB layout: placement done 2026-09-23, DRC-clean (unrouted).**
+   `build_pcb.py` places all 74 real parts. The 5 display connectors
+   (J3 speedo + 4x GC9A01 aux gauges) sit in a row along the board's
+   bottom edge at evenly-spaced X positions (real hole-center spacing
+   isn't individually dimensioned in the user's reference image, only
+   sizes — explicit, flagged estimate, confirmed with the user as the
+   right way to proceed rather than blocking). Everything else is
+   organized into real functional zones spread across the full width —
+   each display gets its own small local cluster of support parts
+   directly above it (backlight resistor/cap; the speedo's whole
+   BT817AQ+LDO+crystal subsystem sits above J3), and the board-wide
+   subsystems (power input, MCU, CAN0, the aux-gauge backlight switch,
+   the sender dividers) are arranged left-to-right above those —
+   reworked from an initial single-blob pack that left most of the
+   board empty (user feedback: "make it look cool"). The back silkscreen
+   carries the same real logo every sibling board does. Board came out
+   447.1 x 102.5mm, comfortably inside the real 457.2 x 116.69mm
+   dash-opening hard limit. `kicad-cli pcb drc` is clean except the same
+   benign `lib_footprint_mismatch` category every sibling board's
+   finished PCB also carries. **Not done yet:** routing, a real
+   board-outline shape (currently a plain rectangle — the real housing
+   has a scalloped/contoured profile, not a rectangle), mounting holes,
+   and BOM.

@@ -55,7 +55,7 @@ from kiutils.board import Board
 from kiutils.footprint import Footprint
 from kiutils.items.common import Net, Position
 from kiutils.items.brditems import LayerToken
-from kiutils.items.gritems import GrLine
+from kiutils.items.gritems import GrLine, GrPoly
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCH = os.path.join(HERE, "Cluster.kicad_sch")
@@ -369,43 +369,107 @@ print(f"Display row: {len(DISPLAY_REFS)} connectors at x="
       f"{sorted(round(v) for v in _row_x.values())}, y~{ROW_Y:.1f}mm "
       f"(evenly-spaced estimate, not real dimensioned hole-center data)")
 
-# Everything else packs into the remaining height above the connector row
-# via the same shared skyline algorithm every sibling board uses.
-PACK_H_BUDGET = ROW_Y - max(_disp_h.values()) / 2 - BOARD_MARGIN - MARGIN
-ORDER = [r for r in parts.keys() if r not in DISPLAY_REFS]
+# --- Everything else: real functional zones, spread across the full
+# width, instead of one tight blob in a corner (2026-09-23 rework - the
+# first pass was electrically fine but visually and practically bad: a
+# 422.9x13.4mm sliver left 90%+ of the available width completely empty,
+# meaning every trace to a far-side connector would have to cross the
+# whole board for no real reason). Two kinds of zone, same "keep a real
+# relationship short" reasoning as ecu-pcb's own 6-block schematic-Y-
+# position bucketing and thermo-pcb's analog/motor column reserves:
+#
+# 1. LOCAL clusters: each display's own immediate support parts
+#    (backlight resistor/decoupling cap, and for the speedo, its whole
+#    BT817AQ+LDO+crystal subsystem) sit directly above THAT display -
+#    short real traces, and a real visual/electrical reason each display
+#    "owns" its own little cluster, not an arbitrary aesthetic split.
+# 2. CORE zones: the board-wide subsystems (power input, MCU, CAN0, the
+#    shared aux-gauge backlight switch, the 3 sender dividers) that don't
+#    belong to any one display, arranged left-to-right in the band above
+#    the local clusters.
+LOCAL_CLUSTERS = {
+    "U6": ["R6", "C17"],                                            # fuel gauge backlight
+    "U7": ["R7", "C18"],                                            # oil gauge backlight
+    "J3": ["U10", "C21", "C22", "R12", "R13", "U11", "Y2", "C23",
+           "C24", "C25", "C26", "C27", "R14", "Q3", "R15"],         # whole speedo subsystem
+    "U8": ["R8", "C19"],                                            # coolant temp backlight
+    "U9": ["R9", "C20", "R19", "R20", "C31"],                       # battery gauge backlight + divider
+}
+CORE_ZONES = [
+    ("POWER", ["J1", "F1", "Q1", "U2", "U3", "U4", "D1", "C1", "C2",
+               "C3", "C10", "C11", "C12", "L1", "R2", "R3"]),
+    ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2"]),
+    ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "J7"]),
+    ("AUX BL SWITCH", ["Q2", "R10", "R11"]),
+    ("SENSORS", ["R16", "R17", "R18", "C28", "C29", "C30"]),
+]
 
-_total_area = 0.0
-for _ref in ORDER:
-    _fp = load_footprint(parts[_ref]["footprint"])
-    _x0, _y0, _x1, _y1 = footprint_bbox(_fp)
-    _total_area += (_x1 - _x0 + MARGIN) * (_y1 - _y0 + MARGIN)
-print(f"Real total footprint area (non-display parts): {_total_area:.0f}mm^2, "
-      f"budget at target width x remaining height: "
-      f"{TARGET_W * PACK_H_BUDGET:.0f}mm^2")
+_accounted = set(DISPLAY_REFS)
+for refs in LOCAL_CLUSTERS.values():
+    _accounted.update(refs)
+for _, refs in CORE_ZONES:
+    _accounted.update(refs)
+_missing = set(parts.keys()) - _accounted
+_extra = _accounted - set(parts.keys())
+assert not _missing, f"parts in the schematic but not assigned to any zone: {sorted(_missing)}"
+assert not _extra, f"zone refs that don't exist in the schematic: {sorted(_extra)}"
 
-placed_rest, rotated_refs, used_w, used_h = best_skyline_pack(
-    ORDER, max_width=TARGET_W, margin=MARGIN)
+rotated_refs = set()
 
-# skyline_pack's own internal frame starts flush at (0, 0) - it only
-# spaces PARTS apart from each other by `margin`, it has no notion of the
-# board's own edge. Real bug caught by the first DRC run: without adding
-# BOARD_MARGIN here, every one of these parts landed with ZERO clearance
-# to the board's top edge (155 real copper_edge_clearance violations) -
-# same class of bug thermo-pcb's own build_pcb.py already fixed once
-# (see BOARD_OFFSET_X/Y's own history there), just missed on this fresh
-# port until a real DRC run caught it again.
-for ref, (x, y) in placed_rest.items():
-    placed_rel[ref] = (x + BOARD_MARGIN, y + BOARD_MARGIN)
+# 1. Local clusters, packed tightly and centered directly above their
+# own display's real X position.
+LOCAL_GAP = 4.0   # breathing room between a display connector and its own cluster
+for disp_ref, cluster_refs in LOCAL_CLUSTERS.items():
+    c_placed, c_rot, c_w, c_h = best_skyline_pack(cluster_refs, max_width=60.0, margin=MARGIN)
+    rotated_refs |= c_rot
+    disp_x0, disp_y0, disp_x1, disp_y1 = _disp_bbox[disp_ref]
+    cluster_left = _row_x[disp_ref] - c_w / 2
+    # ROW_Y is the display's own bbox CENTER (see the centering-bug fix
+    # above) - its real top edge is ROW_Y minus half its own real height,
+    # not the raw bbox y0/y1 values (which are in the footprint's own
+    # LOCAL frame, not offset from center).
+    cluster_bottom = ROW_Y - (disp_y1 - disp_y0) / 2 - LOCAL_GAP
+    for ref, (x, y) in c_placed.items():
+        placed_rel[ref] = (x + cluster_left, y + cluster_bottom - c_h)
+    print(f"  local cluster above {disp_ref}: {len(cluster_refs)} parts, "
+          f"{c_w:.1f}x{c_h:.1f}mm")
+
+# 2. Core zones, each packed tightly, then arranged left-to-right with
+# real equal spacing across the board's own full width - not hugging
+# the left edge the way a single shared skyline naturally would.
+zone_packed = []
+for name, refs in CORE_ZONES:
+    z_placed, z_rot, z_w, z_h = best_skyline_pack(refs, max_width=90.0, margin=MARGIN)
+    rotated_refs |= z_rot
+    zone_packed.append((name, refs, z_placed, z_w, z_h))
+    print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
+
+CORE_TOP_MARGIN = BOARD_MARGIN + MARGIN
+zone_total_w = sum(z_w for _, _, _, z_w, _ in zone_packed)
+zone_gap = (TARGET_W - zone_total_w) / (len(zone_packed) + 1)
+zone_gap = max(zone_gap, 8.0)  # real minimum breathing room even if this
+                                # somehow left less than 8mm between zones
+zone_x = zone_gap
+core_max_h = 0.0
+for name, refs, z_placed, z_w, z_h in zone_packed:
+    for ref, (x, y) in z_placed.items():
+        placed_rel[ref] = (x + zone_x, y + CORE_TOP_MARGIN)
+    zone_x += z_w + zone_gap
+    core_max_h = max(core_max_h, z_h)
+
+used_w = TARGET_W
+used_h = CORE_TOP_MARGIN + core_max_h
 
 board_width = max(used_w, TARGET_W) + 2 * BOARD_MARGIN
 board_height = max(used_h + MARGIN, ROW_Y + max(_disp_h.values()) / 2) + BOARD_MARGIN
+PACK_H_BUDGET = ROW_Y - max(_disp_h.values()) / 2 - BOARD_MARGIN
 if used_h > PACK_H_BUDGET:
-    print(f"NOTE: non-display parts used {used_h:.1f}mm of height, "
-          f"more than the {PACK_H_BUDGET:.1f}mm budgeted above the display "
-          f"row - board grew to {board_height:.1f}mm, past the real "
-          f"{TARGET_H:.1f}mm target (still comfortably under the "
-          f"{DASH_OPENING_H:.1f}mm hard outer opening limit if so - check "
-          f"the printed height below against that limit).")
+    print(f"NOTE: core zones used {used_h:.1f}mm of height, more than the "
+          f"{PACK_H_BUDGET:.1f}mm budgeted above the display row - board "
+          f"grew to {board_height:.1f}mm, past the real {TARGET_H:.1f}mm "
+          f"target (still comfortably under the {DASH_OPENING_H:.1f}mm hard "
+          f"outer opening limit if so - check the printed height below "
+          f"against that limit).")
 
 print(f"Board outline target: {board_width:.1f} x {board_height:.1f}mm "
       f"(real dash-opening hard limit: {DASH_OPENING_W:.1f} x {DASH_OPENING_H:.1f}mm)")
@@ -485,6 +549,108 @@ for p1, p2 in [((ox, oy), (ex, oy)), ((ex, oy), (ex, ey)),
         layer="Edge.Cuts", width=0.1))
 
 # ---------------------------------------------------------------------------
+# 6b. Back-silkscreen logo, reused near-verbatim from thermo-pcb's own
+#     build_pcb.py (same real "JessiesCars" artwork, same brand every
+#     sibling board carries - both.kicad_sym/both.png copied in from that
+#     project). B.SilkS is otherwise completely empty on this board (no
+#     back-mounted parts), same real justification as every sibling
+#     board's own logo section - see thermo-pcb's own comment for the
+#     kiutils gr_poly pitfalls (uuid must be quoted, back-layer shapes
+#     need a manual mirror) this reuses without re-deriving.
+# ---------------------------------------------------------------------------
+def load_logo_polylines(path):
+    text = open(path, encoding="utf-8").read()
+    polylines = []
+    for block in re.findall(r'\(polyline\s*\(pts(.*?)\)\s*\(stroke', text, re.S):
+        pts = [(float(m.group(1)), float(m.group(2)))
+               for m in re.finditer(r'\(xy ([\-0-9.]+) ([\-0-9.]+)\)', block)]
+        if pts:
+            polylines.append(pts)
+    return polylines
+
+PAD_CLEARANCE_MM = 1.0
+thru_hole_boxes = []
+for _fp in board.footprints:
+    _fx, _fy = _fp.position.X, _fp.position.Y
+    _fangle = _fp.position.angle or 0
+    for _pad in _fp.pads:
+        if _pad.type not in ("thru_hole", "np_thru_hole"):
+            continue
+        _lx, _ly = _pad.position.X, _pad.position.Y
+        _hw, _hh = _pad.size.X / 2, _pad.size.Y / 2
+        if _fangle == 90:
+            _ax, _ay = _fx + _ly, _fy - _lx
+            _hw, _hh = _hh, _hw
+        else:
+            _ax, _ay = _fx + _lx, _fy + _ly
+        thru_hole_boxes.append((_ax - _hw - PAD_CLEARANCE_MM, _ay - _hh - PAD_CLEARANCE_MM,
+                                 _ax + _hw + PAD_CLEARANCE_MM, _ay + _hh + PAD_CLEARANCE_MM))
+
+
+def _overlaps(bx0, by0, bx1, by1, boxes):
+    return any(bx0 < ox1 and bx1 > ox0 and by0 < oy1 and by1 > oy0 for ox0, oy0, ox1, oy1 in boxes)
+
+
+LOGO_PATH = os.path.join(HERE, "both.kicad_sym")
+logo_uuids = []
+if os.path.isfile(LOGO_PATH):
+    logo_polylines = load_logo_polylines(LOGO_PATH)
+    all_x = [x for poly in logo_polylines for x, y in poly]
+    all_y = [y for poly in logo_polylines for x, y in poly]
+    lx0, lx1, ly0, ly1 = min(all_x), max(all_x), min(all_y), max(all_y)
+    lcx, lcy = (lx0 + lx1) / 2, (ly0 + ly1) / 2
+    board_cx = BOARD_OFFSET_X + board_width / 2
+    board_cy = BOARD_OFFSET_Y + board_height / 2
+    EDGE_CLEARANCE_MM = 1.0
+
+    def _find_logo_spot(height_mm):
+        scale = height_mm / (ly1 - ly0)
+        half_w, half_h = (lx1 - lx0) * scale / 2, height_mm / 2
+        candidates = []
+        x = BOARD_OFFSET_X + half_w + EDGE_CLEARANCE_MM
+        x_end = BOARD_OFFSET_X + board_width - half_w - EDGE_CLEARANCE_MM
+        while x <= x_end:
+            y = BOARD_OFFSET_Y + half_h + EDGE_CLEARANCE_MM
+            y_end = BOARD_OFFSET_Y + board_height - half_h - EDGE_CLEARANCE_MM
+            while y <= y_end:
+                if not _overlaps(x - half_w, y - half_h, x + half_w, y + half_h, thru_hole_boxes):
+                    candidates.append((x, y))
+                y += 0.5
+            x += 0.5
+        if candidates:
+            return min(candidates, key=lambda c: (c[0] - board_cx) ** 2 + (c[1] - board_cy) ** 2) + (half_w, half_h)
+        return (board_cx, board_cy, half_w, half_h)
+
+    # Cluster's real board is much wider/shorter than any sibling's (a
+    # ~4:1 aspect ratio, driven by the real dash-opening dimensions) -
+    # thermo-pcb's own 20mm cap assumed a roughly-square board with one
+    # logo filling a modest fraction of it. Sized from the board's own
+    # real height instead, with a real, generous cap that still leaves
+    # honest clearance on every side - genuinely filling the wide empty
+    # back side, per the user's own "add silkscreening if need to fill
+    # in the space" request, not just a token logo.
+    LOGO_HEIGHT_MM = min(board_height * 0.8, 80.0)
+    for _ in range(30):
+        logo_cx, logo_cy, logo_half_w, logo_half_h = _find_logo_spot(LOGO_HEIGHT_MM)
+        if (logo_cx, logo_cy) != (board_cx, board_cy) or not thru_hole_boxes:
+            break
+        LOGO_HEIGHT_MM *= 0.9
+    scale = LOGO_HEIGHT_MM / (ly1 - ly0)
+    for poly in logo_polylines:
+        coords = [Position(round(-(x - lcx) * scale + logo_cx, 3),
+                            round(-(y - lcy) * scale + logo_cy, 3))
+                  for x, y in poly]
+        poly_uuid = str(uuid_module.uuid4())
+        logo_uuids.append(poly_uuid)
+        board.graphicItems.append(GrPoly(
+            layer="B.SilkS", coordinates=coords, width=0.05, fill="yes",
+            tstamp=poly_uuid))
+    print(f"Added {len(logo_polylines)}-polygon logo to B.SilkS from {LOGO_PATH} "
+          f"({LOGO_HEIGHT_MM:.1f}mm tall)")
+else:
+    print(f"NOTE: {LOGO_PATH} not found - skipping logo")
+
+# ---------------------------------------------------------------------------
 # 7. Verification on the IN-MEMORY board (before writing/upgrading)
 # ---------------------------------------------------------------------------
 assert len(board.footprints) == len(parts), \
@@ -543,6 +709,20 @@ for ref, (dx, dy) in ref_label_pos.items():
     count = text.count(old)
     assert count == 1, f"expected exactly 1 bare Reference property for {ref}, found {count}"
     text = text.replace(old, new, 1)
+
+# Same kiutils-output-doesn't-match-real-KiCad problem as Reference above,
+# different token: each back-silkscreen logo polygon's uuid was set via
+# GrPoly's `tstamp` field, which kiutils writes as a bare, UNQUOTED
+# `(tstamp xxxx)` - not the quoted `(uuid "xxxx")` a real KiCad-written
+# gr_poly has (and which kicad-cli SEGFAULTS without, per thermo-pcb's
+# own history of this exact patch).
+for poly_uuid in logo_uuids:
+    old_tstamp = f"(tstamp {poly_uuid})"
+    new_uuid = f'(uuid "{poly_uuid}")'
+    count = text.count(old_tstamp)
+    assert count == 1, f"expected exactly 1 logo-polygon tstamp token for {poly_uuid}, found {count}"
+    text = text.replace(old_tstamp, new_uuid, 1)
+
 open(PCB, "w", encoding="utf-8").write(text)
 print(f"Repositioned {len(ref_label_pos)} Reference labels clear of their own footprints")
 

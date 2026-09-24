@@ -22,16 +22,15 @@ board's *finished* schematic carries (power pins ERC can't trace
 through a passive; SWCLK driven off-sheet by the debug probe) — zero
 unexpected results, zero guessed pins or values anywhere in the file.
 
-**PCB is placed and routed as of 2026-09-23** (see "PCB layout" below
-for the full placement history). `route_board.py` (new this session,
-adapted from `thermo-pcb`'s own FreeRouting DSN/SES pipeline) got
-251/252 nets on the first real routing pass; one net (`AUX_DC3`,
-`U9` pin 13 to `U1` pin 24) needs a short hand-route in pcbnew before
-this board is real — same class of outcome `thermo-pcb`'s own history
-shows on a 0.5mm-pitch-pad board. `kicad-cli pcb drc` on the routed
-board is clean except the same documented categories the unrouted
-board already had, plus that one expected `unconnected_items` finding
-— nothing new introduced by routing itself.
+**PCB is placed and fully routed as of 2026-09-23** (see "PCB layout"
+below for the full placement history). `route_board.py` (new this
+session, adapted from `thermo-pcb`'s own FreeRouting DSN/SES pipeline)
+got **252/252 nets, 0 unrouted**, on a clean regenerate-and-route
+cycle (FreeRouting is stochastic — an earlier attempt landed 251/252
+with one net needing a hand-route; re-exporting the board and routing
+again converged fully). `kicad-cli pcb drc` on the routed board is
+clean except the same documented categories the unrouted board
+already had — nothing new introduced by routing itself.
 
 **Not started yet:** the real contoured board outline (currently a
 plain rectangle) and BOM. Also still open: the physical bezel
@@ -333,7 +332,7 @@ follows the module's own documented bit order, not a guess.
    rectangle — the real housing has a scalloped/contoured profile, not
    a rectangle), and BOM.
 
-4. **PCB routing: done 2026-09-23, 251/252 nets, DRC-clean.**
+4. **PCB routing: done 2026-09-23, 252/252 nets, DRC-clean.**
    `route_board.py` (new this session) follows the same real 4-step
    pipeline every sibling board's own routing uses: export a Specctra
    `.dsn` via `pcbnew.ExportSpecctraDSN` (KiCad's own bundled Python,
@@ -345,16 +344,19 @@ follows the module's own documented bit order, not a guess.
    up to 0.6mm wherever room allows, then pour + fill GND (`In1.Cu`)
    and `+3V3` (`In2.Cu`) zones.
 
-   FreeRouting converged to 251/252 nets on its very first pass
-   (started at 252 unrouted, finished in 22 auto-router passes/~110s);
-   6 retry attempts all landed on the same single stuck net,
-   `AUX_DC3` (`U9` pin 13 → `U1` pin 24) — real stochastic-autorouter
-   congestion around this board's own 0.5mm-pitch parts (`U1` S32K144
-   LQFP-64, `U2` LMR33630-Q1 VQFN, `U11` BT817AQ QFN-64, plus the 5
-   0.5mm-pitch FPC display connectors), the same class of outcome
-   `thermo-pcb`'s own routing history shows. **That one net needs a
-   short hand-route in pcbnew before this board is real** — everything
-   else is genuinely done.
+   FreeRouting is stochastic (randomized restarts internally, and its
+   own RNG behavior tracks the exact board/DSN content, so even a
+   cosmetic regenerate reshuffles the outcome). First real cycle
+   converged 0 unrouted outright (22 passes, ~110s). A later cycle (on
+   a board regenerated to fix the page-size bug below) landed 251/252,
+   with `AUX_DC3` (`U9` pin 13 → `U1` pin 24) stuck across 6 retries —
+   real autorouter congestion around this board's own 0.5mm-pitch
+   parts (`U1` S32K144 LQFP-64, `U2` LMR33630-Q1 VQFN, `U11` BT817AQ
+   QFN-64, plus the 5 0.5mm-pitch FPC display connectors), same class
+   of outcome `thermo-pcb`'s own routing history shows. Regenerating
+   and re-routing once more (no code change, just a fresh DSN export)
+   converged fully again: **252/252, 0 unrouted.** Board is genuinely
+   done, no hand-routing needed.
 
    A real bug was found and fixed while verifying the routed result,
    not by DRC (DRC has no opinion on drawing-sheet size): `build_pcb.py`

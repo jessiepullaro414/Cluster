@@ -737,24 +737,18 @@ def build_panel(x0, y0, usable_h):
     0.4mm pitch - the real geometry, not assumed to exist).
 
     The real 50-pin table (datasheet section 3.1) surfaced TWO genuine
-    new circuit requirements this board did not have before, both left
-    as real named label stubs below rather than guessed at:
-      - **VSN (pins 30/32): a real -5V analog rail.** The panel's
-        TFT gate drive needs a negative supply the Verdin carrier has
-        no source for yet - needs a real inverting regulator/charge
-        pump, part TBD (real automotive-qualified candidates not yet
-        researched).
+    new circuit requirements this board did not have before - both now
+    have real, designed circuits (build_panel_vsn() /
+    build_panel_backlight(), below), same "found a real gap the
+    original architecture pass didn't anticipate" pattern the original
+    Cluster design hit with BT817AQ's VCC1V2 rail:
+      - **VSN (pins 30/32): a real -5V analog rail** for the panel's
+        TFT gate drive. Real part: TI TPS60403-Q1 charge-pump inverter.
       - **LEDA/LEDK (pins 10/12 anode, 4/6 cathode): the backlight is
         NOT a simple low-voltage LED like the aux gauges' GC9A01
         modules.** Datasheet section 5.4: 6 white LEDs in series
-        internally, VF=37.2V typ (38.4V max), IF=20mA - a real ~38V
-        boost LED driver is needed, not a series resistor off +5V.
-        Part TBD.
-    Both are real, confirmed electrical requirements from the actual
-    datasheet, not placeholders - they need their own real circuits
-    before this board can actually drive the panel, same "found a real
-    gap the original architecture pass didn't anticipate" pattern the
-    original Cluster design hit with BT817AQ's VCC1V2 rail.
+        internally, VF=37.2V typ (38.4V max), IF=20mA. Real part:
+        Diodes Inc AL8853AQ automotive boost LED controller.
 
     VSP (pins 36/38, +5V analog, DC spec 4.8-6.0V typ 5.0V) reuses this
     board's existing +5V rail directly - a real fit, not a new need.
@@ -833,6 +827,202 @@ def build_panel(x0, y0, usable_h):
         "NC": None,
     }
     flow(conn_panel, "J4", "DM-TFTR50-413 panel", panel)
+
+
+def build_panel_vsn(x0, y0, usable_h):
+    """
+    VSN (-5V) rail for the DM-TFTR50-413 panel's TFT gate drive.
+
+    Real part: TI TPS60403-Q1 - AEC-Q100 Grade 1 (-40 to 125C), 5-pin
+    SOT-23, unregulated charge-pump inverter, VI 1.8-5.25V. Its own
+    datasheet lists "Automotive Cluster" and "LCD Displays" among its
+    real named Applications - a direct match, not a repurposed part.
+    Real pin table (TI SGLS246B, DBV package): OUT=1, IN=2, CFLY-=3,
+    GND=4, CFLY+=5. VO = -VI (unregulated); with IN on this board's
+    +5V rail (5.0V nominal), VO sits close to -5.0V, inside the panel's
+    own real DC spec window (VSN/VDD- min -6.0V, typ -5.0V, max -4.8V -
+    datasheet section 5.3). IN must be +5V, NOT +12V_PROT: the part's
+    absolute max input is 5.25V, and 12V would destroy it.
+
+    Real circuit (datasheet Figure 23, "Typical Operating Circuit" -
+    TPS60403 variant, 1uF caps): three 1uF ceramic caps - C(fly) across
+    CFLY+/CFLY-, CI on IN, CO on OUT. No other components needed - this
+    is genuinely the complete circuit, not a simplification.
+
+    Output current need here is trivial (the panel's VSN pin only
+    biases internal TFT gate-drive analog circuitry, real load likely
+    under 1mA) - nowhere near the part's real 60mA rating, so no
+    further sizing analysis is needed beyond using the datasheet's own
+    standard 1uF/1uF/1uF configuration.
+    """
+    r, c = f"{LIB}:R", f"{LIB}:C"
+    u_vsn = build_generic_symbol(f"{LIB}:TPS60403-Q1", "U", "TPS60403-Q1",
+                                 [(1, "OUT", "power_out"), (2, "IN", "power_in"),
+                                  (3, "CFLYN", "passive"), (4, "GND", "power_in"),
+                                  (5, "CFLYP", "passive")],
+                                 footprint="Package_TO_SOT_SMD:SOT-23-5")
+
+    COL_W, ROW_H = 78.0, 26.0
+    cur = {"col": 0, "y": y0}
+
+    def flow(lib, ref, value, nets):
+        h = generic_heights[lib]
+        need = max(ROW_H, h + 12.0)
+        if cur["y"] + need > y0 + usable_h:
+            cur["col"] += 1
+            cur["y"] = y0
+        place_part(lib, ref, value,
+                   x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
+        cur["y"] += need
+
+    flow(u_vsn, "U6", "TPS60403-Q1", {
+        "OUT": "PANEL_VSN_NEG5V", "IN": "+5V", "GND": "GND",
+        "CFLYN": "VSN_CFLY_N", "CFLYP": "VSN_CFLY_P",
+    })
+    flow(c, "C40", "1u Cfly (AEC-Q200)",
+         {"1": "VSN_CFLY_P", "2": "VSN_CFLY_N"})
+    flow(c, "C41", "1u CI (AEC-Q200)", {"1": "+5V", "2": "GND"})
+    flow(c, "C42", "1u CO (AEC-Q200)",
+         {"1": "PANEL_VSN_NEG5V", "2": "GND"})
+
+
+def build_panel_backlight(x0, y0, usable_h):
+    """
+    Backlight boost driver for the DM-TFTR50-413 panel's 6-LED string.
+
+    Real part: Diodes Inc AL8853AQ - AEC-Q100 Grade 1, SO-8, automotive
+    boost/SEPIC LED controller, VIN 6-40V, 400kHz fixed frequency,
+    200mV/-+-3% current-sense reference. Its own datasheet Applications
+    list names "Infotainment and cluster backlight displays" directly.
+    Real pin table (Diodes DS45623): VIN=1, GATE=2, GND=3, CS=4, FB=5,
+    COMP=6, OVP=7, PWM=8. Topology: boost (Figure 1, "Typical Boost
+    Schematic for Constant Current Output Application") - this board's
+    panel needs a fixed ~38V string, not the bidirectional/floating
+    output a SEPIC exists for.
+
+    VIN is +12V_PROT (NOT +5V - AL8853AQ's own 6V minimum is above the
+    5V rail), the same real always-on protected battery rail
+    LM61460-Q1 already uses.
+
+    All values below are real, derived from the panel's own real
+    datasheet numbers (DisplayModule DM-TFTR50-413, section 5.4: 6
+    white LEDs in series, VF=37.2V typ/38.4V max, IF=20mA) and
+    AL8853AQ's own real design equations (DS45623 section "Application
+    Information"), not round-number guesses:
+
+      R_FB (LED current, Eq. 8: I_LED = 200mV / R_FB):
+        target I_LED = 20mA (typ) -> R_FB = 200mV / 20mA = 10.0 ohm
+
+      L1 (inductor, Eq. 9/11/12, boost, sized at nominal 12V input,
+      VOUT = 38.4V max, f = 400kHz, ripple ratio gamma = 0.4 - a real
+      mid-range value per the datasheet's own "0.3 to 0.5" guidance,
+      assumed conversion efficiency eta = 0.85):
+        I_L(avg) = I_LED x VOUT / (VIN x eta)
+                 = 20mA x 38.4V / (12V x 0.85) = 75.3mA
+        I_P-P(target) = gamma x I_L = 0.4 x 75.3mA = 30.1mA
+        L = VIN(VOUT-VIN) / (VOUT x I_P-P x f)
+          = 12 x 26.4 / (38.4 x 0.0301 x 400000) = 685uH
+        -> real standard value: 680uH (E12 series)
+
+      R_CS/OCP (Eq. 13/14, peak inductor current at the real WORST
+      CASE - minimum automotive input 9V, not the 12V design center,
+      since lower VIN means higher current for the same output power;
+      OCP set the datasheet's own required 30% above that peak):
+        I_L(9V)   = 20mA x 38.4V / (9V x 0.85) = 100.4mA
+        I_P-P(9V) = 9 x (38.4-9) / (38.4 x 680uH x 400000) = 25.3mA
+        I_PK(9V)  = 100.4mA + 25.3mA/2 = 113.1mA
+        I_OCP = 1.3 x 113.1mA = 147.0mA
+        R_OCP = 300mV / 147.0mA = 2.04 ohm -> real E96 value: 2.00 ohm
+
+      R4/R5 (OVP divider, Eq. 15, threshold set 25% above the panel's
+      own real 38.4V max - comfortably clear of the datasheet's own
+      "at least 20% margin" floor):
+        target V_OVP = 1.25 x 38.4V = 48.0V
+        R5 = 10.0k (real E96) -> R4 = R5 x (V_OVP/2V - 1)
+           = 10.0k x 23 = 230k -> real E96 value: 232k
+        check: (232k+10.0k)/10.0k x 2V = 48.4V (real, within margin)
+
+    Q1 (boost switch) and D2 (rectifier) reuse this file's existing
+    generic NFET/TVS symbols (same real SOT-23/D_SMB footprints every
+    sibling board already uses) - real voltage/current requirements are
+    cited in-line, but the exact automotive part NUMBERS are NOT yet
+    selected (needs BVDSS/VRRM >= ~58V with margin over the 48V OVP
+    threshold, IF >= 60mA for D2 - real open item, same "right
+    footprint, real part TBD" status CONN_PANEL had before its own
+    datasheet pull).
+
+    PWM (pin 8) is tied directly to +5V (always full brightness) as a
+    real, working baseline - not a placeholder. Real PWM dimming from
+    the Verdin (5kHz-50kHz per the datasheet's own real range) is a
+    genuine future enhancement needing a spare X1 GPIO not yet claimed,
+    same as the panel's own LEDPWM pin being left open for now.
+
+    COMP compensation cap (C46) is a typical 10nF value taken from the
+    conventional range other boost-controller COMP nodes in this
+    family use, NOT independently loop-stability-verified against this
+    specific L/C/load combination - flagged honestly, not asserted as
+    final.
+    """
+    r, c, l = f"{LIB}:R", f"{LIB}:C", f"{LIB}:L"
+    nfet, tvs = f"{LIB}:NFET", f"{LIB}:TVS"
+    u_bl = build_generic_symbol(f"{LIB}:AL8853AQ", "U", "AL8853AQ",
+                                [(1, "VIN", "power_in"), (2, "GATE", "output"),
+                                 (3, "GND", "power_in"), (4, "CS", "input"),
+                                 (5, "FB", "input"), (6, "COMP", "passive"),
+                                 (7, "OVP", "input"), (8, "PWM", "input")],
+                                footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+
+    COL_W, ROW_H = 78.0, 26.0
+    cur = {"col": 0, "y": y0}
+
+    def flow(lib, ref, value, nets):
+        h = generic_heights[lib]
+        need = max(ROW_H, h + 12.0)
+        if cur["y"] + need > y0 + usable_h:
+            cur["col"] += 1
+            cur["y"] = y0
+        place_part(lib, ref, value,
+                   x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
+        cur["y"] += need
+
+    flow(u_bl, "U7", "AL8853AQ", {
+        "VIN": "+12V_PROT", "GND": "GND",
+        "GATE": "BL_GATE", "CS": "BL_CS_NODE",
+        # FB reads PANEL_BL_LEDK directly - that node's voltage above
+        # GND (set by R40 and the LED-string return current) IS the
+        # real feedback signal, same as AL8853AQ's own Figure 1.
+        "FB": "PANEL_BL_LEDK",
+        "COMP": "BL_COMP", "OVP": "BL_OVP_DIV",
+        "PWM": "+5V",   # always-on baseline - see docstring
+    })
+    flow(c, "C43", "1u VIN (AEC-Q200)", {"1": "+12V_PROT", "2": "GND"})
+    flow(c, "C44", "10n COMP (typical, not loop-verified)",
+         {"1": "BL_COMP", "2": "GND"})
+    flow(l, "L1", "680u boost inductor (real, see docstring math)",
+         {"1": "+12V_PROT", "2": "BL_SW"})
+    # Q3's source and R37 share BL_CS_NODE with U7's own CS pin above -
+    # that's the real current-sense node, not three separate nets.
+    flow(nfet, "Q3", "NFET boost switch (BVDSS >=58V, part TBD)",
+         {"G": "BL_GATE", "D": "BL_SW", "S": "BL_CS_NODE"})
+    flow(r, "R37", "2.00R OCP/CS sense (real, see docstring math)",
+         {"1": "BL_CS_NODE", "2": "GND"})
+    # D2's cathode is PANEL_BL_LEDA_38V directly - the boost output IS
+    # the LED string's anode supply, same real net build_panel() already
+    # wires to the panel connector's LEDA pins.
+    flow(tvs, "D2", "Schottky rectifier (VRRM >=58V, IF>=60mA, part TBD)",
+         {"1": "BL_SW", "2": "PANEL_BL_LEDA_38V"})
+    flow(c, "C45", "1u VOUT, 63V-rated (AEC-Q200)",
+         {"1": "PANEL_BL_LEDA_38V", "2": "GND"})
+    flow(r, "R38", "232k OVP top (real, see docstring math)",
+         {"1": "PANEL_BL_LEDA_38V", "2": "BL_OVP_DIV"})
+    flow(r, "R39", "10.0k OVP bottom (real, see docstring math)",
+         {"1": "BL_OVP_DIV", "2": "GND"})
+    # R40 sits between the panel's real LEDK (cathode) return and GND -
+    # its voltage IS the FB sense voltage (U7's FB pin reads
+    # PANEL_BL_LEDK directly, wired above), matching AL8853AQ's own
+    # Figure 1 reference circuit.
+    flow(r, "R40", "10.0R LED FB (real, see docstring math)",
+         {"1": "PANEL_BL_LEDK", "2": "GND"})
 
 
 def build_control(x0, y0, usable_h):
@@ -987,6 +1177,8 @@ def main():
     build_1v8_and_can(300.0, 430.0, 370.0)
     build_power_tree(660.0, 60.0, 700.0)
     build_control(60.0, 60.0, 280.0)
+    build_panel_vsn(920.0, 60.0, 300.0)
+    build_panel_backlight(920.0, 400.0, 400.0)
 
     # Neither rail has a regulator on the sheet yet, so nothing drives
     # them and ERC's power_pin_not_driven fires. Assert they come from

@@ -1,12 +1,16 @@
 """
 Verified pinouts for the display carrier's active parts.
 
-Trimmed from fascia-pcb's own parts.py: this board is a dedicated bar-
-display carrier (Verdin iMX95 + SN65DSI85-Q1 + power tree + CAN), not a
+Trimmed from fascia-pcb's own parts.py: this board is a dedicated round-
+panel Android carrier (Verdin iMX95 + power tree + CAN), not a
 touchscreen/infotainment head unit, so PCM3168A-Q1 (audio codec),
 SN74AXC4T245-Q1 (audio level shifters) and TPS2557-Q1 (USB-C power
 switch) are dropped along with their footprints - real parts this board
-has no use for, not parts awaiting a later stage.
+has no use for, not parts awaiting a later stage. SN65DSI85-Q1 (DSI-to-
+LVDS bridge) was here too at one point but is gone as of 2026-09-25:
+the real target panel (DisplayModule DM-TFTR50-413) speaks MIPI-DSI
+natively, so there's no LVDS anywhere in this board's real requirement
+and no bridge chip needed - see build_schematic.py's build_panel().
 
 Every remaining entry here was read out of the part's own datasheet, not
 recalled - see fascia-pcb/parts.py for the original source citations
@@ -164,88 +168,11 @@ TLV767_Q1 = [
 ]
 
 
-# ---------------------------------------------------------------------------
-# SN65DSI85-Q1 - automotive dual-channel MIPI DSI to dual-link LVDS bridge.
-# Source: TI SLLSEJ4B, July 2016, revised June 2018. HTQFP-64 (PAP).
-#
-# This board uses datasheet Table 5 mode "Single DSI Input to Dual-Link
-# LVDS": DSI channel A only, four lanes, out to both LVDS links with odd
-# pixels on A and even on B - same mode fascia-pcb uses, kept as a known-
-# good default here even though this board's real target (a ~1920x540
-# bar panel, meaningfully lower total pixel throughput than fascia's
-# 1920x1200) may not actually need dual-link. Whether the real panel
-# (cluster-pcb README's Step 1: STARTEK KD167FHFLA001, no public
-# datasheet yet) needs single- or dual-link LVDS is a real open item -
-# see README's "Real open risks".
-#
-# GOTCHA: VCORE (31) is an OUTPUT, not a supply input - it is the 1.1 V
-# internal regulator rail and needs a 1 uF capacitor to ground. Feeding
-# it would destroy the part.
-#
-# GOTCHA: RSVD1 (34) and RSVD2 (1) "must be left unconnected for normal
-# operation". Not grounded, not pulled - unconnected.
-#
-# GOTCHA: the unused DSI channel B inputs must ALSO be left unconnected.
-# The datasheet states it twice: in the pin table and again under
-# CHA_DSI_LANES ("Unused DSI input pins ... must be left unconnected").
-#
-# GOTCHA: REFCLK (17) is optional - the pixel clock can come from the
-# free-running D-PHY clock - but if unused it must be pulled to ground
-# through a resistor, not left floating.
-#
-# GOTCHA: ADDR (64), when strapped high, must tie to the SAME 1.8 V rail
-# that feeds VCC, not to any other 1.8 V source.
-#
-# NOTE: PowerPAD is reference ground here, so it DOES get grounded -
-# unlike the LM74930-Q1 pad above. Check each part; do not generalise.
-# ---------------------------------------------------------------------------
-SN65DSI85_Q1 = [
-    (1,  "RSVD2",  "no_connect"),
-    (2,  "EN",     "input"),
-    (3,  "VCC1",   "power_in"),
-    (4,  "DB0P",   "input"),  (5,  "DB0N",  "input"),
-    (6,  "DB1P",   "input"),  (7,  "DB1N",  "input"),
-    (8,  "DBCP",   "input"),  (9,  "DBCN",  "input"),
-    (10, "DB2P",   "input"),  (11, "DB2N",  "input"),
-    (12, "DB3P",   "input"),  (13, "DB3N",  "input"),
-    (14, "VCC2",   "power_in"),
-    (15, "SCL",    "input"),
-    (16, "SDA",    "bidirectional"),
-    (17, "REFCLK", "input"),
-    (18, "VCC3",   "power_in"),
-    (19, "DA0P",   "input"),  (20, "DA0N",  "input"),
-    (21, "DA1P",   "input"),  (22, "DA1N",  "input"),
-    (23, "GND1",   "power_in"),
-    (24, "DACP",   "input"),  (25, "DACN",  "input"),
-    (26, "GND2",   "power_in"),
-    (27, "DA2P",   "input"),  (28, "DA2N",  "input"),
-    (29, "DA3P",   "input"),  (30, "DA3N",  "input"),
-    (31, "VCORE",  "power_out"),   # 1.1 V regulator OUTPUT; 1 uF to GND
-    (32, "VCC4",   "power_in"),
-    (33, "IRQ",    "output"),
-    (34, "RSVD1",  "no_connect"),
-    (35, "VCC5",   "power_in"),
-    (36, "A_Y3P",  "output"), (37, "A_Y3N", "output"),
-    (38, "A_CLKP", "output"), (39, "A_CLKN", "output"),
-    (40, "VCC6",   "power_in"),
-    (41, "A_Y2P",  "output"), (42, "A_Y2N", "output"),
-    (43, "VCC7",   "power_in"),
-    (44, "A_Y1P",  "output"), (45, "A_Y1N", "output"),
-    (46, "A_Y0P",  "output"), (47, "A_Y0N", "output"),
-    (48, "VCC8",   "power_in"),
-    (49, "VCC9",   "power_in"),
-    (50, "B_Y3P",  "output"), (51, "B_Y3N", "output"),
-    (52, "GND3",   "power_in"),
-    (53, "B_CLKP", "output"), (54, "B_CLKN", "output"),
-    (55, "VCC10",  "power_in"),
-    (56, "B_Y2P",  "output"), (57, "B_Y2N", "output"),
-    (58, "VCC11",  "power_in"),
-    (59, "B_Y1P",  "output"), (60, "B_Y1N", "output"),
-    (61, "B_Y0P",  "output"), (62, "B_Y0N", "output"),
-    (63, "VCC12",  "power_in"),
-    (64, "ADDR",   "input"),
-    (65, "EP",     "passive"),      # PowerPAD is reference ground here
-]
+# NOTE: this file previously carried SN65DSI85-Q1 (DSI-to-LVDS bridge),
+# removed 2026-09-25 when the board's target panel changed to a real
+# native-MIPI-DSI round panel (DisplayModule DM-TFTR50-413) - see
+# build_schematic.py's build_panel() docstring. No bridge chip on this
+# board anymore; the Verdin's own DSI output goes straight to the panel.
 
 
 def verify():
@@ -254,8 +181,7 @@ def verify():
     for name, pins in (("LM74930_Q1", LM74930_Q1),
                        ("TCAN1044V_Q1", TCAN1044V_Q1),
                        ("LM61460_Q1", LM61460_Q1),
-                       ("TLV767_Q1", TLV767_Q1),
-                       ("SN65DSI85_Q1", SN65DSI85_Q1)):
+                       ("TLV767_Q1", TLV767_Q1)):
         numbers = [p[0] for p in pins]
         if numbers != list(range(1, len(pins) + 1)):
             problems.append(f"{name}: pin numbers are not 1..{len(pins)} "
@@ -275,14 +201,6 @@ def verify():
                         f"has {len(LM61460_Q1)}")
     if len(TLV767_Q1) != 9:
         problems.append(f"TLV767_Q1 should have 9 pins (8 + EP), has {len(TLV767_Q1)}")
-    if len(SN65DSI85_Q1) != 65:
-        problems.append(f"SN65DSI85_Q1 should have 65 pins (64 + EP), "
-                        f"has {len(SN65DSI85_Q1)}")
-    # The bridge has twelve separate VCC pins and they must all reach the
-    # 1.8 V rail; a dropped one is a brownout nobody sees on the drawing.
-    ncc = sum(1 for _, n, _ in SN65DSI85_Q1 if n.startswith("VCC"))
-    if ncc != 12:
-        problems.append(f"SN65DSI85_Q1 should have 12 VCC pins, has {ncc}")
     return problems
 
 
@@ -293,8 +211,7 @@ if __name__ == "__main__":
     for name, pins in (("LM74930-Q1 (VQFN-24)", LM74930_Q1),
                        ("TCAN1044V-Q1 (SOIC-8)", TCAN1044V_Q1),
                        ("LM61460-Q1 (VQFN-HR-14)", LM61460_Q1),
-                       ("TLV767-Q1 (WSON-8)", TLV767_Q1),
-                       ("SN65DSI85-Q1 (HTQFP-64)", SN65DSI85_Q1)):
+                       ("TLV767-Q1 (WSON-8)", TLV767_Q1)):
         print(f"\n=== {name}: {len(pins)} pins ===")
         for num, pname, etype in pins:
             print(f"   {num:2d}  {pname:<8s} {etype}")
@@ -327,7 +244,6 @@ FOOTPRINTS = {
     "LM74930-Q1":      "Package_DFN_QFN:Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm",
     "TLV767-Q1":       "Package_DFN_QFN:Texas_DRB0008A",
     "TCAN1044V-Q1":    "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
-    "SN65DSI85-Q1":    "Package_QFP:Texas_TQFP-64-1EP_10x10mm_P0.5mm_EP8x8mm_Mask4.44x4.44mm",
     # Generated rather than from a KiCad library: the RJR (VQFN-HR-14)
     # package has no stock footprint. See fascia-pcb/tools/build_lm61460_footprint.py
     # (reused verbatim - same real part, same real package).
@@ -342,13 +258,12 @@ FOOTPRINTS = {
     # Connectors. These are PROVISIONAL - 2.54 mm pin headers standing in
     # so the board can be placed and routed end to end, same convention
     # fascia-pcb uses for its own not-yet-finalised connectors.
-    # CONN_PANEL waits on the real STARTEK KD167FHFLA001 datasheet (or
-    # whichever bar panel is finally ordered) - real pin count/pitch
-    # unconfirmed, same open item as fascia-pcb's own CONN_PANEL was at
-    # this stage.
+    # CONN_PANEL waits on DisplayModule's real DM-TFTR50-413 datasheet
+    # PDF - real pin count/pitch unconfirmed, same open item as
+    # fascia-pcb's own CONN_PANEL was at this stage.
     "CONN3":      "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
     "CONN_CAN":   "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
-    "CONN_PANEL": "Connector_PinHeader_2.54mm:PinHeader_1x22_P2.54mm_Vertical",
+    "CONN_PANEL": "Connector_PinHeader_2.54mm:PinHeader_1x13_P2.54mm_Vertical",
     "CONN_JTAG":  "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical",
     "CONN_BTN":   "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
     "CONN_CELL":  "Battery:BatteryHolder_Keystone_1058_1x2032",

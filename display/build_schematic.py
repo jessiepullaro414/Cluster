@@ -7,30 +7,46 @@ The display-carrier half of Cluster's Android Automotive re-architecture
 C:\\Users\\root\\.claude\\plans\\replicated-floating-tiger.md). Ported from
 fascia-pcb/build_schematic.py - same real Verdin iMX95 SoM, same real
 power tree (LM74930-Q1 + LM61460-Q1 + TLV767-Q1), same real CAN
-transceiver (TCAN1044V-Q1) and DSI-to-LVDS bridge (SN65DSI85-Q1) - with
-fascia's touchscreen-specific subsystems (PCAP touch, USB-C, the
-PCM3168A-Q1 audio codec + level shifters) removed: this board drives a
-single wide "bar-type" panel for a gauge cluster, not a 10.1" infotainment
-touchscreen, so none of that circuitry applies. Same script-driven
-discipline as every sibling project: this script is the source of truth,
-never hand-edit the generated .kicad_sch/.kicad_sym.
+transceiver (TCAN1044V-Q1) - with fascia's touchscreen-specific
+subsystems (PCAP touch, USB-C, the PCM3168A-Q1 audio codec + level
+shifters) removed, AND fascia's own SN65DSI85-Q1 DSI-to-LVDS bridge
+removed too: this board drives ONE round MIPI-DSI panel behind the
+dash's center opening (real target: DisplayModule DM-TFTR50-413, 5.0",
+1080x1080, native MIPI-DSI, HX8399 driver - a real, orderable, bigger
+round panel per the user's own "find a slightly larger round display
+... to maximize" request), and that panel speaks DSI natively, so
+converting to LVDS and back would be pure overhead fascia's own board
+needed (its target panel was LVDS-only) and this one doesn't. Same
+script-driven discipline as every sibling project: this script is the
+source of truth, never hand-edit the generated .kicad_sch/.kicad_sym.
+
+RE-SCOPED 2026-09-25 (second time this board changed shape): first from
+fascia's 10.1" rectangle to a wide bar panel (based on a real i.MX 95
+display-pipe-count finding), then from the bar panel to a single round
+panel once the user clarified the real intent - restomod, round
+displays in the original round openings, with Android specifically on
+the CENTER display (the i.MX 95 still only has 1 DSI + 1 LVDS pipe, so
+it was never going to drive all 5 - see gauges/build_schematic.py for
+where the other 4 round displays live now, wired locally, no OS).
 
 Current stage: the Verdin iMX95 X1 module connector, the 12 V automotive
 front end, the 5 V buck, the 1.8 V LDO, the CAN link (to ecu-pcb and to
-Cluster's own sensor companion board, not yet built), the SN65DSI85-Q1
-DSI-to-LVDS bridge with a provisional bar-panel connector, and control/
-JTAG/RTC. The real bar panel (README Step 1: STARTEK KD167FHFLA001
-candidate, 16.7", 1920x540, LVDS - no public datasheet found yet) isn't
-finalised, so CONN_PANEL's pin count/pitch is provisional, same situation
-fascia-pcb's own CONN_PANEL was in at this stage.
+gauges/'s own S32K144, which needs Android's aggregated gauge data
+pushed to it - the user's own request, "the other displays need to get
+data from android ... lets add some way for them to communicate"), a
+direct MIPI-DSI panel connector (no bridge chip - see build_panel()'s
+own docstring for why), and control/JTAG/RTC. CONN_PANEL's exact pin
+count/pitch is still provisional pending DisplayModule's real datasheet
+PDF, same "real part, provisional connector" situation fascia-pcb's own
+CONN_PANEL was in at this stage.
 
 What IS final at this stage:
   - all 260 X1 pins exist, banked into 5 units by verdin_x1.py (this
     board's own banking - CAN only in the comms bank, no touch/audio)
   - every GND pin is tied to ground, every VCC pin to the +5V rail
   - every pin this board does not use carries a real NoConnect item
-  - LM74930-Q1, LM61460-Q1, TLV767-Q1, TCAN1044V-Q1 and SN65DSI85-Q1 are
-    all fully wired, every pin netted or NoConnected
+  - LM74930-Q1, LM61460-Q1, TLV767-Q1 and TCAN1044V-Q1 are all fully
+    wired, every pin netted or NoConnected
   - the module's CAN and full DSI link reach their destinations
 """
 import json
@@ -96,8 +112,11 @@ X1_NETS = {
     "DSI_1_D2_P": "DSI_D2_P", "DSI_1_D2_N": "DSI_D2_N",
     "DSI_1_D3_P": "DSI_D3_P", "DSI_1_D3_N": "DSI_D3_N",
     "DSI_1_CLK_P": "DSI_CLK_P", "DSI_1_CLK_N": "DSI_CLK_N",
-    "I2C_2_DSI_SDA": "DSI_I2C_SDA", "I2C_2_DSI_SCL": "DSI_I2C_SCL",
-    "GPIO_9_DSI": "DSI_BRIDGE_EN",
+    # I2C_2_DSI_SDA/SCL dropped: that was the SN65DSI85-Q1 bridge's own
+    # config bus, and there is no bridge on this board anymore (direct
+    # DSI to the panel - see build_panel()'s own docstring). They fall
+    # through to bank C's genuinely-unused pins.
+    "GPIO_9_DSI": "DSI_PANEL_EN",
     # Control and sequencing.
     "CTRL_PWR_EN_MOCI":  "PWR_EN_MOCI",
     "CTRL_RESET_MOCI#":  "RESET_MOCI",
@@ -690,31 +709,49 @@ def build_1v8_and_can(x0, y0, usable_h):
          {"CANH": "CAN1_H", "CANL": "CAN1_L", "GND": "GND"})
 
 
-def build_bridge(x0, y0, usable_h):
+def build_panel(x0, y0, usable_h):
     """
-    SN65DSI85-Q1 DSI-to-LVDS bridge and the panel connector.
+    Direct MIPI-DSI panel connector - NO bridge chip.
 
-    Configured for datasheet Table 5 "Single DSI Input to Dual-Link
-    LVDS": DSI channel A, four lanes, out to both LVDS links with odd
-    pixels on A and even on B. Channel B's DSI inputs are therefore
-    unused, and the datasheet is explicit that they must be left
-    UNCONNECTED rather than tied off - so they get NoConnect items.
+    RE-SCOPED 2026-09-25: the target panel is now DisplayModule
+    DM-TFTR50-413 (5.0", 1080x1080, real MIPI-DSI interface, HX8399
+    driver, $119, real datasheet available - a much bigger real round
+    panel than the original 2.1" BH021WVC02, per the user's "find a
+    slightly larger round display ... to maximize" request now that the
+    faceplate is custom anyway). Because this panel speaks DSI natively,
+    fascia-pcb's own reason for the SN65DSI85-Q1 bridge (its target
+    panel was LVDS-only, and needed a resolution above the Verdin
+    module's native LVDS ceiling) simply doesn't apply here - there is
+    no LVDS anywhere in this board's real requirement. Wiring the
+    Verdin's own DSI_1_* X1 pins straight to the panel is both simpler
+    (one fewer real IC, no VCORE/REFCLK/bypass network) and more direct
+    than converting to LVDS and back to a digital panel that never
+    wanted LVDS in the first place. Real DSI panels are also configured
+    over the DSI link itself (command-mode packets), not a separate I2C
+    bus the way the SN65DSI85-Q1 needed - so DSI_I2C_SDA/SCL (bridge-
+    config-only pins) are dropped from this board's X1_NETS entirely
+    (see verdin_x1.py/main() - they now fall through to bank C's
+    genuinely-unused pins, same as fascia-pcb's own not-yet-wired items).
+
+    CONN_PANEL is still PROVISIONAL - DisplayModule's product page does
+    not list the real FPC connector pin count/pinout, only the 4-lane
+    MIPI-DSI electrical interface itself (which IS real: 4 real X1 data-
+    lane pairs + 1 real clock pair, all confirmed Verdin pins, not
+    guessed). The real datasheet PDF (linked from the product page) needs
+    pulling before this connector is final - same "real part, provisional
+    connector" state fascia-pcb's own CONN_PANEL was in at this stage.
     """
-    r = f"{LIB}:R"
-    c = f"{LIB}:C"
-    u_br = build_generic_symbol(f"{LIB}:SN65DSI85-Q1", "U", "SN65DSI85-Q1",
-                                parts.SN65DSI85_Q1)
-    lvds_pins = []
+    lane_pins = []
     n = 1
-    for ch in ("A", "B"):
-        for sig in ("Y0", "Y1", "Y2", "Y3", "CLK"):
-            for pol in ("P", "N"):
-                lvds_pins.append((n, f"{ch}_{sig}{pol}", "passive"))
-                n += 1
-    lvds_pins.append((n, "GND1", "passive"))
-    lvds_pins.append((n + 1, "GND2", "passive"))
+    for sig in ("D0", "D1", "D2", "D3", "CLK"):
+        for pol in ("P", "N"):
+            lane_pins.append((n, f"{sig}{pol}", "passive"))
+            n += 1
+    lane_pins.append((n, "PANEL_EN", "passive"))
+    lane_pins.append((n + 1, "GND1", "passive"))
+    lane_pins.append((n + 2, "GND2", "passive"))
     conn_panel = build_generic_symbol(f"{LIB}:CONN_PANEL", "J",
-                                      "Panel LVDS", lvds_pins)
+                                      "Panel MIPI-DSI", lane_pins)
 
     COL_W, ROW_H = 78.0, 26.0
     cur = {"col": 0, "y": y0}
@@ -729,56 +766,19 @@ def build_bridge(x0, y0, usable_h):
                    x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
         cur["y"] += need
 
-    br = {
-        "EN": "DSI_BRIDGE_EN", "SCL": "DSI_I2C_SCL", "SDA": "DSI_I2C_SDA",
-        "IRQ": "DSI_IRQ",
-        # Optional external reference clock, unused: the LVDS pixel clock
-        # comes from the free-running D-PHY clock instead. Pulled to
-        # ground through R22 rather than left floating, per the datasheet.
-        "REFCLK": "REFCLK_GND",
-        # 1.1 V regulator OUTPUT, not a supply input. Needs its 1 uF.
-        "VCORE": "VCORE_1V1",
-        # Strapped low for a defined I2C address. If it were strapped
-        # high it would have to go to the SAME 1.8 V rail as VCC.
-        "ADDR": "GND",
-        # Reserved pins: "must be left unconnected for normal operation".
-        "RSVD1": None, "RSVD2": None,
-        "EP": "GND",
-    }
-    for i in range(1, 13):
-        br[f"VCC{i}"] = "+1V8"
-    for i in range(1, 4):
-        br[f"GND{i}"] = "GND"
-    for lane, net in (("0", "D0"), ("1", "D1"), ("2", "D2"), ("3", "D3")):
-        br[f"DA{lane}P"] = f"DSI_{net}_P"
-        br[f"DA{lane}N"] = f"DSI_{net}_N"
-    br["DACP"], br["DACN"] = "DSI_CLK_P", "DSI_CLK_N"
-    # Unused DSI channel B - explicitly NOT tied off.
-    for lane in ("0", "1", "2", "3"):
-        br[f"DB{lane}P"] = None
-        br[f"DB{lane}N"] = None
-    br["DBCP"] = br["DBCN"] = None
-    for ch in ("A", "B"):
-        for sig in ("Y0", "Y1", "Y2", "Y3", "CLK"):
-            for pol in ("P", "N"):
-                br[f"{ch}_{sig}{pol}"] = f"LVDS_{ch}_{sig}{pol}"
-
-    flow(u_br, "U5", "SN65DSI85-Q1", br)
-    flow(r, "R22", "10k REFCLK", {"1": "REFCLK_GND", "2": "GND"})
-    flow(c, "C14", "1u VCORE", {"1": "VCORE_1V1", "2": "GND"})
-    # One bulk plus a spread of local bypass; the real per-pin placement
-    # is a layout concern, but the parts have to exist in the netlist.
-    flow(c, "C15", "10u 1V8", {"1": "+1V8", "2": "GND"})
-    for i in range(16, 22):
-        flow(c, f"C{i}", "100n 1V8", {"1": "+1V8", "2": "GND"})
-
     panel = {}
-    for ch in ("A", "B"):
-        for sig in ("Y0", "Y1", "Y2", "Y3", "CLK"):
-            for pol in ("P", "N"):
-                panel[f"{ch}_{sig}{pol}"] = f"LVDS_{ch}_{sig}{pol}"
+    for lane, net in (("0", "D0"), ("1", "D1"), ("2", "D2"), ("3", "D3")):
+        panel[f"{net}P"] = f"DSI_{net}_P"
+        panel[f"{net}N"] = f"DSI_{net}_N"
+    panel["CLKP"], panel["CLKN"] = "DSI_CLK_P", "DSI_CLK_N"
+    # GPIO_9_DSI was the bridge's own EN pin in fascia-pcb's design; here
+    # it does the same real job one level down - a hardware enable/reset
+    # line into the panel module itself, which real DSI panel modules
+    # commonly expose. Real destination pin TBD pending the datasheet
+    # pull, same provisional status as the connector's pin count.
+    panel["PANEL_EN"] = "DSI_PANEL_EN"
     panel["GND1"] = panel["GND2"] = "GND"
-    flow(conn_panel, "J4", "Panel LVDS (provisional)", panel)
+    flow(conn_panel, "J4", "Panel MIPI-DSI (provisional)", panel)
 
 
 def build_control(x0, y0, usable_h):
@@ -929,7 +929,7 @@ def main():
     # sparser A0 sheet costs nothing and re-tuning the band coordinates
     # is exactly the kind of "looks different, proves nothing" busywork
     # the net-collision check below already guards against for free.
-    build_bridge(60.0, 430.0, 370.0)
+    build_panel(60.0, 430.0, 370.0)
     build_1v8_and_can(300.0, 430.0, 370.0)
     build_power_tree(660.0, 60.0, 700.0)
     build_control(60.0, 60.0, 280.0)

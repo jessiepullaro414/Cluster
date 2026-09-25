@@ -8,7 +8,40 @@ that drops into a **stock 1966 Ford Mustang gauge housing**. Sibling to
 12V/automotive-grade discipline, same kiutils/kicad-cli script-driven
 workflow (see the sibling projects' READMEs for the toolchain itself).
 
-## Status
+## RE-ARCHITECTED 2026-09-25 — read this before anything below
+
+Everything under "Status" and most of this document describes
+**Cluster's original, now-superseded architecture**: one NXP S32K144
+hub MCU driving all 5 displays directly (4x GC9A01 + a BT817AQ co-
+processor for the center speedo). That design finished fully routed
+(252/252 nets, DRC-clean) before being replaced.
+
+**Current real architecture is TWO boards**, restomod-style (classic
+round-hole layout preserved, Android specifically on the center
+display, since the Android-capable chip can only drive one display -
+see each board's own header for the full reasoning):
+
+- **`display/`** — Verdin iMX95 SoM (ported from `fascia-pcb`) driving
+  ONE round panel (real target: DisplayModule DM-TFTR50-413, 5.0",
+  1080x1080, native MIPI-DSI) behind the center opening, running
+  Android Automotive. Direct DSI, no bridge chip. Schematic ERC-clean.
+- **`gauges/`** — the original S32K144 design with the center speedo
+  subsystem removed: still drives the 4 small round GC9A01 aux gauges
+  (fuel/oil/coolant temp/battery) locally, still reads the real
+  resistive senders / CAN0 to `ecu-pcb`. Schematic ERC-clean.
+
+The two boards (plus `ecu-pcb`) share ONE real CAN0 bus - `display/`
+pushes Android's aggregated gauge data to `gauges/`'s small displays
+over it, per the user's own request for the boards to communicate.
+
+The top-level `Cluster.kicad_sch`/`build_schematic.py`/`build_pcb.py`/
+`route_board.py` files below are the OLD, superseded design - kept for
+reference, not being built on. A `sense/` directory also exists from an
+intermediate, abandoned direction (CAN-only sensor board, before the
+user clarified the 4 small gauges should stay locally displayed) - it
+was never committed and can be deleted.
+
+## Status (of the OLD, superseded design below this point)
 
 **Schematic is fully wired and ERC-clean as of 2026-09-22.** All 6 steps
 of the build-out plan are done: S32K144 peripheral pin-mux (real, from

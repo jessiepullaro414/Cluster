@@ -942,14 +942,12 @@ def build_panel_backlight(x0, y0, usable_h):
            = 10.0k x 23 = 230k -> real E96 value: 232k
         check: (232k+10.0k)/10.0k x 2V = 48.4V (real, within margin)
 
-    Q1 (boost switch) and D2 (rectifier) reuse this file's existing
-    generic NFET/TVS symbols (same real SOT-23/D_SMB footprints every
-    sibling board already uses) - real voltage/current requirements are
-    cited in-line, but the exact automotive part NUMBERS are NOT yet
-    selected (needs BVDSS/VRRM >= ~58V with margin over the 48V OVP
-    threshold, IF >= 60mA for D2 - real open item, same "right
-    footprint, real part TBD" status CONN_PANEL had before its own
-    datasheet pull).
+    Q3 (boost switch) and D2 (rectifier) are real, named parts: Meritek
+    MFT6N2A5S23A (AEC-Q101, SOT-23, 60V/2.5A) and Nexperia PMEG6010ELRX
+    (AEC-Q101, SOD-123W, 60V/1A) - both comfortably clear the real
+    voltage requirement (BVDSS/VRRM >= 58V, over the 48V OVP threshold)
+    with current ratings far beyond what this ~20mA/~113mA-peak circuit
+    ever draws.
 
     PWM (pin 8) is tied directly to +5V (always full brightness) as a
     real, working baseline - not a placeholder. Real PWM dimming from
@@ -964,7 +962,15 @@ def build_panel_backlight(x0, y0, usable_h):
     final.
     """
     r, c, l = f"{LIB}:R", f"{LIB}:C", f"{LIB}:L"
-    nfet, tvs = f"{LIB}:NFET", f"{LIB}:TVS"
+    nfet = f"{LIB}:NFET"
+    # A dedicated symbol, not the shared "TVS" - real part (Nexperia
+    # PMEG6010ELRX) is package SOD-123W specifically, a different real
+    # footprint from the TVS clamp diodes' own D_SMB elsewhere on this
+    # board. Confirmed against KiCad's own bundled library:
+    # Diode_SMD:Nexperia_CFP3_SOD-123W.
+    schottky = build_generic_symbol(f"{LIB}:SCHOTTKY_SOD123W", "D", "Schottky",
+                                    PASSIVE_PINS,
+                                    footprint="Diode_SMD:Nexperia_CFP3_SOD-123W")
     u_bl = build_generic_symbol(f"{LIB}:AL8853AQ", "U", "AL8853AQ",
                                 [(1, "VIN", "power_in"), (2, "GATE", "output"),
                                  (3, "GND", "power_in"), (4, "CS", "input"),
@@ -1002,14 +1008,21 @@ def build_panel_backlight(x0, y0, usable_h):
          {"1": "+12V_PROT", "2": "BL_SW"})
     # Q3's source and R37 share BL_CS_NODE with U7's own CS pin above -
     # that's the real current-sense node, not three separate nets.
-    flow(nfet, "Q3", "NFET boost switch (BVDSS >=58V, part TBD)",
+    # Real part: Meritek MFT6N2A5S23A - AEC-Q101, SOT-23, 60V/2.5A,
+    # RDS(on)=75mOhm max - real BVDSS margin over the 48V OVP threshold
+    # (target was >=58V) and enormous current margin over the real
+    # ~113mA peak this circuit ever sees.
+    flow(nfet, "Q3", "MFT6N2A5S23A (AEC-Q101, 60V/2.5A)",
          {"G": "BL_GATE", "D": "BL_SW", "S": "BL_CS_NODE"})
     flow(r, "R37", "2.00R OCP/CS sense (real, see docstring math)",
          {"1": "BL_CS_NODE", "2": "GND"})
     # D2's cathode is PANEL_BL_LEDA_38V directly - the boost output IS
     # the LED string's anode supply, same real net build_panel() already
-    # wires to the panel connector's LEDA pins.
-    flow(tvs, "D2", "Schottky rectifier (VRRM >=58V, IF>=60mA, part TBD)",
+    # wires to the panel connector's LEDA pins. Real part: Nexperia
+    # PMEG6010ELRX - AEC-Q101, SOD-123W, 60V VRRM (real margin over the
+    # 48V OVP threshold), 1A average forward current (real margin over
+    # the ~20mA this circuit ever sees).
+    flow(schottky, "D2", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
          {"1": "BL_SW", "2": "PANEL_BL_LEDA_38V"})
     flow(c, "C45", "1u VOUT, 63V-rated (AEC-Q200)",
          {"1": "PANEL_BL_LEDA_38V", "2": "GND"})

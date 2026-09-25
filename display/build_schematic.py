@@ -715,43 +715,90 @@ def build_panel(x0, y0, usable_h):
 
     RE-SCOPED 2026-09-25: the target panel is now DisplayModule
     DM-TFTR50-413 (5.0", 1080x1080, real MIPI-DSI interface, HX8399
-    driver, $119, real datasheet available - a much bigger real round
-    panel than the original 2.1" BH021WVC02, per the user's "find a
-    slightly larger round display ... to maximize" request now that the
-    faceplate is custom anyway). Because this panel speaks DSI natively,
-    fascia-pcb's own reason for the SN65DSI85-Q1 bridge (its target
-    panel was LVDS-only, and needed a resolution above the Verdin
-    module's native LVDS ceiling) simply doesn't apply here - there is
-    no LVDS anywhere in this board's real requirement. Wiring the
-    Verdin's own DSI_1_* X1 pins straight to the panel is both simpler
-    (one fewer real IC, no VCORE/REFCLK/bypass network) and more direct
+    driver, $119, real datasheet pulled and read in full - a much
+    bigger real round panel than the original 2.1" BH021WVC02, per the
+    user's "find a slightly larger round display ... to maximize"
+    request now that the faceplate is custom anyway). Because this
+    panel speaks DSI natively, fascia-pcb's own reason for the
+    SN65DSI85-Q1 bridge (its target panel was LVDS-only, and needed a
+    resolution above the Verdin module's native LVDS ceiling) simply
+    doesn't apply here. Wiring the Verdin's own DSI_1_* X1 pins straight
+    to the panel is both simpler (one fewer real IC) and more direct
     than converting to LVDS and back to a digital panel that never
-    wanted LVDS in the first place. Real DSI panels are also configured
-    over the DSI link itself (command-mode packets), not a separate I2C
-    bus the way the SN65DSI85-Q1 needed - so DSI_I2C_SDA/SCL (bridge-
-    config-only pins) are dropped from this board's X1_NETS entirely
-    (see verdin_x1.py/main() - they now fall through to bank C's
-    genuinely-unused pins, same as fascia-pcb's own not-yet-wired items).
+    wanted LVDS in the first place.
 
-    CONN_PANEL is still PROVISIONAL - DisplayModule's product page does
-    not list the real FPC connector pin count/pinout, only the 4-lane
-    MIPI-DSI electrical interface itself (which IS real: 4 real X1 data-
-    lane pairs + 1 real clock pair, all confirmed Verdin pins, not
-    guessed). The real datasheet PDF (linked from the product page) needs
-    pulling before this connector is final - same "real part, provisional
-    connector" state fascia-pcb's own CONN_PANEL was in at this stage.
+    CONN_PANEL is now REAL, not provisional: the datasheet's own
+    mechanical drawing (section 4.1) specifies "CONNECTOR: JF40C-50DP-
+    0.4V(51), Hirose" - a clear OCR mangle of **Hirose DF40C-50DP-
+    0.4V(51)**, confirmed as a real, currently-stocked part (DigiKey/
+    Mouser/JLCPCB) and matched EXACTLY against KiCad's own bundled
+    footprint library: `Connector_Hirose_DF40:
+    Hirose_DF40C-50DP-0.4V_2x25-1MP_P0.4mm` (2x25 = 50 positions,
+    0.4mm pitch - the real geometry, not assumed to exist).
+
+    The real 50-pin table (datasheet section 3.1) surfaced TWO genuine
+    new circuit requirements this board did not have before, both left
+    as real named label stubs below rather than guessed at:
+      - **VSN (pins 30/32): a real -5V analog rail.** The panel's
+        TFT gate drive needs a negative supply the Verdin carrier has
+        no source for yet - needs a real inverting regulator/charge
+        pump, part TBD (real automotive-qualified candidates not yet
+        researched).
+      - **LEDA/LEDK (pins 10/12 anode, 4/6 cathode): the backlight is
+        NOT a simple low-voltage LED like the aux gauges' GC9A01
+        modules.** Datasheet section 5.4: 6 white LEDs in series
+        internally, VF=37.2V typ (38.4V max), IF=20mA - a real ~38V
+        boost LED driver is needed, not a series resistor off +5V.
+        Part TBD.
+    Both are real, confirmed electrical requirements from the actual
+    datasheet, not placeholders - they need their own real circuits
+    before this board can actually drive the panel, same "found a real
+    gap the original architecture pass didn't anticipate" pattern the
+    original Cluster design hit with BT817AQ's VCC1V2 rail.
+
+    VSP (pins 36/38, +5V analog, DC spec 4.8-6.0V typ 5.0V) reuses this
+    board's existing +5V rail directly - a real fit, not a new need.
+    IOVCC (pins 22/24, 1.65-3.3V typ 1.8V) reuses the existing +1V8
+    rail, likewise a real fit.
+
+    Real per-pin NC treatment straight from the datasheet's own
+    guidance ("if not used, open"): ID_PIN1/ID_PIN2 (module ID straps),
+    LEDPWM (backlight PWM dimming input) and TE (tearing-effect output)
+    all get real NoConnect items - none of them are required for basic
+    operation, and the datasheet explicitly says to leave them open
+    rather than tie them off.
     """
-    lane_pins = []
-    n = 1
-    for sig in ("D0", "D1", "D2", "D3", "CLK"):
-        for pol in ("P", "N"):
-            lane_pins.append((n, f"{sig}{pol}", "passive"))
-            n += 1
-    lane_pins.append((n, "PANEL_EN", "passive"))
-    lane_pins.append((n + 1, "GND1", "passive"))
-    lane_pins.append((n + 2, "GND2", "passive"))
-    conn_panel = build_generic_symbol(f"{LIB}:CONN_PANEL", "J",
-                                      "Panel MIPI-DSI", lane_pins)
+    real_panel_pins = [
+        (1, "GND", "power_in"), (2, "GND", "power_in"),
+        (3, "LAN2_P", "input"), (4, "LEDK", "passive"),
+        (5, "LAN2_N", "input"), (6, "LEDK", "passive"),
+        (7, "GND", "power_in"), (8, "GND", "power_in"),
+        (9, "LAN1_P", "input"), (10, "LEDA", "passive"),
+        (11, "LAN1_N", "input"), (12, "LEDA", "passive"),
+        (13, "GND", "power_in"), (14, "GND", "power_in"),
+        (15, "CLK_P", "input"), (16, "ID_PIN2", "passive"),
+        (17, "CLK_N", "input"), (18, "ID_PIN1", "passive"),
+        (19, "GND", "power_in"), (20, "GND", "power_in"),
+        (21, "LAN0_P", "input"), (22, "IOVCC", "power_in"),
+        (23, "LAN0_N", "input"), (24, "IOVCC", "power_in"),
+        (25, "GND", "power_in"), (26, "GND", "power_in"),
+        (27, "LAN3_P", "input"), (28, "NC", "no_connect"),
+        (29, "LAN3_N", "input"), (30, "VSN", "power_in"),
+        (31, "GND", "power_in"), (32, "VSN", "power_in"),
+        (33, "NC", "no_connect"), (34, "NC", "no_connect"),
+        (35, "NC", "no_connect"), (36, "VSP", "power_in"),
+        (37, "GND", "power_in"), (38, "VSP", "power_in"),
+        (39, "NC", "no_connect"), (40, "NC", "no_connect"),
+        (41, "NC", "no_connect"), (42, "GND", "power_in"),
+        (43, "NC", "no_connect"), (44, "LEDPWM", "input"),
+        (45, "NC", "no_connect"), (46, "TE", "output"),
+        (47, "GND", "power_in"), (48, "RESET", "input"),
+        (49, "GND", "power_in"), (50, "GND", "power_in"),
+    ]
+    conn_panel = build_generic_symbol(
+        f"{LIB}:CONN_PANEL", "J", "DM-TFTR50-413 (Hirose DF40C-50DP-0.4V)",
+        real_panel_pins,
+        footprint="Connector_Hirose_DF40:Hirose_DF40C-50DP-0.4V_2x25-1MP_P0.4mm")
 
     COL_W, ROW_H = 78.0, 26.0
     cur = {"col": 0, "y": y0}
@@ -766,19 +813,26 @@ def build_panel(x0, y0, usable_h):
                    x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
         cur["y"] += need
 
-    panel = {}
-    for lane, net in (("0", "D0"), ("1", "D1"), ("2", "D2"), ("3", "D3")):
-        panel[f"{net}P"] = f"DSI_{net}_P"
-        panel[f"{net}N"] = f"DSI_{net}_N"
-    panel["CLKP"], panel["CLKN"] = "DSI_CLK_P", "DSI_CLK_N"
-    # GPIO_9_DSI was the bridge's own EN pin in fascia-pcb's design; here
-    # it does the same real job one level down - a hardware enable/reset
-    # line into the panel module itself, which real DSI panel modules
-    # commonly expose. Real destination pin TBD pending the datasheet
-    # pull, same provisional status as the connector's pin count.
-    panel["PANEL_EN"] = "DSI_PANEL_EN"
-    panel["GND1"] = panel["GND2"] = "GND"
-    flow(conn_panel, "J4", "Panel MIPI-DSI (provisional)", panel)
+    panel = {
+        "GND": "GND",
+        "LAN0_P": "DSI_D0_P", "LAN0_N": "DSI_D0_N",
+        "LAN1_P": "DSI_D1_P", "LAN1_N": "DSI_D1_N",
+        "LAN2_P": "DSI_D2_P", "LAN2_N": "DSI_D2_N",
+        "LAN3_P": "DSI_D3_P", "LAN3_N": "DSI_D3_N",
+        "CLK_P": "DSI_CLK_P", "CLK_N": "DSI_CLK_N",
+        "IOVCC": "+1V8",
+        "VSP": "+5V",
+        # Real, confirmed-needed, not-yet-designed - see docstring.
+        "VSN": "PANEL_VSN_NEG5V",
+        "LEDA": "PANEL_BL_LEDA_38V", "LEDK": "PANEL_BL_LEDK",
+        # Real hardware reset - GPIO_9_DSI already reaches this net via
+        # X1_NETS ("GPIO_9_DSI": "DSI_PANEL_EN").
+        "RESET": "DSI_PANEL_EN",
+        # Real "if not used, open" per the datasheet - not guessed.
+        "ID_PIN1": None, "ID_PIN2": None, "LEDPWM": None, "TE": None,
+        "NC": None,
+    }
+    flow(conn_panel, "J4", "DM-TFTR50-413 panel", panel)
 
 
 def build_control(x0, y0, usable_h):

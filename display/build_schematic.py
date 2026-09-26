@@ -1004,7 +1004,12 @@ def build_panel_backlight(x0, y0, usable_h):
     flow(c, "C43", "1u VIN (AEC-Q200)", {"1": "+12V_PROT", "2": "GND"})
     flow(c, "C44", "10n COMP (typical, not loop-verified)",
          {"1": "BL_COMP", "2": "GND"})
-    flow(l, "L1", "680u boost inductor (real, see docstring math)",
+    # L2, not L1 - the power tree's own LM61460-Q1 buck inductor already
+    # uses L1 (real bug caught before PCB layout: kiutils' own schematic
+    # symbol loop silently keeps only the LAST same-ref instance when
+    # build_pcb.py reads parts back out, which would have dropped one of
+    # the two real inductors from the board entirely with no error).
+    flow(l, "L2", "680u boost inductor (real, see docstring math)",
          {"1": "+12V_PROT", "2": "BL_SW"})
     # Q3's source and R37 share BL_CS_NODE with U7's own CS pin above -
     # that's the real current-sense node, not three separate nets.

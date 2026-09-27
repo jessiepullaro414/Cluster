@@ -304,16 +304,18 @@ def best_skyline_pack(refs, max_width, margin, initial_skyline=None):
     return best_result
 
 
-def pack_sized_blocks(blocks, max_width, margin):
+def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None):
     """Same real skyline algorithm as skyline_pack(), but operating on
     pre-sized (key, w, h) blocks directly instead of loading footprints -
-    used to arrange the 5 already-packed zone rectangles into a real 2D
-    grid (2 rows, not 1 long row) instead of just summing their widths.
-    Tries the same 5 orderings as best_skyline_pack() and keeps whichever
-    is most compact."""
+    used to arrange J4 and the 5 already-packed zone rectangles into the
+    real space actually left AROUND the module keepout (via
+    initial_skyline, a real obstacle - not summed into a separate "top
+    band" that leaves whatever it doesn't use as dead space to its own
+    right). Tries the same orderings as best_skyline_pack() and keeps
+    whichever is most compact."""
     def _pack(order_key):
         sized = sorted(blocks, key=order_key, reverse=True)
-        skyline = [(0.0, max_width, 0.0)]
+        skyline = list(initial_skyline) if initial_skyline is not None else [(0.0, max_width, 0.0)]
 
         def profile_height(x, w):
             h = 0.0
@@ -465,43 +467,46 @@ for name, refs in CORE_ZONES:
     zone_packed.append((name, refs, z_placed, z_w, z_h))
     print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
 
-# --- Top band: module keepout (left) + panel connector (right) ---
+# --- ONE unified 2D pack: the module keepout is a real fixed obstacle
+# (an initial skyline "step"), and J4 + all 5 zones pack into the space
+# actually left around it - not into an artificial "top band" that
+# leaves whatever it doesn't use as dead space beside it. This is the
+# real fix for what the user caught by eye: splitting the board into a
+# top band (sized to the module + J4 only) and a separate zone band
+# below it meant anything narrower than the zone band's own width -
+# which is everything in the top band - left its own unused strip to
+# the right, because the two bands never shared space. Packing
+# everything into one region lets the algorithm actually use that
+# space instead of a human guess deciding it's off-limits.
 _conn_x0, _conn_y0, _conn_x1, _conn_y1 = _conn_bbox["J1"]
 _pconn_x0, _pconn_y0, _pconn_x1, _pconn_y1 = _panel_conn_bbox["J4"]
 _pconn_w = _pconn_x1 - _pconn_x0
 _pconn_h = _pconn_y1 - _pconn_y0
 
-TOP_BAND_GAP = 10.0
-top_band_w = MODULE_KEEPOUT_W + TOP_BAND_GAP + max(_pconn_w, 40.0)
-top_band_h = max(MODULE_KEEPOUT_H, _pconn_h)
-
-# --- Zone grid: the 5 zones packed in real 2D (2+ rows), not laid out
-# end-to-end in one long row. A single row was the original (wrong)
-# choice here - it was copied from gauges/'s own CORE_ZONES arrangement
-# without reconsidering that THAT board's single-row layout is driven by
-# a real external constraint (4 aux-gauge connectors reaching real,
-# fixed dash holes) that simply doesn't apply to this board at all. With
-# nothing forcing one row, laying 5 zones end to end just wasted real
-# board area sideways for no reason - the user's own question ("does the
-# SOMM board need to be so large?") caught exactly this. MAX_ZONE_GRID_W
-# is set close to the top band's own width so the finished board reads
-# as one coherent rectangle rather than a wide top and a much wider
-# bottom.
 ZONE_GAP = 8.0
-MAX_ZONE_GRID_W = max(top_band_w, 170.0)
-_zone_blocks = [(name, z_w, z_h) for name, _, _, z_w, z_h in zone_packed]
-_zone_grid_placed, zone_grid_w, zone_grid_h = pack_sized_blocks(
-    _zone_blocks, max_width=MAX_ZONE_GRID_W, margin=ZONE_GAP)
+PACK_MAX_W = 190.0  # real target width - close to gauges/'s own
+                     # module-keepout-plus-margin footprint, giving the
+                     # packer real room to arrange things beside the
+                     # module rather than only below it
+_reserved_w = MODULE_KEEPOUT_W + ZONE_GAP
+_reserved_h = MODULE_KEEPOUT_H + ZONE_GAP
+_module_skyline = [(0.0, _reserved_w, _reserved_h),
+                    (_reserved_w, PACK_MAX_W - _reserved_w, 0.0)]
 
-board_width = max(top_band_w, zone_grid_w) + 2 * BOARD_MARGIN
-ZONE_BAND_GAP = 8.0
-board_height = top_band_h + ZONE_BAND_GAP + zone_grid_h + 2 * BOARD_MARGIN
+_pack_blocks = [("J4", _pconn_w, _pconn_h)] + \
+               [(name, z_w, z_h) for name, _, _, z_w, z_h in zone_packed]
+_grid_placed, packed_w, packed_h = pack_sized_blocks(
+    _pack_blocks, max_width=PACK_MAX_W, margin=ZONE_GAP,
+    initial_skyline=_module_skyline)
+
+board_width = max(packed_w, _reserved_w) + 2 * BOARD_MARGIN
+board_height = max(packed_h, _reserved_h) + 2 * BOARD_MARGIN
 
 print(f"Real minimal board size: {board_width:.1f} x {board_height:.1f}mm "
-      f"(module keepout {MODULE_KEEPOUT_W:.0f}x{MODULE_KEEPOUT_H:.0f}mm, "
-      f"real 2D zone grid {zone_grid_w:.1f}x{zone_grid_h:.1f}mm - see this "
-      f"file's own header on why the keepout is a generous first-pass "
-      f"reservation, not a precise mechanical fact)")
+      f"(module keepout {MODULE_KEEPOUT_W:.0f}x{MODULE_KEEPOUT_H:.0f}mm is a "
+      f"real fixed obstacle, everything else packed around it in one real "
+      f"2D pass - see this file's own header on why the keepout itself is "
+      f"a generous first-pass reservation, not a precise mechanical fact)")
 
 assert board_height <= DASH_OPENING_H * 1.5, (
     f"board_height {board_height:.1f}mm is implausibly large even against "
@@ -515,22 +520,26 @@ assert board_height <= DASH_OPENING_H * 1.5, (
 # being viable), so a hard fail here would be asserting a constraint
 # that isn't actually confirmed yet, not a real one.
 
-# Place U1 (module keepout) at top-left.
+# Place U1 (module keepout) at top-left - the fixed obstacle everything
+# else was packed around.
 _mod_cx = BOARD_MARGIN + MODULE_KEEPOUT_W / 2
 _mod_cy = BOARD_MARGIN + MODULE_KEEPOUT_H / 2
 placed_rel["J1"] = (_mod_cx - (_conn_x0 + _conn_x1) / 2, _mod_cy - (_conn_y0 + _conn_y1) / 2)
 
-# Place J4 (panel connector) at top-right, vertically centered in the top band.
-_pconn_cx = BOARD_MARGIN + MODULE_KEEPOUT_W + TOP_BAND_GAP + max(_pconn_w, 40.0) / 2
-_pconn_cy = BOARD_MARGIN + top_band_h / 2
-placed_rel["J4"] = (_pconn_cx - (_pconn_x0 + _pconn_x1) / 2, _pconn_cy - (_pconn_y0 + _pconn_y1) / 2)
+# Place J4 at its real packed position. pack_sized_blocks() returns the
+# block's TOP-LEFT corner (it only knows abstract w x h, not this
+# footprint's own local origin) - convert to a real footprint position
+# the same way skyline_pack() itself does internally (subtract the
+# footprint's own local x0/y0 so its real bbox top-left lands exactly
+# on the packed (gx, gy), not its footprint-space origin).
+_gx, _gy = _grid_placed["J4"]
+placed_rel["J4"] = (BOARD_MARGIN + _gx - _pconn_x0, BOARD_MARGIN + _gy - _pconn_y0)
 
-# Place the 5 core zones at their real 2D grid positions (2+ rows).
-zone_y = BOARD_MARGIN + top_band_h + ZONE_BAND_GAP
+# Place each core zone's own real content at its real packed position.
 for name, refs, z_placed, z_w, z_h in zone_packed:
-    gx, gy = _zone_grid_placed[name]
+    gx, gy = _grid_placed[name]
     for ref, (x, y) in z_placed.items():
-        placed_rel[ref] = (x + BOARD_MARGIN + gx, y + zone_y + gy)
+        placed_rel[ref] = (x + BOARD_MARGIN + gx, y + BOARD_MARGIN + gy)
 
 PAGE_W, PAGE_H = 420.0, 297.0  # A3 landscape - this board is much
                                  # smaller than gauges/, no A2 needed
@@ -653,11 +662,33 @@ print("Added module keepout outline (Dwgs.User) - provisional, see this "
 #     is otherwise completely empty here (no back-mounted parts), same
 #     real justification as gauges/'s own art.
 #
-#     Layout is genuinely re-derived, not copied wholesale: gauges/'s own
-#     version exploits a wide/short board (gauge left-of-center, wordmark
-#     to its right). This board is roughly SQUARE (180.8x163.9mm), so
-#     that side-by-side layout wouldn't fit - the gauge is centered in
-#     the safe area instead, with the wordmark stacked below it.
+#     The board's own real content (module keepout + J4 + all 5 zones)
+#     is unified-packed on the FRONT side, so it says nothing about what's
+#     safe on the BACK - the only real back-side constraint is thru-hole
+#     pads, since THT copper passes through both layers (that's what
+#     actually caused the earlier silk_over_copper hit on J9, not
+#     proximity to front-side SMD content). So the safe area here is
+#     derived from just the real board edges/mounting holes, and gauge +
+#     wordmark placement is verified directly against real thru-hole pad
+#     boxes below - not inferred from front-side layout geometry.
+#
+#     A first attempt copied gauges/'s own side-by-side layout (gauge
+#     left-of-center, wordmark to its right) verbatim, assuming this
+#     board's new wide proportions (204.5x114mm) made it fit the way it
+#     fits gauges/'s own long strip. It didn't: real thru-hole boxes
+#     printed from a first build showed J1's SODIMM socket carries two
+#     real alignment-peg holes around x=137, right where that layout's
+#     gauge radius reached back to - not caught by DRC (they're NPTH,
+#     unplated, so silk_over_copper doesn't fire on them) but a real
+#     mechanical hole poking through a hand-drawn tach face is still
+#     wrong. So instead of hand-picking a position, the code below finds
+#     the real widest clear vertical corridor spanning the full safe
+#     height, by collecting every thru-hole box's real X-span, merging
+#     overlaps, and taking the largest gap - then stacks the gauge above
+#     the wordmark inside THAT real corridor (this board's dense CAN/
+#     power connector cluster on the right leaves less width than
+#     gauges/'s own open strip, so stacked reads better here than
+#     side-by-side once sized honestly).
 # ---------------------------------------------------------------------------
 def _polar(cx, cy, r, deg):
     """Point at radius r, angle deg (standard math convention: 0=+X,
@@ -669,33 +700,93 @@ def _polar(cx, cy, r, deg):
 board_cx = BOARD_OFFSET_X + board_width / 2
 board_cy = BOARD_OFFSET_Y + board_height / 2
 
+# Real thru-hole pad boxes (same technique as gauges/'s own art section):
+# every THT/NPTH pad's real absolute position+size on the board, inflated
+# by a real clearance margin - used below to verify the art doesn't clip
+# real copper, rather than assuming a hand-picked rectangle is clear.
+PAD_CLEARANCE_MM = 1.0
+thru_hole_boxes = []
+for _fp in board.footprints:
+    _fx, _fy = _fp.position.X, _fp.position.Y
+    _fangle = _fp.position.angle or 0
+    for _pad in _fp.pads:
+        if _pad.type not in ("thru_hole", "np_thru_hole"):
+            continue
+        _lx, _ly = _pad.position.X, _pad.position.Y
+        _hw, _hh = _pad.size.X / 2, _pad.size.Y / 2
+        if _fangle == 90:
+            _ax, _ay = _fx + _ly, _fy - _lx
+            _hw, _hh = _hh, _hw
+        else:
+            _ax, _ay = _fx + _lx, _fy + _ly
+        thru_hole_boxes.append((_ax - _hw - PAD_CLEARANCE_MM, _ay - _hh - PAD_CLEARANCE_MM,
+                                 _ax + _hw + PAD_CLEARANCE_MM, _ay + _hh + PAD_CLEARANCE_MM))
+
+
+def _overlaps(bx0, by0, bx1, by1, boxes):
+    return any(bx0 < ox1 and bx1 > ox0 and by0 < oy1 and by1 > oy0 for ox0, oy0, ox1, oy1 in boxes)
+
+
 # Real safe area avoiding all 4 corner mounting holes (this board's own
 # holes sit in every corner, not just the top edge the way gauges/'s
-# long/thin board does - so keepout applies on all 4 sides here) AND the
-# real front-side zone-grid content below the top band. That second
-# constraint is real, not cosmetic caution: several CONTROL-zone parts
-# (J9 among them) are through-hole, so their copper extends through
-# BOTH layers - a back-silkscreen circle drawn over that XY location
-# really does clip real copper, caught directly by a first real DRC run
-# here (silk_over_copper on J9's own thru-hole pad) rather than assumed
-# safe in advance. Constraining the art to the top band (module keepout
-# + J4's own space, both real front-side content but neither with a
-# thru-hole pad down there) avoids the whole category by construction.
+# long/thin board does - so keepout applies on all 4 sides here).
 MH_KEEPOUT = 10.0
-CONTENT_MARGIN = 5.0
-zone_grid_top_abs = BOARD_OFFSET_Y + BOARD_MARGIN + top_band_h + ZONE_BAND_GAP
 SAFE_LEFT = BOARD_OFFSET_X + MOUNTING_HOLE_INSET + MH_KEEPOUT
 SAFE_RIGHT = BOARD_OFFSET_X + board_width - MOUNTING_HOLE_INSET - MH_KEEPOUT
 SAFE_TOP = BOARD_OFFSET_Y + MOUNTING_HOLE_INSET + MH_KEEPOUT
-SAFE_BOTTOM = min(BOARD_OFFSET_Y + board_height - MOUNTING_HOLE_INSET - MH_KEEPOUT,
-                   zone_grid_top_abs - CONTENT_MARGIN)
-safe_w = SAFE_RIGHT - SAFE_LEFT
+SAFE_BOTTOM = BOARD_OFFSET_Y + board_height - MOUNTING_HOLE_INSET - MH_KEEPOUT
 safe_h = SAFE_BOTTOM - SAFE_TOP
 
-# Gauge takes the upper ~65% of the safe area, wordmark the rest below it.
-GAUGE_CX = board_cx
-GAUGE_CY = SAFE_TOP + safe_h * 0.36
-GAUGE_R = min(safe_w / 2 - 4.0, safe_h * 0.36 - 4.0, 42.0)
+# Real widest clear vertical corridor: merge every thru-hole box's X-span
+# (for boxes that actually intersect the safe vertical band) and take the
+# largest gap between them within [SAFE_LEFT, SAFE_RIGHT] - the real free
+# real estate to design into, not a guess.
+def _widest_corridor(boxes, left, right, top, bottom):
+    spans = sorted((max(x0, left), min(x1, right))
+                   for x0, y0, x1, y1 in boxes if y1 > top and y0 < bottom)
+    spans = [s for s in spans if s[1] > s[0]]
+    merged = []
+    for x0, x1 in spans:
+        if merged and x0 <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], x1))
+        else:
+            merged.append((x0, x1))
+    gaps, prev = [], left
+    for x0, x1 in merged:
+        if x0 > prev:
+            gaps.append((prev, x0))
+        prev = max(prev, x1)
+    if prev < right:
+        gaps.append((prev, right))
+    return max(gaps, key=lambda g: g[1] - g[0])
+
+
+_corr_left, _corr_right = _widest_corridor(thru_hole_boxes, SAFE_LEFT, SAFE_RIGHT,
+                                            SAFE_TOP, SAFE_BOTTOM)
+_corr_cx = (_corr_left + _corr_right) / 2
+_corr_w = _corr_right - _corr_left
+print(f"Widest real clear corridor: x={_corr_left:.1f}-{_corr_right:.1f} "
+      f"({_corr_w:.1f}mm wide)")
+
+# Gauge on top, wordmark stacked below it, both centered in the real
+# corridor - sized from whichever of corridor width / safe height is
+# tighter, same proportional-scaling discipline as gauges/'s own art.
+#
+# The _gr_* drawing helpers below mirror every point across board_cx
+# (2*board_cx - x) before writing it, since B.SilkS needs a pre-mirror
+# for shapes. GAUGE_CX/word_cx are LOGICAL (pre-mirror) coordinates fed
+# to those helpers, so choosing them equal to the real corridor center
+# is wrong - it draws the art back at the mirror image of the corridor
+# instead (a real first attempt did exactly this and got a genuine
+# silk_over_copper hit on a J1 alignment peg at the mirrored location,
+# caught by DRC, not by the bbox check below - which was ALSO checking
+# the wrong, pre-mirror position). Both the logical coordinates and the
+# verification bboxes are computed from the real target (_corr_cx) here
+# so they agree with where the art actually lands.
+DRAW_CX = _corr_cx
+GAUGE_R = min(_corr_w / 2 - 6.0, safe_h * 0.30, 40.0)
+GAUGE_CX = 2 * board_cx - DRAW_CX
+GAUGE_CY = SAFE_TOP + GAUGE_R + 6.0
 START_DEG, END_DEG = 225.0, -45.0
 N_TICKS = 9
 S = GAUGE_R / 42.0  # same proportional-scaling fix the original board's
@@ -703,6 +794,31 @@ S = GAUGE_R / 42.0  # same proportional-scaling fix the original board's
                      # internal offset/text size below scales with the
                      # real radius instead of using fixed mm values that
                      # would collide at a different real size.
+
+_word_cx = GAUGE_CX
+_DRAW_WORD_CX = DRAW_CX
+_word_w = _corr_w
+_word_top = GAUGE_CY + GAUGE_R + 8.0
+
+
+def _gauge_bbox():
+    return (DRAW_CX - GAUGE_R - 4, GAUGE_CY - GAUGE_R - 4,
+            DRAW_CX + GAUGE_R + 4, GAUGE_CY + GAUGE_R + 4)
+
+
+def _wordmark_bbox():
+    return (_DRAW_WORD_CX - _word_w / 2, _word_top, _DRAW_WORD_CX + _word_w / 2, SAFE_BOTTOM)
+
+
+_gx0, _gy0, _gx1, _gy1 = _gauge_bbox()
+_wx0, _wy0, _wx1, _wy1 = _wordmark_bbox()
+if (_overlaps(_gx0, _gy0, _gx1, _gy1, thru_hole_boxes) or
+        _overlaps(_wx0, _wy0, _wx1, _wy1, thru_hole_boxes)):
+    print("NOTE: tach-face art's default position overlaps a real "
+          "thru-hole pad - revisit placement if this fires.")
+else:
+    print(f"Verified: gauge+wordmark back-art clears all {len(thru_hole_boxes)} "
+          f"real thru-hole pads on the board.")
 
 # Same real "B.SilkS needs a pre-mirror, KiCad doesn't auto-mirror
 # shapes" lesson as gauges/'s own art.
@@ -765,15 +881,15 @@ _gr_circle((GAUGE_CX, GAUGE_CY), max(2.2 * S, 0.8), width=0.3)
 _gr_text("x1000 RPM", _polar(GAUGE_CX, GAUGE_CY, GAUGE_R * 0.45, 270),
           size=max(2.0 * S, 0.8), thickness=max(0.25 * S, 0.1))
 
-# CLUSTER wordmark, stacked BELOW the gauge (not beside it - this board's
-# square proportions don't leave real room to the side the way gauges/'s
-# wide strip does).
-_word_cy = GAUGE_CY + GAUGE_R + 10.0
-_gr_text("CLUSTER", (board_cx, _word_cy), size=min(10.0, safe_w * 0.11),
-          thickness=1.4, bold=True)
-_gr_text("ANDROID DISPLAY CARRIER", (board_cx, _word_cy + 9.0),
-          size=2.4, thickness=0.32)
-_gr_text("JESSIE'S CARS", (board_cx, _word_cy + 15.0), size=2.0, thickness=0.28)
+# CLUSTER wordmark, stacked below the gauge in the same real corridor -
+# this board's dense right-side connector cluster leaves a tall narrow
+# strip rather than gauges/'s own wide open one, so stacking (not
+# side-by-side) is what the real obstacle layout actually supports.
+_gr_text("CLUSTER", (_word_cx, _word_top + 7.0), size=min(9.0, _word_w * 0.19),
+          thickness=1.3, bold=True)
+_gr_text("ANDROID DISPLAY CARRIER", (_word_cx, _word_top + 15.5),
+          size=2.2, thickness=0.3)
+_gr_text("JESSIE'S CARS", (_word_cx, _word_top + 21.0), size=1.9, thickness=0.26)
 
 print(f"Added tach-face + CLUSTER wordmark art to B.SilkS "
       f"(gauge R={GAUGE_R:.1f}mm at ({GAUGE_CX:.1f},{GAUGE_CY:.1f}))")

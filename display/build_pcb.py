@@ -40,15 +40,23 @@ real follow-up pass should pull Toradex's own carrier-board design
 guide (module overhang direction, the real S1-S4 standoff positions)
 before this keepout is trusted for a real enclosure fit.
 
-Layout strategy: the module keepout (top-left) and the panel connector
-J4 (top-right, toward the board's real "front" edge facing the round
-panel) occupy a top band; the 5 real circuit zones (POWER, CAN0/1V8,
-PANEL_VSN, PANEL_BACKLIGHT, CONTROL) pack left-to-right in a band below
-that, same skyline-per-zone approach gauges/'s own CORE_ZONES uses.
-Board size is DERIVED from what's actually packed (same "don't inflate
-past real content" discipline the original cluster-pcb board's own
-height-shrink established), with the real dash-opening hard limit
-(116.69mm height) checked as a final sanity ceiling, not a target.
+Layout strategy: the module keepout occupies the left column; the panel
+connector J4 sits at the top of a real right-hand column, with the 5
+circuit zones (POWER, CAN0/1V8, PANEL_VSN, PANEL_BACKLIGHT, CONTROL)
+below it in 2 left-aligned sub-columns, greedy-balanced by height in
+their own real functional order (not resorted by size) - a deliberate
+grid, not a bin-packed free-for-all, after an earlier "pack everything
+into one region" version left J4 floating with no visual relationship
+to its neighbors (a real, named instance of the "looks algorithmically
+arranged" problem, not a vague aesthetic complaint). Each zone's own
+internal parts are still skyline-packed (same approach gauges/'s own
+CORE_ZONES uses) but with rotation disabled, so a zone reads as one
+consistently-oriented row instead of a tightest-fit jumble of mixed
+part orientations. Board size is DERIVED from what's actually packed
+(same "don't inflate past real content" discipline the original
+cluster-pcb board's own height-shrink established), with the real
+dash-opening hard limit (116.69mm height) checked as a final sanity
+ceiling, not a target.
 """
 import json
 import math
@@ -190,8 +198,18 @@ def net_number(name):
 # ---------------------------------------------------------------------------
 MARGIN = 2.0
 
-def skyline_pack(refs, max_width, margin, sort_key=None, initial_skyline=None):
-    """Same real algorithm as every sibling project's build_pcb.py."""
+def skyline_pack(refs, max_width, margin, sort_key=None, initial_skyline=None, allow_rotate=True):
+    """Same real algorithm as every sibling project's build_pcb.py.
+
+    allow_rotate=False keeps every part at its natural (schematic)
+    orientation instead of letting the packer rotate individual parts
+    90 degrees whenever that's a tighter fit - real, not cosmetic: a
+    real first render of this board mixed part orientations within the
+    same zone purely because the bin-packer found a slightly tighter
+    fit that way, which is exactly the "algorithmically arranged, not
+    designed" look a human layout avoids (a human keeps a row of
+    passives at one consistent orientation even if a stray 90-degree
+    rotation would save half a millimeter)."""
     sized = []
     for ref in refs:
         fp = load_footprint(parts[ref]["footprint"])
@@ -254,10 +272,11 @@ def skyline_pack(refs, max_width, margin, sort_key=None, initial_skyline=None):
         if pos0 is not None:
             y, x = pos0
             options.append((y + h + margin, x, False))
-        pos90 = best_position(h + margin)
-        if pos90 is not None:
-            y, x = pos90
-            options.append((y + w + margin, x, True))
+        if allow_rotate:
+            pos90 = best_position(h + margin)
+            if pos90 is not None:
+                y, x = pos90
+                options.append((y + w + margin, x, True))
         if not options:
             raise RuntimeError(f"skyline_pack: {ref} ({w:.1f}x{h:.1f}mm) doesn't "
                                 f"fit in max_width={max_width:.1f}mm even alone")
@@ -285,7 +304,7 @@ def skyline_pack(refs, max_width, margin, sort_key=None, initial_skyline=None):
     return placed, rotated, used_w, used_h
 
 
-def best_skyline_pack(refs, max_width, margin, initial_skyline=None):
+def best_skyline_pack(refs, max_width, margin, initial_skyline=None, allow_rotate=True):
     strategies = {
         "area-desc": lambda t: t[1] * t[2],
         "max-side-desc": lambda t: max(t[1], t[2]),
@@ -295,92 +314,13 @@ def best_skyline_pack(refs, max_width, margin, initial_skyline=None):
     }
     best_name, best_result = None, None
     for name, key in strategies.items():
-        result = skyline_pack(refs, max_width, margin, sort_key=key, initial_skyline=initial_skyline)
+        result = skyline_pack(refs, max_width, margin, sort_key=key,
+                               initial_skyline=initial_skyline, allow_rotate=allow_rotate)
         used_w, used_h = result[2], result[3]
         if best_result is None or (used_h, used_w) < (best_result[3], best_result[2]):
             best_name, best_result = name, result
     print(f"skyline pack: tried {len(strategies)} orderings, best was "
           f"'{best_name}' ({best_result[2]:.1f}x{best_result[3]:.1f}mm used)")
-    return best_result
-
-
-def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None):
-    """Same real skyline algorithm as skyline_pack(), but operating on
-    pre-sized (key, w, h) blocks directly instead of loading footprints -
-    used to arrange J4 and the 5 already-packed zone rectangles into the
-    real space actually left AROUND the module keepout (via
-    initial_skyline, a real obstacle - not summed into a separate "top
-    band" that leaves whatever it doesn't use as dead space to its own
-    right). Tries the same orderings as best_skyline_pack() and keeps
-    whichever is most compact."""
-    def _pack(order_key):
-        sized = sorted(blocks, key=order_key, reverse=True)
-        skyline = list(initial_skyline) if initial_skyline is not None else [(0.0, max_width, 0.0)]
-
-        def profile_height(x, w):
-            h = 0.0
-            for sx, sw, sh in skyline:
-                if sx + sw <= x + 1e-9 or sx >= x + w - 1e-9:
-                    continue
-                h = max(h, sh)
-            return h
-
-        def best_position(w):
-            best = None
-            candidates = set()
-            for sx, sw, sh in skyline:
-                candidates.add(sx)
-                candidates.add(sx + sw - w)
-            for x in candidates:
-                if x < -1e-9 or x + w > max_width + 1e-9:
-                    continue
-                y = profile_height(x, w)
-                if best is None or (y, x) < (best[0], best[1]):
-                    best = (y, x)
-            return best
-
-        def update_skyline(x, w, top):
-            x_end = x + w
-            segs = []
-            for sx, sw, sh in skyline:
-                s_end = sx + sw
-                if s_end <= x + 1e-9 or sx >= x_end - 1e-9:
-                    segs.append((sx, sw, sh))
-                    continue
-                if sx < x:
-                    segs.append((sx, x - sx, sh))
-                if s_end > x_end:
-                    segs.append((x_end, s_end - x_end, sh))
-            segs.append((x, w, top))
-            segs.sort(key=lambda t: t[0])
-            return segs
-
-        placed = {}
-        for key, w, h in sized:
-            pos = best_position(w + margin)
-            if pos is None:
-                raise RuntimeError(f"pack_sized_blocks: {key} ({w:.1f}mm wide) "
-                                    f"doesn't fit in max_width={max_width:.1f}mm")
-            y, x = pos
-            skyline = update_skyline(x, w + margin, y + h + margin)
-            placed[key] = (x, y)
-        used_w = max((x + w for (x, y), (_, w, h) in zip(placed.values(), sized)), default=0.0)
-        used_h = max((y + h for (x, y), (_, w, h) in zip(placed.values(), sized)), default=0.0)
-        return placed, used_w, used_h
-
-    strategies = {
-        "area-desc": lambda t: t[1] * t[2],
-        "height-desc": lambda t: t[2],
-        "width-desc": lambda t: t[1],
-    }
-    best_name, best_result = None, None
-    for name, key in strategies.items():
-        result = _pack(key)
-        _, used_w, used_h = result
-        if best_result is None or (used_h, used_w) < (best_result[2], best_result[1]):
-            best_name, best_result = name, result
-    print(f"zone grid pack: tried {len(strategies)} orderings, best was "
-          f"'{best_name}' ({best_result[1]:.1f}x{best_result[2]:.1f}mm used)")
     return best_result
 
 
@@ -462,51 +402,72 @@ rotated_refs = set()
 ZONE_MAX_W = 90.0
 zone_packed = []
 for name, refs in CORE_ZONES:
-    z_placed, z_rot, z_w, z_h = best_skyline_pack(refs, max_width=ZONE_MAX_W, margin=MARGIN)
+    z_placed, z_rot, z_w, z_h = best_skyline_pack(refs, max_width=ZONE_MAX_W, margin=MARGIN,
+                                                    allow_rotate=False)
     rotated_refs |= z_rot
     zone_packed.append((name, refs, z_placed, z_w, z_h))
     print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
 
-# --- ONE unified 2D pack: the module keepout is a real fixed obstacle
-# (an initial skyline "step"), and J4 + all 5 zones pack into the space
-# actually left around it - not into an artificial "top band" that
-# leaves whatever it doesn't use as dead space beside it. This is the
-# real fix for what the user caught by eye: splitting the board into a
-# top band (sized to the module + J4 only) and a separate zone band
-# below it meant anything narrower than the zone band's own width -
-# which is everything in the top band - left its own unused strip to
-# the right, because the two bands never shared space. Packing
-# everything into one region lets the algorithm actually use that
-# space instead of a human guess deciding it's off-limits.
+# --- Deliberate grid, not a bin-pack: J4 sits at the top of the real
+# column of space beside the module (matching this file's own original
+# stated intent - module top-left, J4 top-right - which a later "pack
+# everything into one region" rework quietly abandoned by letting the
+# generic block-packer decide J4's spot along with the 5 zones. That
+# freedom is exactly what produced a floating, disconnected connector
+# with no visual relationship to anything around it - a real, specific
+# instance of "looks algorithmically arranged," not a vague aesthetic
+# complaint. The 5 zones go below J4 in TWO left-aligned columns
+# (greedy-balanced by height, in their own real functional order - not
+# resorted by size) so every row in a column shares one real left edge,
+# the way a human lays out a datasheet-style block diagram, rather than
+# each zone floating at whatever X a tightest-fit search happened to
+# land it on. ---
 _conn_x0, _conn_y0, _conn_x1, _conn_y1 = _conn_bbox["J1"]
 _pconn_x0, _pconn_y0, _pconn_x1, _pconn_y1 = _panel_conn_bbox["J4"]
 _pconn_w = _pconn_x1 - _pconn_x0
 _pconn_h = _pconn_y1 - _pconn_y0
 
 ZONE_GAP = 8.0
-PACK_MAX_W = 190.0  # real target width - close to gauges/'s own
-                     # module-keepout-plus-margin footprint, giving the
-                     # packer real room to arrange things beside the
-                     # module rather than only below it
+RIGHT_X0 = MODULE_KEEPOUT_W + ZONE_GAP
+
+# J4 at the top of the right-hand column, left-aligned to it.
+_grid_placed = {"J4": (RIGHT_X0, 0.0)}
+
+# Balance the 5 zones into 2 columns by running height total (greedy,
+# in CORE_ZONES' own declared order - a real functional order: POWER,
+# CAN0_1V8, PANEL_VSN, PANEL_BACKLIGHT, CONTROL - not re-sorted by
+# size), so both columns read top-to-bottom in a sensible sequence
+# instead of size-sorted bins.
+_col_h = [0.0, 0.0]
+_col_w = [0.0, 0.0]
+_col_y0 = _pconn_h + ZONE_GAP
+for name, refs, z_placed, z_w, z_h in zone_packed:
+    col = 0 if _col_h[0] <= _col_h[1] else 1
+    _grid_placed[name] = (RIGHT_X0 if col == 0 else None, _col_y0 + _col_h[col])
+    _col_h[col] += z_h + ZONE_GAP
+    _col_w[col] = max(_col_w[col], z_w)
+
+# Column B's real X is column A's own widest real content plus one more
+# real gap - so column B lines up against what's actually in column A,
+# not a guessed offset.
+_col_x = [RIGHT_X0, RIGHT_X0 + _col_w[0] + ZONE_GAP]
+for name, refs, z_placed, z_w, z_h in zone_packed:
+    gx, gy = _grid_placed[name]
+    if gx is None:
+        _grid_placed[name] = (_col_x[1], gy)
+
+packed_w = max(_col_x[1] + _col_w[1], RIGHT_X0 + _col_w[0]) - 0.0
+packed_h = max(_pconn_h + ZONE_GAP + _col_h[0], _pconn_h + ZONE_GAP + _col_h[1])
+
 _reserved_w = MODULE_KEEPOUT_W + ZONE_GAP
 _reserved_h = MODULE_KEEPOUT_H + ZONE_GAP
-_module_skyline = [(0.0, _reserved_w, _reserved_h),
-                    (_reserved_w, PACK_MAX_W - _reserved_w, 0.0)]
-
-_pack_blocks = [("J4", _pconn_w, _pconn_h)] + \
-               [(name, z_w, z_h) for name, _, _, z_w, z_h in zone_packed]
-_grid_placed, packed_w, packed_h = pack_sized_blocks(
-    _pack_blocks, max_width=PACK_MAX_W, margin=ZONE_GAP,
-    initial_skyline=_module_skyline)
-
 board_width = max(packed_w, _reserved_w) + 2 * BOARD_MARGIN
 board_height = max(packed_h, _reserved_h) + 2 * BOARD_MARGIN
 
 print(f"Real minimal board size: {board_width:.1f} x {board_height:.1f}mm "
       f"(module keepout {MODULE_KEEPOUT_W:.0f}x{MODULE_KEEPOUT_H:.0f}mm is a "
-      f"real fixed obstacle, everything else packed around it in one real "
-      f"2D pass - see this file's own header on why the keepout itself is "
-      f"a generous first-pass reservation, not a precise mechanical fact)")
+      f"real fixed obstacle; J4 + the 5 zones are placed in a deliberate "
+      f"2-column grid beside it, not bin-packed)")
 
 assert board_height <= DASH_OPENING_H * 1.5, (
     f"board_height {board_height:.1f}mm is implausibly large even against "
@@ -526,12 +487,12 @@ _mod_cx = BOARD_MARGIN + MODULE_KEEPOUT_W / 2
 _mod_cy = BOARD_MARGIN + MODULE_KEEPOUT_H / 2
 placed_rel["J1"] = (_mod_cx - (_conn_x0 + _conn_x1) / 2, _mod_cy - (_conn_y0 + _conn_y1) / 2)
 
-# Place J4 at its real packed position. pack_sized_blocks() returns the
-# block's TOP-LEFT corner (it only knows abstract w x h, not this
-# footprint's own local origin) - convert to a real footprint position
-# the same way skyline_pack() itself does internally (subtract the
-# footprint's own local x0/y0 so its real bbox top-left lands exactly
-# on the packed (gx, gy), not its footprint-space origin).
+# Place J4 at its real grid position (the block's TOP-LEFT corner - the
+# grid only knows abstract w x h, not this footprint's own local
+# origin) - convert to a real footprint position the same way
+# skyline_pack() itself does internally (subtract the footprint's own
+# local x0/y0 so its real bbox top-left lands exactly on the grid's
+# (gx, gy), not its footprint-space origin).
 _gx, _gy = _grid_placed["J4"]
 placed_rel["J4"] = (BOARD_MARGIN + _gx - _pconn_x0, BOARD_MARGIN + _gy - _pconn_y0)
 

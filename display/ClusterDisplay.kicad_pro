@@ -693,8 +693,8 @@
     "subpart_id_separator": 0,
     "top_level_sheets": [
       {
-        "filename": "Cluster.kicad_sch",
-        "name": "Cluster",
+        "filename": "ClusterDisplay.kicad_sch",
+        "name": "ClusterDisplay",
         "uuid": "00000000-0000-0000-0000-000000000000"
       }
     ],

@@ -885,6 +885,32 @@ assert not mismatches, f"net pin-count mismatches (schematic vs PCB): {mismatche
 print(f"Net check OK: all {len(sch_net_pins)} nets have matching pin "
       f"counts between schematic and PCB")
 
+# +12V_PROT is this board's own real trunk power net - the fused/reverse-
+# protected input (through F1, a real 5A fuse, + U1's LM74930-Q1 ideal
+# diode). Real, not just a backlight rail: it's also VIN1/VIN2 on U2
+# (LM61460-Q1, the main +5V buck feeding the whole Verdin module), so it
+# genuinely can carry most of this board's real current, not just the
+# backlight boost converter's small draw - the ladder below is sized
+# toward F1's real 5A rating, not gauges/'s own smaller 2A-fuse ladder.
+# It's on the Default net class (this board's ClusterDisplay.kicad_pro
+# has no PowerDist pattern of its own yet), which already routes at
+# 0.2mm - +12V_PROT's path runs close to fine-pitch parts (U7's 0.5mm-
+# pitch SO-8, U2's own VQFN), and forcing a wide trace at that escape
+# produces an unrouted board, not a wide one. route_board.py's
+# widen_trunks() neck-downs it back up to real width afterwards, as far
+# as this board's own tight (105x106mm) real space allows - can_widen()
+# simply falls back a rung wherever there isn't room, so listing an
+# ambitious top rung costs nothing where it doesn't fit.
+#
+# Capability on 1oz external copper (IPC-2221, 10C rise; k calibrated so
+# 0.6mm matches gauges/'s own already-used 2.24A figure, same formula
+# extended to wider rungs rather than a new one invented here):
+#   1.50mm -> ~4.35A   1.20mm -> ~3.71A   1.00mm -> ~3.25A  0.80mm -> ~2.76A
+#   0.60mm -> ~2.24A   0.50mm -> ~1.96A   0.40mm -> ~1.67A  0.30mm -> ~1.33A
+assert "+12V_PROT" in pcb_net_pins, "+12V_PROT is not a real net on this board"
+TRUNK_WIDTH_LADDER = [1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
+TRUNK_NETS = ["+12V_PROT"]
+
 board.to_file(PCB)
 print("Wrote", PCB)
 

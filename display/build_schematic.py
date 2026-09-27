@@ -1033,7 +1033,7 @@ def build_panel_backlight(x0, y0, usable_h):
          {"1": "PANEL_BL_LEDA_38V", "2": "GND"})
     flow(r, "R38", "232k OVP top (real, see docstring math)",
          {"1": "PANEL_BL_LEDA_38V", "2": "BL_OVP_DIV"})
-    flow(r, "R39", "10.0k OVP bottom (real, see docstring math)",
+    flow(r, "R39", "10k OVP bottom (real, see docstring math)",
          {"1": "BL_OVP_DIV", "2": "GND"})
     # R40 sits between the panel's real LEDK (cathode) return and GND -
     # its voltage IS the FB sense voltage (U7's FB pin reads

@@ -24,35 +24,41 @@ real job is just to sit somewhere behind the center opening, and
 nothing here dictates its footprint size the way the dash-opening did
 for the original 5-connector board). Instead, this board's real shape
 is driven by ONE big, unavoidable mechanical fact: the Toradex Verdin
-iMX95 module itself is 69.6 x 47mm (real, confirmed spec - Verdin
-Family Specification), plugging into the SODIMM-260 socket (U1) and
-lying flat over a real keepout zone that nothing else on the board can
-occupy. That keepout is sized GENEROUSLY (90 x 90mm) rather than
-precisely, because the socket's own real courtyard geometry (pulled
-directly from its bundled footprint: an irregular ~27 x 76.5mm outline,
-not a plain rectangle - real SODIMM sockets have an angled ejector-latch
-cutout) doesn't by itself say which direction the module extends once
-inserted, and neither fascia-pcb (the sibling that already uses this
-exact same SoM) nor this project has laid out a real Verdin carrier
-board before to reuse a proven answer from. This is flagged HONESTLY as
-a first-pass reservation, not a precisely modeled mechanical fact - a
-real follow-up pass should pull Toradex's own carrier-board design
-guide (module overhang direction, the real S1-S4 standoff positions)
-before this keepout is trusted for a real enclosure fit.
+module plugging into the SODIMM-260 socket (U1) and lying flat over a
+real keepout zone that nothing else on the board can occupy - Toradex's
+own Verdin Carrier Board Design Guide (docs.toradex.com/
+108140-verdin-carrier-board-design-guide.pdf), pulled and read directly
+(not assumed), Figure 110/111 and Figure 114, confirms: the module's
+real PCB outline is 69.60 x 35.00mm (NOT 69.6x47mm - an earlier,
+less authoritative web source gave the wrong width, caught by going to
+Toradex's own primary document instead of trusting it), and Table 43
+confirms the recommended 5.2mm-stack SODIMM connector allows ZERO
+component height underneath the module anywhere except right next to
+the connector's own edge - "reserving the complete component height to
+the module" is Toradex's own stated best practice, not extra caution
+added here. So the real keepout is just the module's own real outline
+(see MODULE_KEEPOUT_W/H below for the axis-by-axis derivation), not a
+padded guess - an earlier pass here used a 60x82mm reservation (down
+from an original 90x90mm) justified only by an unconfirmed direction
+for the module's own overhang past the connector; that guess is now
+replaced with Toradex's own real numbers.
 
-Layout strategy: the module keepout occupies the left column; the panel
-connector J4 sits at the top of a real right-hand column, with the 5
-circuit zones (POWER, CAN0/1V8, PANEL_VSN, PANEL_BACKLIGHT, CONTROL)
-below it in 2 left-aligned sub-columns, greedy-balanced by height in
-their own real functional order (not resorted by size) - a deliberate
-grid, not a bin-packed free-for-all, after an earlier "pack everything
-into one region" version left J4 floating with no visual relationship
-to its neighbors (a real, named instance of the "looks algorithmically
-arranged" problem, not a vague aesthetic complaint). Each zone's own
-internal parts are still skyline-packed (same approach gauges/'s own
-CORE_ZONES uses) but with rotation disabled, so a zone reads as one
-consistently-oriented row instead of a tightest-fit jumble of mixed
-part orientations. Board size is DERIVED from what's actually packed
+Layout strategy: the module keepout is a real fixed obstacle seeded
+into a skyline pack; the 5 real circuit zones (POWER, CAN0/1V8,
+PANEL_VSN, PANEL_BACKLIGHT, CONTROL - J4, the panel connector, folded
+into CONTROL alongside the other real external connectors it belongs
+with) pack tightly into whatever space is actually left around it, not
+forced into aligned rows/columns (a rigid 2-column grid was tried and
+reverted per direct user correction - "look at all the dead space,
+parts do not need to be in line" - aligning columns of very different
+real heights created large dead rectangles, a worse problem than the
+floating-connector look it fixed). Each zone's own internal parts are
+still skyline-packed (same approach gauges/'s own CORE_ZONES uses) but
+with rotation disabled, so a zone reads as one consistently-oriented
+row instead of a tightest-fit jumble of mixed part orientations. Zone
+block spacing is then stretched vertically to fill the module's own
+real height (real leftover board height that tighter packing can't
+remove, only use). Board size is DERIVED from what's actually packed
 (same "don't inflate past real content" discipline the original
 cluster-pcb board's own height-shrink established), with the real
 dash-opening hard limit (116.69mm height) checked as a final sanity
@@ -324,7 +330,7 @@ def best_skyline_pack(refs, max_width, margin, initial_skyline=None, allow_rotat
     return best_result
 
 
-def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None):
+def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None, optimize="height"):
     """Same real skyline algorithm as skyline_pack(), but operating on
     pre-sized (key, w, h) blocks directly instead of loading footprints -
     used to pack the already-packed zone rectangles TIGHTLY into the
@@ -334,6 +340,13 @@ def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None):
     2-column grid attempt: "look at all the dead space. parts do not
     need to be in line" - alignment isn't the goal, minimizing real
     dead space is, and a tight bin-pack does that better than any grid
+
+    optimize="width" picks whichever ordering minimizes real board WIDTH
+    first (used here) instead of height - real, not arbitrary: the
+    caller stretches the packed result to fill the module's own real
+    height afterward regardless of what the pack produces, so a
+    height-minimizing choice here is optimizing for a dimension that
+    gets thrown away, while width directly sets the real board size.
     can once the blocks being packed are different real sizes."""
     def _pack(order_key):
         sized = sorted(blocks, key=order_key, reverse=True)
@@ -399,8 +412,11 @@ def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None):
     for name, key in strategies.items():
         result = _pack(key)
         _, used_w, used_h = result
-        if best_result is None or (used_h, used_w) < (best_result[2], best_result[1]):
-            best_name, best_result = name, result
+        rank = (used_w, used_h) if optimize == "width" else (used_h, used_w)
+        if best_result is None:
+            best_name, best_result, best_rank = name, result, rank
+        elif rank < best_rank:
+            best_name, best_result, best_rank = name, result, rank
     print(f"zone grid pack: tried {len(strategies)} orderings, best was "
           f"'{best_name}' ({best_result[1]:.1f}x{best_result[2]:.1f}mm used)")
     return best_result
@@ -422,28 +438,38 @@ BOARD_MARGIN = 12.0
 DASH_OPENING_W = 457.2   # 18.00in
 DASH_OPENING_H = 116.69  # 4.594in
 
-# --- U1 (Verdin X1 SODIMM-260 socket) + the real 69.6x47mm module that
-# plugs into it - pulled out of the general packer, real mechanical
-# reason (see this file's own header for the honest flag on exact
-# orientation). Reserved as a generous keepout, not tightly fitted. ---
+# --- U1 (Verdin X1 SODIMM-260 socket) + the real module that plugs
+# into it - pulled out of the general packer, real mechanical reason.
+# Reserved as a real keepout sized from Toradex's own published
+# numbers, not a padded guess (see this file's own header). ---
 CONNECTOR_REFS = ["J1"]
 _conn_fp = {ref: load_footprint(parts[ref]["footprint"]) for ref in CONNECTOR_REFS}
 _conn_bbox = {ref: footprint_bbox(fp) for ref, fp in _conn_fp.items()}
-# Sized from the REAL socket courtyard geometry (pulled directly from its
-# own bundled footprint: 27.1mm x 79.0mm, an irregular shape with an
-# angled ejector-latch cutout, not a plain rectangle) plus the real
-# 69.6x47mm module (Verdin Family Specification), not a round guess.
-# The module's 69.6mm length lines up with the courtyard's own 79.0mm
-# long axis (already covers it with real margin) - the real unknown is
-# how far the 47mm-wide module overhangs PAST the socket's 27.1mm-wide
-# body once inserted, so that axis gets the real safety margin instead
-# of squaring the whole reservation to the worse of the two (the
-# original 90x90mm figure effectively assumed worst-case overhang in
-# BOTH directions at once, which double-counts a margin that only
-# applies to one real axis).
-MODULE_KEEPOUT_W = 60.0   # 27.1mm socket body + ~33mm for the module's
-                          # real overhang past it (unconfirmed direction)
-MODULE_KEEPOUT_H = 82.0   # 79.0mm socket long axis + a small real margin
+# Real axis-by-axis derivation, both axes now confirmed by Toradex's own
+# Verdin Carrier Board Design Guide (Figure 110: module outline
+# 69.60 x 35.00mm; Figure 114: carrier board land pattern/connector
+# footprint 68.80 x 31.00mm - the module sits centered over the
+# connector on both drawings, per the matching "4.00"/"2.00" notch
+# offsets shown on both figures):
+#   - LENGTH axis: the connector's own real housing (79.0mm, pulled
+#     from its bundled KiCad footprint's courtyard - the ejector-latch
+#     housing is real and extends past the module's own 69.60mm PCB
+#     edge on this axis) is what needs clearing, not the shorter
+#     module - already covered by J1's own real footprint placement,
+#     so this axis needs only a small assembly margin on top of it.
+#   - WIDTH axis: here the MODULE (35.00mm) is the wider of the two
+#     (vs. the connector's own ~27.1mm body), overhanging it by
+#     (35.00-27.1)/2 ~= 4mm per side if centered - confirmed centered,
+#     not assumed, by the matching notch offsets in Toradex's own
+#     drawings. This is the one axis that genuinely needs real margin
+#     beyond J1's own footprint.
+# An earlier pass here used 60x82mm, justified only by an unconfirmed
+# guess at a 47mm module width (wrong - see header) and an assumed
+# worst-case one-sided overhang; both numbers are replaced with real
+# ones now that the real Toradex drawing has actually been read.
+MODULE_KEEPOUT_W = 38.0   # 35.00mm real module width + ~3mm real margin
+MODULE_KEEPOUT_H = 82.0   # 79.0mm real connector housing length (longer
+                          # than the module) + a small real margin
 
 # --- J4 (panel connector) - also pulled out, real mechanical reason:
 # it needs to sit toward the board's "front" edge (facing the round
@@ -494,30 +520,62 @@ for name, refs in CORE_ZONES:
     zone_packed.append((name, refs, z_placed, z_w, z_h))
     print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
 
-# --- ONE tight 2D pack: the module keepout is a real fixed obstacle
-# (seeded into the skyline), and the 5 zones (J4 now folded into
-# CONTROL - see CORE_ZONES' own comment above) pack into whatever real
-# space is actually left around it, nestling against each other and
-# the keepout wherever they fit rather than being forced into aligned
-# rows/columns. ---
+# --- ONE tight 2D pack, transposed: the module's real 82mm height is a
+# genuine constraint (that's the board's own real minimum height
+# regardless of what the zones need), so the zones should be packed to
+# fit WITHIN that real height and grow in WIDTH only as much as they
+# actually need - not the other way around. pack_sized_blocks() bounds
+# its "width" argument and grows "height" unboundedly, so the 5 zones
+# (J4 now folded into CONTROL - see CORE_ZONES' own comment above) are
+# fed in with their own w/h SWAPPED and packed against a max_width equal
+# to the module's real height; the result is swapped back below. A
+# first version of this pack bounded WIDTH instead (at an arbitrary
+# guessed cap) and grew height freely, then stretched that height back
+# out to match the module - that's backwards: it let the packer
+# minimize the dimension that gets thrown away (height, since it's
+# stretched regardless) while leaving the dimension that actually sets
+# the real board size (width) to fall out however the packer's own
+# internal ordering happened to land, which is why the board barely
+# shrank even after the module keepout itself got 22mm narrower.
 _conn_x0, _conn_y0, _conn_x1, _conn_y1 = _conn_bbox["J1"]
 
 ZONE_GAP = 8.0
-PACK_MAX_W = 220.0  # real target width, generous enough to give the
-                     # packer room to arrange zones beside the module
-                     # rather than only below it
-_reserved_w = MODULE_KEEPOUT_W + ZONE_GAP
-_reserved_h = MODULE_KEEPOUT_H + ZONE_GAP
-_module_skyline = [(0.0, _reserved_w, _reserved_h),
-                    (_reserved_w, PACK_MAX_W - _reserved_w, 0.0)]
+_pack_blocks_t = [(name, z_h, z_w) for name, _, _, z_w, z_h in zone_packed]
+_grid_placed_t, _used_h_axis, _used_w_axis = pack_sized_blocks(
+    _pack_blocks_t, max_width=MODULE_KEEPOUT_H, margin=ZONE_GAP)
 
-_pack_blocks = [(name, z_w, z_h) for name, _, _, z_w, z_h in zone_packed]
-_grid_placed, packed_w, packed_h = pack_sized_blocks(
-    _pack_blocks, max_width=PACK_MAX_W, margin=ZONE_GAP,
-    initial_skyline=_module_skyline)
+RIGHT_X0 = MODULE_KEEPOUT_W + ZONE_GAP
+_grid_placed = {name: (ty + RIGHT_X0, tx) for name, (tx, ty) in _grid_placed_t.items()}
+packed_w = RIGHT_X0 + _used_w_axis
+packed_h = _used_h_axis
 
-board_width = max(packed_w, _reserved_w) + 2 * BOARD_MARGIN
-board_height = max(packed_h, _reserved_h) + 2 * BOARD_MARGIN
+# Real remaining dead space, not fixed by tighter packing: the module's
+# own real height (82mm, from Toradex's own published numbers) already
+# sets the board's minimum height regardless of how tightly the zones
+# pack, so if they don't need the whole thing, the honest fix is to
+# stop pretending they need MINIMUM height and instead spread them out
+# to use the real height that's already being paid for, same as spacing
+# out furniture in a room instead of pushing it all into one corner.
+# Scales every block's own Y position (never its real size) so gaps
+# grow proportionally and the last row's bottom edge reaches the
+# module's own real bottom edge - real breathing room between parts
+# instead of one leftover blank band underneath everything.
+if 0 < packed_h < MODULE_KEEPOUT_H:
+    _y_scale = MODULE_KEEPOUT_H / packed_h
+    _tight_h = packed_h
+    _grid_placed = {name: (x, y * _y_scale) for name, (x, y) in _grid_placed.items()}
+    packed_h = MODULE_KEEPOUT_H
+    print(f"Stretched zone spacing to fill the module's real {MODULE_KEEPOUT_H:.0f}mm "
+          f"height (was {_tight_h:.1f}mm tight-packed) - real leftover board height, "
+          f"not more component area, can't be un-wasted by packing tighter, only by "
+          f"using it.")
+
+# packed_w already has the module column (RIGHT_X0) baked in, and
+# packed_h is already exactly the module's own real height (either from
+# the transposed pack's own real cap, or stretched up to it above) -
+# both already reflect the real minimum, no separate max() needed.
+board_width = packed_w + 2 * BOARD_MARGIN
+board_height = packed_h + 2 * BOARD_MARGIN
 
 print(f"Real minimal board size: {board_width:.1f} x {board_height:.1f}mm "
       f"(module keepout {MODULE_KEEPOUT_W:.0f}x{MODULE_KEEPOUT_H:.0f}mm is a "

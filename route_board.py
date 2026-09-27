@@ -260,7 +260,18 @@ print("Added + filled", {net_name!r}, "zone on", {layer_name!r}, "- saved to", {
 # This is verified, not assumed: run_drc.py afterwards re-checks clearance
 # with KiCad's own engine, and any widening that created a real conflict
 # shows up there as a clearance violation rather than passing silently.
-TRACK_CLEARANCE = 0.15   # matches Cluster.kicad_pro's netclass clearance
+# Real, not 0.15 (the netclass "clearance" field's own value) - this
+# board's own .kicad_pro leaves design_settings.rules.min_clearance
+# UNSET like every sibling project's does, so kicad-cli's real DRC
+# engine falls back to its own stock 0.2mm board-wide minimum
+# regardless of what the netclass field says. Confirmed the hard way on
+# gauges/route_board.py's own first real route+widen+zone pass (235
+# real clearance violations, every one on a widened VIN_PROT segment,
+# all citing "clearance 0.2000mm" as the required value) - this file's
+# own 0.15 was the same latent bug, just never exercised since this
+# board was superseded before a widened trunk ever got DRC'd against
+# real neighboring copper at this density.
+TRACK_CLEARANCE = 0.2
 
 
 def widen_trunks():

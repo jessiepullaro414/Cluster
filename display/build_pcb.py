@@ -12,10 +12,13 @@ Schematic" leaves you in before you route it yourself.
 
 *** ADAPTED FROM gauges/build_pcb.py / the original cluster-pcb
 build_pcb.py (2026-09-25) *** The generic machinery (footprint loading,
-bbox computation, the skyline bin-packer, net assignment, overlap/net-
-count self-checks, board-outline drawing, the Reference-label bare-
-property patch, the real DRC-verify loop) is reused near-verbatim -
-none of it needed to change.
+bbox computation, net assignment, overlap/net-count self-checks,
+board-outline drawing, the Reference-label bare-property patch, the
+real DRC-verify loop) is reused near-verbatim. The skyline bin-packer
+itself was generalized here (pack_sized_blocks(), operating on
+pre-sized blocks rather than loading footprints per-zone) after this
+board's own real layout history (see below) moved away from the
+per-zone packing gauges/ still uses.
 
 WHAT IS GENUINELY NEW, not a copy of any sibling board's own layout:
 this board has no real fixed target width the way gauges/ does (that
@@ -43,23 +46,30 @@ from an original 90x90mm) justified only by an unconfirmed direction
 for the module's own overhang past the connector; that guess is now
 replaced with Toradex's own real numbers.
 
-Layout strategy: the module keepout is a real fixed obstacle seeded
-into a skyline pack; the 5 real circuit zones (POWER, CAN0/1V8,
-PANEL_VSN, PANEL_BACKLIGHT, CONTROL - J4, the panel connector, folded
-into CONTROL alongside the other real external connectors it belongs
-with) pack tightly into whatever space is actually left around it, not
-forced into aligned rows/columns (a rigid 2-column grid was tried and
-reverted per direct user correction - "look at all the dead space,
-parts do not need to be in line" - aligning columns of very different
-real heights created large dead rectangles, a worse problem than the
-floating-connector look it fixed). Each zone's own internal parts are
-still skyline-packed (same approach gauges/'s own CORE_ZONES uses) but
-with rotation disabled, so a zone reads as one consistently-oriented
-row instead of a tightest-fit jumble of mixed part orientations. Zone
-block spacing is then stretched vertically to fill the module's own
-real height (real leftover board height that tighter packing can't
-remove, only use). Board size is DERIVED from what's actually packed
-(same "don't inflate past real content" discipline the original
+Layout strategy has gone through several real revisions in response to
+direct user feedback, each replacing the previous one rather than
+patching around it:
+  1. Zone blocks aligned into a rigid 2-column grid - rejected: "look
+     at all the dead space. parts do not need to be in line."
+  2. Zone blocks tight-packed as whole rectangles around the module
+     keepout - better, but hit a real floor: board width couldn't
+     shrink below the single widest zone's own packed width no matter
+     how the zones were arranged, since each was shaped into one rigid
+     block before ever being placed.
+  3. CURRENT: every individual real component (all 72 real parts,
+     CORE_ZONES' own grouping kept only for documentation/bookkeeping,
+     not placement) is packed directly into whatever space is actually
+     available around the module keepout - a real, deliberate tradeoff
+     ("break zone grouping for max density") against keeping a part
+     physically close to the rest of its own circuit, chosen because
+     the user prioritized density over that locality.
+The pack itself is bounded at the module's own real 82mm height (a
+genuine fixed constraint - Toradex's own numbers, see above) and grows
+in WIDTH only as much as actually needed, then any real leftover height
+is used by stretching component spacing to fill it (real board height
+that's being paid for either way, better spent as breathing room than
+left as one blank band). Board size is DERIVED from what's actually
+packed (same "don't inflate past real content" discipline the original
 cluster-pcb board's own height-shrink established), with the real
 dash-opening hard limit (116.69mm height) checked as a final sanity
 ceiling, not a target.
@@ -204,150 +214,24 @@ def net_number(name):
 # ---------------------------------------------------------------------------
 MARGIN = 2.0
 
-def skyline_pack(refs, max_width, margin, sort_key=None, initial_skyline=None, allow_rotate=True):
-    """Same real algorithm as every sibling project's build_pcb.py.
-
-    allow_rotate=False keeps every part at its natural (schematic)
-    orientation instead of letting the packer rotate individual parts
-    90 degrees whenever that's a tighter fit - real, not cosmetic: a
-    real first render of this board mixed part orientations within the
-    same zone purely because the bin-packer found a slightly tighter
-    fit that way, which is exactly the "algorithmically arranged, not
-    designed" look a human layout avoids (a human keeps a row of
-    passives at one consistent orientation even if a stray 90-degree
-    rotation would save half a millimeter)."""
-    sized = []
-    for ref in refs:
-        fp = load_footprint(parts[ref]["footprint"])
-        x0, y0, x1, y1 = footprint_bbox(fp)
-        sized.append((ref, x1 - x0, y1 - y0, x0, y0, x1, y1))
-    sized.sort(key=sort_key or (lambda t: t[1] * t[2]), reverse=True)
-
-    skyline = initial_skyline if initial_skyline is not None else [(0.0, max_width, 0.0)]
-
-    def profile_height(x, w):
-        h = 0.0
-        for sx, sw, sh in skyline:
-            if sx + sw <= x + 1e-9 or sx >= x + w - 1e-9:
-                continue
-            h = max(h, sh)
-        return h
-
-    def best_position(w):
-        best = None
-        candidates = set()
-        for sx, sw, sh in skyline:
-            candidates.add(sx)
-            candidates.add(sx + sw - w)
-        for x in candidates:
-            if x < -1e-9 or x + w > max_width + 1e-9:
-                continue
-            y = profile_height(x, w)
-            if best is None or (y, x) < (best[0], best[1]):
-                best = (y, x)
-        return best
-
-    def update_skyline(x, w, top):
-        x_end = x + w
-        segs = []
-        for sx, sw, sh in skyline:
-            s_end = sx + sw
-            if s_end <= x + 1e-9 or sx >= x_end - 1e-9:
-                segs.append((sx, sw, sh))
-                continue
-            if sx < x:
-                segs.append((sx, x - sx, sh))
-            if s_end > x_end:
-                segs.append((x_end, s_end - x_end, sh))
-        segs.append((x, w, top))
-        segs.sort(key=lambda t: t[0])
-        merged = []
-        for seg in segs:
-            if merged and abs(merged[-1][0] + merged[-1][1] - seg[0]) < 1e-6 \
-                    and abs(merged[-1][2] - seg[2]) < 1e-6:
-                merged[-1] = (merged[-1][0], merged[-1][1] + seg[1], merged[-1][2])
-            else:
-                merged.append(seg)
-        return merged
-
-    placed = {}
-    rotated = set()
-    for ref, w, h, x0, y0, x1, y1 in sized:
-        options = []
-        pos0 = best_position(w + margin)
-        if pos0 is not None:
-            y, x = pos0
-            options.append((y + h + margin, x, False))
-        if allow_rotate:
-            pos90 = best_position(h + margin)
-            if pos90 is not None:
-                y, x = pos90
-                options.append((y + w + margin, x, True))
-        if not options:
-            raise RuntimeError(f"skyline_pack: {ref} ({w:.1f}x{h:.1f}mm) doesn't "
-                                f"fit in max_width={max_width:.1f}mm even alone")
-        options.sort(key=lambda o: (o[0], o[1]))
-        top, x, is_rot = options[0]
-        if is_rot:
-            rw, rh = h + margin, w + margin
-            skyline = update_skyline(x, rw, top)
-            placed[ref] = (x - y0, (top - rh) + x1)
-            rotated.add(ref)
-        else:
-            rw, rh = w + margin, h + margin
-            skyline = update_skyline(x, rw, top)
-            placed[ref] = (x - x0, (top - rh) - y0)
-
-    used_w, used_h = 0.0, 0.0
-    for ref, w, h, x0, y0, x1, y1 in sized:
-        px, py = placed[ref]
-        if ref in rotated:
-            used_w = max(used_w, px + y1)
-            used_h = max(used_h, py - x0)
-        else:
-            used_w = max(used_w, px + x1)
-            used_h = max(used_h, py + y1)
-    return placed, rotated, used_w, used_h
-
-
-def best_skyline_pack(refs, max_width, margin, initial_skyline=None, allow_rotate=True):
-    strategies = {
-        "area-desc": lambda t: t[1] * t[2],
-        "max-side-desc": lambda t: max(t[1], t[2]),
-        "height-desc": lambda t: t[2],
-        "width-desc": lambda t: t[1],
-        "perimeter-desc": lambda t: t[1] + t[2],
-    }
-    best_name, best_result = None, None
-    for name, key in strategies.items():
-        result = skyline_pack(refs, max_width, margin, sort_key=key,
-                               initial_skyline=initial_skyline, allow_rotate=allow_rotate)
-        used_w, used_h = result[2], result[3]
-        if best_result is None or (used_h, used_w) < (best_result[3], best_result[2]):
-            best_name, best_result = name, result
-    print(f"skyline pack: tried {len(strategies)} orderings, best was "
-          f"'{best_name}' ({best_result[2]:.1f}x{best_result[3]:.1f}mm used)")
-    return best_result
-
-
 def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None, optimize="height"):
-    """Same real skyline algorithm as skyline_pack(), but operating on
-    pre-sized (key, w, h) blocks directly instead of loading footprints -
-    used to pack the already-packed zone rectangles TIGHTLY into the
-    real space actually left around the module keepout (via
-    initial_skyline, a real obstacle), rather than forcing them into
-    aligned rows/columns. Real, direct user correction after a rigid
-    2-column grid attempt: "look at all the dead space. parts do not
-    need to be in line" - alignment isn't the goal, minimizing real
-    dead space is, and a tight bin-pack does that better than any grid
+    """Real skyline bin-packing algorithm (same technique every sibling
+    project's build_pcb.py uses for its own zone/footprint placement,
+    generalized here to operate on pre-sized (key, w, h) blocks
+    directly rather than loading footprints) - used to pack every real
+    individual component on this board into whatever space is actually
+    available, rather than pre-grouping them into rigid per-zone
+    rectangles first. Real, direct user tradeoff ("break zone grouping
+    for max density") after a zone-block approach hit a real floor -
+    board width couldn't shrink below the single widest zone's own
+    packed width no matter how the zones were arranged, since each zone
+    was shaped into one rigid rectangle before ever being placed.
 
-    optimize="width" picks whichever ordering minimizes real board WIDTH
-    first (used here) instead of height - real, not arbitrary: the
-    caller stretches the packed result to fill the module's own real
-    height afterward regardless of what the pack produces, so a
-    height-minimizing choice here is optimizing for a dimension that
-    gets thrown away, while width directly sets the real board size.
-    can once the blocks being packed are different real sizes."""
+    optimize="width" picks whichever ordering minimizes the packer's
+    own "w" (bounded) axis first instead of "h" (grown) axis - useful
+    when the caller will stretch the result along "h" afterward
+    regardless of what the pack produces (so minimizing that axis here
+    would target a dimension that gets thrown away)."""
     def _pack(order_key):
         sized = sorted(blocks, key=order_key, reverse=True)
         skyline = list(initial_skyline) if initial_skyline is not None else [(0.0, max_width, 0.0)]
@@ -509,66 +393,67 @@ assert not _extra, f"zone refs that don't exist in the schematic: {sorted(_extra
 
 rotated_refs = set()
 
-# 1. Pack each core zone first (don't place yet - real board size not
-# known until every zone's been packed).
-ZONE_MAX_W = 90.0
-zone_packed = []
-for name, refs in CORE_ZONES:
-    z_placed, z_rot, z_w, z_h = best_skyline_pack(refs, max_width=ZONE_MAX_W, margin=MARGIN,
-                                                    allow_rotate=False)
-    rotated_refs |= z_rot
-    zone_packed.append((name, refs, z_placed, z_w, z_h))
-    print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
-
-# --- ONE tight 2D pack, transposed: the module's real 82mm height is a
-# genuine constraint (that's the board's own real minimum height
-# regardless of what the zones need), so the zones should be packed to
-# fit WITHIN that real height and grow in WIDTH only as much as they
-# actually need - not the other way around. pack_sized_blocks() bounds
-# its "width" argument and grows "height" unboundedly, so the 5 zones
-# (J4 now folded into CONTROL - see CORE_ZONES' own comment above) are
-# fed in with their own w/h SWAPPED and packed against a max_width equal
-# to the module's real height; the result is swapped back below. A
-# first version of this pack bounded WIDTH instead (at an arbitrary
-# guessed cap) and grew height freely, then stretched that height back
-# out to match the module - that's backwards: it let the packer
-# minimize the dimension that gets thrown away (height, since it's
-# stretched regardless) while leaving the dimension that actually sets
-# the real board size (width) to fall out however the packer's own
-# internal ordering happened to land, which is why the board barely
-# shrank even after the module keepout itself got 22mm narrower.
+# --- ONE flat, transposed pack of every individual part, not zone-by-
+# zone: real, direct user tradeoff ("break zone grouping for max
+# density") after the previous zone-block approach hit a real floor -
+# board width couldn't shrink below the single widest zone's own
+# packed width (POWER, 85.4mm) no matter how the zones were arranged
+# relative to each other, because each zone was pre-shaped into one
+# rigid rectangle before ever being placed. Individual components have
+# far more real opportunities to nest into each other's gaps than whole
+# zones do; CORE_ZONES above still documents the real functional
+# grouping (kept for the "every part is accounted for" check and as
+# real design documentation), but placement itself no longer respects
+# zone boundaries - components from different zones will end up
+# interleaved on the board. That's a genuine tradeoff against real
+# trace-length/routing locality between a part and the rest of its own
+# circuit, made deliberately, not accidentally.
+#
+# Same transpose reasoning as the zone-block version this replaces:
+# bound the pack at the module's own real 82mm height (a genuine fixed
+# constraint) and let width grow only as much as actually needed,
+# rather than the reverse.
 _conn_x0, _conn_y0, _conn_x1, _conn_y1 = _conn_bbox["J1"]
 
 ZONE_GAP = 8.0
-_pack_blocks_t = [(name, z_h, z_w) for name, _, _, z_w, z_h in zone_packed]
-_grid_placed_t, _used_h_axis, _used_w_axis = pack_sized_blocks(
-    _pack_blocks_t, max_width=MODULE_KEEPOUT_H, margin=ZONE_GAP)
+_all_refs = [ref for _, refs in CORE_ZONES for ref in refs]
+_fp_bbox = {}
+_flat_blocks = []
+for ref in _all_refs:
+    fp = load_footprint(parts[ref]["footprint"])
+    x0, y0, x1, y1 = footprint_bbox(fp)
+    _fp_bbox[ref] = (x0, y0, x1, y1)
+    _flat_blocks.append((ref, x1 - x0, y1 - y0))
+
+_flat_blocks_t = [(ref, h, w) for ref, w, h in _flat_blocks]
+_flat_placed_t, _used_h_axis, _used_w_axis = pack_sized_blocks(
+    _flat_blocks_t, max_width=MODULE_KEEPOUT_H, margin=MARGIN)
 
 RIGHT_X0 = MODULE_KEEPOUT_W + ZONE_GAP
-_grid_placed = {name: (ty + RIGHT_X0, tx) for name, (tx, ty) in _grid_placed_t.items()}
+_targets = {ref: (ty + RIGHT_X0, tx) for ref, (tx, ty) in _flat_placed_t.items()}
 packed_w = RIGHT_X0 + _used_w_axis
 packed_h = _used_h_axis
 
-# Real remaining dead space, not fixed by tighter packing: the module's
-# own real height (82mm, from Toradex's own published numbers) already
-# sets the board's minimum height regardless of how tightly the zones
-# pack, so if they don't need the whole thing, the honest fix is to
-# stop pretending they need MINIMUM height and instead spread them out
-# to use the real height that's already being paid for, same as spacing
-# out furniture in a room instead of pushing it all into one corner.
-# Scales every block's own Y position (never its real size) so gaps
-# grow proportionally and the last row's bottom edge reaches the
-# module's own real bottom edge - real breathing room between parts
-# instead of one leftover blank band underneath everything.
+# Same real "the module's height is a fixed cost, use it instead of
+# leaving it blank" fix as before, now operating on individual real
+# component target positions rather than whole zone blocks.
 if 0 < packed_h < MODULE_KEEPOUT_H:
     _y_scale = MODULE_KEEPOUT_H / packed_h
     _tight_h = packed_h
-    _grid_placed = {name: (x, y * _y_scale) for name, (x, y) in _grid_placed.items()}
+    _targets = {ref: (x, y * _y_scale) for ref, (x, y) in _targets.items()}
     packed_h = MODULE_KEEPOUT_H
-    print(f"Stretched zone spacing to fill the module's real {MODULE_KEEPOUT_H:.0f}mm "
-          f"height (was {_tight_h:.1f}mm tight-packed) - real leftover board height, "
-          f"not more component area, can't be un-wasted by packing tighter, only by "
-          f"using it.")
+    print(f"Stretched component spacing to fill the module's real "
+          f"{MODULE_KEEPOUT_H:.0f}mm height (was {_tight_h:.1f}mm tight-packed).")
+
+# Convert each part's real target (bbox top-left corner) into its real
+# footprint origin (subtract the footprint's own local bbox-min corner
+# so that corner, not the footprint's local (0,0), lands on the real
+# target position) - this pass doesn't rotate parts, so no rotation
+# correction is needed here.
+for ref in _all_refs:
+    x0, y0, x1, y1 = _fp_bbox[ref]
+    tx, ty = _targets[ref]
+    placed_rel[ref] = (tx + BOARD_MARGIN - x0, ty + BOARD_MARGIN - y0)
 
 # packed_w already has the module column (RIGHT_X0) baked in, and
 # packed_h is already exactly the module's own real height (either from
@@ -599,13 +484,6 @@ assert board_height <= DASH_OPENING_H * 1.5, (
 _mod_cx = BOARD_MARGIN + MODULE_KEEPOUT_W / 2
 _mod_cy = BOARD_MARGIN + MODULE_KEEPOUT_H / 2
 placed_rel["J1"] = (_mod_cx - (_conn_x0 + _conn_x1) / 2, _mod_cy - (_conn_y0 + _conn_y1) / 2)
-
-# Place each core zone's own real content (J4 included, now part of
-# CONTROL) at its real packed position.
-for name, refs, z_placed, z_w, z_h in zone_packed:
-    gx, gy = _grid_placed[name]
-    for ref, (x, y) in z_placed.items():
-        placed_rel[ref] = (x + BOARD_MARGIN + gx, y + BOARD_MARGIN + gy)
 
 PAGE_W, PAGE_H = 420.0, 297.0  # A3 landscape - this board is much
                                  # smaller than gauges/, no A2 needed

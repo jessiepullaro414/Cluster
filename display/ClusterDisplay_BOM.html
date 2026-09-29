@@ -112,25 +112,24 @@
   </header>
 
   <div class="figures">
-    <div class="fig"><b>47</b><span>Line items</span></div>
+    <div class="fig"><b>46</b><span>Line items</span></div>
     <div class="fig"><b>72</b><span>Placements</span></div>
     <div class="fig"><b>4</b><span>Copper layers</span></div>
-    <div class="fig"><b>105.0 &times; 106.0</b><span>Board, mm</span></div>
+    <div class="fig"><b>104.8 &times; 106.0</b><span>Board, mm</span></div>
   </div>
 
   <div class="note">
     <h2>How to read this list</h2>
-    <p><strong>This board has more open TBD lines than its siblings</strong> &mdash;
-    a real, honest reflection of where the design actually is: the AAOS pivot
-    that created this board only landed 2026-09-25, and several real decisions
-    (front-end FET/TVS exact parts, the fuse's exact rating suffix, which Verdin
-    SKU, and 4 provisional pin-header connectors standing in for harness
-    connectors not yet designed) were deliberately left open rather than guessed
-    at with a fabricated-precise part number.</p>
-    <p><strong>Active parts with a real MPN</strong> (U1/U2/U3/U4/U6/U7, Q3, D2,
-    J4) carry provenance straight from <code>build_schematic.py</code>'s own
-    comments, each one traced to a real datasheet during the design pass that
-    introduced it.</p>
+    <p><strong>Only one real open category remains</strong>: J2/J3/J8/J9 are 4
+    provisional pin-header connectors standing in for harness connectors
+    (power/CAN/JTAG/buttons) that haven't been designed yet - deliberately left
+    open rather than guessed at, since the real harness/enclosure requirements
+    aren't known. Everything else that started as an open item (the front-end
+    FET pair, the input TVS, the fuse's exact rating, and the Verdin SoM's
+    exact SKU) was resolved to a real, cited part on 2026-09-28.</p>
+    <p><strong>Active parts with a real MPN</strong> carry provenance straight
+    from <code>build_schematic.py</code>'s own comments, each one traced to a
+    real datasheet during the design pass that introduced it.</p>
     <p><strong>Passives are specified parametrically</strong> &mdash; value, package
     and the AEC-Q200 requirement &mdash; rather than pinned to one vendor.</p>
     <p><strong>Pricing and stock are not included.</strong></p>
@@ -148,19 +147,22 @@
       </thead>
       <tbody>
 <tr class="cat"><td colspan="7">Semiconductors</td></tr>
+<tr><td class="mpn">PMV55ENEA</td><td>Nexperia</td><td class="desc">60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair</td><td class="pkg">SOT-23</td><td class="qty">2</td><td class="refs">Q1, Q2</td><td><span class="q-yes">AEC-Q101</span></td></tr>
 <tr><td class="mpn">AL8853AQ</td><td>Diodes Incorporated</td><td class="desc">Automotive boost LED controller, panel backlight (~38V, 6-LED string), SO-8 (datasheet DS45623)</td><td class="pkg">SOIC-8_3.9x4.9mm_P1.27mm</td><td class="qty">1</td><td class="refs">U7</td><td><span class="q-yes">AEC-Q100 Grade 1</span></td></tr>
 <tr><td class="mpn">LM61460-Q1</td><td>TI</td><td class="desc">Automotive 3-36V 6A low-EMI synchronous buck, main +5V rail, VQFN-HR-14 (datasheet SNVSB70F)</td><td class="pkg">TI_RJR0014A_VQFN-HR-14_4x3.5mm</td><td class="qty">1</td><td class="refs">U2</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
 <tr><td class="mpn">LM74930-Q1</td><td>TI</td><td class="desc">Automotive ideal-diode surge stopper w/ circuit breaker + OV clamp, VQFN-24 (datasheet SNOSDF6)</td><td class="pkg">Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm</td><td class="qty">1</td><td class="refs">U1</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
 <tr><td class="mpn">MFT6N2A5S23A</td><td>Meritek</td><td class="desc">Boost switch NFET, 60V/2.5A, SOT-23, RDS(on) &lt;=75mR</td><td class="pkg">SOT-23</td><td class="qty">1</td><td class="refs">Q3</td><td><span class="q-yes">AEC-Q101</span></td></tr>
 <tr><td class="mpn">PMEG6010ELRX</td><td>Nexperia</td><td class="desc">Boost rectifier Schottky, 60V/1A, SOD-123W</td><td class="pkg">Nexperia_CFP3_SOD-123W</td><td class="qty">1</td><td class="refs">D2</td><td><span class="q-yes">AEC-Q101</span></td></tr>
+<tr><td class="mpn">SMCJ33A (multi-source)</td><td>Littelfuse / onsemi / Vishay (industry-standard P/N)</td><td class="desc">SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/&#x27;s own D1 already uses</td><td class="pkg">D_SMB</td><td class="qty">1</td><td class="refs">D1</td><td><span class="q-yes">AEC-Q101</span></td></tr>
 <tr><td class="mpn">TCAN1044V-Q1</td><td>TI</td><td class="desc">Automotive CAN FD transceiver w/ 1.8V I/O support (V suffix load-bearing - see parts.py), SOIC-8 (datasheet SLLSF17D)</td><td class="pkg">SOIC-8_3.9x4.9mm_P1.27mm</td><td class="qty">1</td><td class="refs">U4</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
 <tr><td class="mpn">TLV767-Q1</td><td>TI</td><td class="desc">Automotive 16V/1A adjustable LDO, +1V8 Verdin I/O rail, WSON-8 (datasheet SBVS381A)</td><td class="pkg">Texas_DRB0008A</td><td class="qty">1</td><td class="refs">U3</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
 <tr><td class="mpn">TPS60403-Q1</td><td>TI</td><td class="desc">Unregulated charge-pump inverter, generates panel&#x27;s real -5V VSN rail, SOT-23-5 (datasheet SGLS246B)</td><td class="pkg">SOT-23-5</td><td class="qty">1</td><td class="refs">U6</td><td><span class="q-yes">AEC-Q100 Grade 1</span></td></tr>
 <tr class="cat"><td colspan="7">Electromechanical</td></tr>
-<tr><td class="mpn">Bourns MF-RG300 family</td><td>Bourns</td><td class="desc">PTC resettable fuse, real family matched via KiCad footprint (Fuse:Fuse_Bourns_MF-RG300) but no exact current-rating suffix or datasheet cited in the schematic sources - schematic Value only states the target rating (5A)</td><td class="pkg">Fuse_Bourns_MF-RG300</td><td class="qty">1</td><td class="refs">F1</td><td><span class="q-tbd">TBD</span></td></tr>
+<tr><td class="mpn">MF-RG500</td><td>Bourns</td><td class="desc">PTC resettable fuse, 5.0A hold / 8.5A trip / 16V max, AEC-Q200 - real part matching the circuit&#x27;s own target rating, not the 3.0A-hold MF-RG300 this board&#x27;s footprint previously (wrongly) cited</td><td class="pkg">Fuse_Bourns_MF-RG500</td><td class="qty">1</td><td class="refs">F1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr class="cat"><td colspan="7">Connectors</td></tr>
 <tr><td class="mpn">1058</td><td>Keystone Electronics</td><td class="desc">20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family&#x27;s own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py&#x27;s own comments</td><td class="pkg">BatteryHolder_Keystone_1058_1x2032</td><td class="qty">1</td><td class="refs">J10</td><td><span class="q-na">-</span></td></tr>
 <tr><td class="mpn">DF40C-50DP-0.4V(51)</td><td>Hirose</td><td class="desc">50-pin (2x25) 0.4mm-pitch board-to-FPC connector for the DM-TFTR50-413 panel - real datasheet OCR-mangled the part as &quot;JF40C...&quot;, confirmed as the real Hirose part and matched exactly to KiCad&#x27;s own bundled footprint</td><td class="pkg">Hirose_DF40C-50DP-0.4V_2x25-1MP_P0.4mm</td><td class="qty">1</td><td class="refs">J4</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">Verdin iMX95 Hexa 8GB WB IT</td><td>Toradex</td><td class="desc">SoM, real datasheet cited (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), socketed via a generic SODIMM-260_DDR4 footprint (not a Toradex-specific connector MPN) - confirmed real, orderable product name (independently listed on Mouser US and Mouser UK); exact Toradex internal order code still needs confirming at purchase time</td><td class="pkg">SODIMM-260_DDR4_H4.0-5.2_OrientationStd_Socket</td><td class="qty">1</td><td class="refs">J1</td><td><span class="q-na">-</span></td></tr>
 <tr class="cat"><td colspan="7">Displays (reference only)</td></tr>
 <tr><td class="mpn">DisplayModule DM-TFTR50-413</td><td>DisplayModule</td><td class="desc">5.0in 1080x1080 native MIPI-DSI round panel, HX8399 driver IC built into the module - real datasheet pulled and read in full; connects via J4 above, not its own BOM line</td><td class="pkg">n/a - see J4</td><td class="qty">-</td><td class="refs">(via J4)</td><td><span class="q-na">-</span></td></tr>
 <tr class="cat"><td colspan="7">Passives</td></tr>
@@ -195,11 +197,7 @@
 <tr><td class="mpn">Buttons</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;Buttons&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x04_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J9</td><td><span class="q-tbd">TBD</span></td></tr>
 <tr><td class="mpn">CAN to ECU</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;CAN to ECU&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x03_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J3</td><td><span class="q-tbd">TBD</span></td></tr>
 <tr><td class="mpn">JTAG debug</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;JTAG debug&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x08_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J8</td><td><span class="q-tbd">TBD</span></td></tr>
-<tr><td class="mpn">NFET diode</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;NFET diode&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">SOT-23</td><td class="qty">1</td><td class="refs">Q1</td><td><span class="q-tbd">TBD</span></td></tr>
-<tr><td class="mpn">NFET pass</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;NFET pass&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">SOT-23</td><td class="qty">1</td><td class="refs">Q2</td><td><span class="q-tbd">TBD</span></td></tr>
 <tr><td class="mpn">Power in</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;Power in&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x03_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J2</td><td><span class="q-tbd">TBD</span></td></tr>
-<tr><td class="mpn">TVS 33V</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;TVS 33V&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">D_SMB</td><td class="qty">1</td><td class="refs">D1</td><td><span class="q-tbd">TBD</span></td></tr>
-<tr><td class="mpn">Verdin iMX95 (SKU TBD)</td><td>Toradex</td><td class="desc">SoM, real datasheet cited (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), socketed via a generic SODIMM-260_DDR4 footprint (not a Toradex-specific connector MPN) - Toradex sells this module in several RAM/eMMC/temp-grade SKUs and none has been chosen yet</td><td class="pkg">SODIMM-260_DDR4_H4.0-5.2_OrientationStd_Socket</td><td class="qty">1</td><td class="refs">J1</td><td><span class="q-tbd">TBD</span></td></tr>
       </tbody>
     </table>
   </div>
@@ -209,8 +207,7 @@
   <footer>
     <p>Generated directly from the project schematic by <code>build_bom.py</code>, so
     quantities and designators cannot drift from the board. What remains before
-    ordering: real part selection for every TBD line (front-end FETs/TVS, fuse
-    suffix, Verdin SKU, 4 harness connectors), and a purchasing pass for live
-    pricing and availability on everything else.</p>
+    ordering: real part selection for the 4 harness connectors (J2/J3/J8/J9),
+    and a purchasing pass for live pricing and availability on everything else.</p>
   </footer>
 </div>

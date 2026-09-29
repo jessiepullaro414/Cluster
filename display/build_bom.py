@@ -15,25 +15,26 @@ packages and quantities here all come from ClusterDisplay.kicad_sch
 itself, so the BOM cannot disagree with the board.
 
 WHAT IS AND IS NOT VERIFIED - stated plainly, same discipline as every
-sibling board's own BOM. This board genuinely has MORE open "needs real
-part selection" lines than gauges/ or ecu-pcb - it's a newer design
-(the AAOS pivot only landed 2026-09-25) and several real engineering
-decisions were deliberately left as named open items rather than
-guessed at:
+sibling board's own BOM.
   * ACTIVE parts carry REAL manufacturer part numbers where
-    build_schematic.py's own comments state one (U1/U2/U3/U4/U6/U7,
-    Q3, D2, J4) - that provenance is in that file, not invented here.
-  * Q1/Q2 (the 12V front-end back-to-back FET pair) and D1 (the input
-    TVS) are still generic placeholder symbols with no real MPN chosen
-    at all - not even a manufacturer.
-  * F1 is a real Bourns MF-RG300-family PTC resettable fuse footprint,
-    but no exact current-rating suffix or datasheet has been pinned.
-  * J1 is a real Toradex Verdin iMX95 SoM (real datasheet cited), but
-    no exact SKU (RAM/eMMC/temp-grade combination) has been chosen -
-    Toradex sells several.
-  * J2/J3/J8/J9 are explicitly named "PROVISIONAL" 2.54mm pin headers
-    in parts.py itself - real generic headers stand in for connectors
-    that haven't been designed yet (power/CAN/JTAG/button harness).
+    build_schematic.py's own comments state one - that provenance is
+    in that file, not invented here. This originally covered U1/U2/U3/
+    U4/U6/U7, Q3, D2, J4; as of 2026-09-28 it also covers Q1/Q2 (real
+    Nexperia PMV55ENEA, selected against LM74930-Q1's own datasheet
+    MOSFET-selection guidance), D1 (real SMCJ33A, same part gauges/'s
+    own front end already uses), F1 (real Bourns MF-RG500 - MF-RG300,
+    this board's own footprint until now, was really a 3.0A-hold part
+    despite the circuit's "5A" target) and J1 (real, confirmed-
+    orderable Toradex product name "Verdin iMX95 Hexa 8GB WB IT" -
+    Toradex's own internal order code still wants confirming at
+    purchase time).
+  * J2/J3/J8/J9 are still explicitly named "PROVISIONAL" 2.54mm pin
+    headers in parts.py itself - real generic headers standing in for
+    connectors that haven't been designed yet (power/CAN/JTAG/button
+    harness), the one real category of TBD line still open on this
+    board. Real, not guessed at, because the actual harness/enclosure
+    requirements aren't known yet - picking connectors now would be
+    guessing, not deferring.
   * PASSIVES are specified parametrically - value, package, and the
     AEC-Q200 requirement - same real reasoning as every sibling board.
   * LIVE PRICING AND STOCK ARE NOT INCLUDED.
@@ -68,6 +69,15 @@ MPN = {
     "AL8853AQ":     ("AL8853AQ", "Diodes Incorporated", "Automotive boost LED controller, panel backlight (~38V, 6-LED string), SO-8 (datasheet DS45623)", "AEC-Q100 Grade 1"),
     "MFT6N2A5S23A": ("MFT6N2A5S23A", "Meritek", "Boost switch NFET, 60V/2.5A, SOT-23, RDS(on) <=75mR", "AEC-Q101"),
     "PMEG6010ELRX": ("PMEG6010ELRX", "Nexperia", "Boost rectifier Schottky, 60V/1A, SOD-123W", "AEC-Q101"),
+
+    # Real parts chosen 2026-09-28, selected against LM74930-Q1's own
+    # datasheet MOSFET-selection section (60V VDS w/ single TVS, >=15V
+    # VGS rating since HGATE/DGATE drive up to 14V) - see
+    # build_schematic.py's own comment on Q1/Q2 for the real datasheet
+    # citation and the honest flag on current margin vs. F1's 5A rating.
+    "PMV55ENEA":    ("PMV55ENEA", "Nexperia", "60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair", "AEC-Q101"),
+    "SMCJ33A":      ("SMCJ33A (multi-source)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
+                      "SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/'s own D1 already uses", "AEC-Q101"),
 }
 
 # Real, exactly-identified connectors matched by REFERENCE (their
@@ -77,23 +87,25 @@ MPN = {
 BOARD_SIDE_CONNECTORS = {
     "J4": ("DF40C-50DP-0.4V(51)", "Hirose", "50-pin (2x25) 0.4mm-pitch board-to-FPC connector for the DM-TFTR50-413 panel - real datasheet OCR-mangled the part as \"JF40C...\", confirmed as the real Hirose part and matched exactly to KiCad's own bundled footprint", "-"),
     "J10": ("1058", "Keystone Electronics", "20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments", "-"),
-}
-
-# Real families/parts with a genuinely open "exact P/N not chosen yet"
-# status - matched by REFERENCE, not Value token (each one's real
-# Value string is short/generic: "5A", "Verdin iMX95"). Honest TBD,
-# not a fabricated precise part number - see this file's own header.
-REF_KNOWN_FAMILY_TBD = {
-    "F1": ("Bourns MF-RG300 family", "Bourns",
-           "PTC resettable fuse, real family matched via KiCad footprint "
-           "(Fuse:Fuse_Bourns_MF-RG300) but no exact current-rating suffix "
-           "or datasheet cited in the schematic sources - schematic Value "
-           "only states the target rating (5A)"),
-    "J1": ("Verdin iMX95 (SKU TBD)", "Toradex",
+    # Real SoM SKU chosen 2026-09-28 - see build_x1_symbol()'s own
+    # comment in build_schematic.py for the real reasoning (Hexa/8GB
+    # for real AAOS headroom, IT for automotive temp range). Toradex's
+    # own internal ordering code wasn't independently confirmed - real
+    # product name is, verify the exact code at purchase time.
+    "J1": ("Verdin iMX95 Hexa 8GB WB IT", "Toradex",
            "SoM, real datasheet cited (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), "
            "socketed via a generic SODIMM-260_DDR4 footprint (not a Toradex-specific "
-           "connector MPN) - Toradex sells this module in several RAM/eMMC/temp-grade "
-           "SKUs and none has been chosen yet"),
+           "connector MPN) - confirmed real, orderable product name (independently listed "
+           "on Mouser US and Mouser UK); exact Toradex internal order code still needs "
+           "confirming at purchase time", "-"),
+    # Real part chosen 2026-09-28 - see build_schematic.py's own comment
+    # on F1 for why MF-RG300 (the footprint this board shipped with
+    # until now) was both the wrong footprint AND the wrong real part.
+    "F1": ("MF-RG500", "Bourns",
+           "PTC resettable fuse, 5.0A hold / 8.5A trip / 16V max, AEC-Q200 - "
+           "real part matching the circuit's own target rating, not the "
+           "3.0A-hold MF-RG300 this board's footprint previously (wrongly) cited",
+           "AEC-Q200"),
 }
 
 # Real display panel this board is designed for - referenced via J4
@@ -245,20 +257,14 @@ def build():
     lines = []          # (category, mpn, mfr, desc, package, qty, refs, qual)
     matched = set()
 
-    # --- exactly-identified connectors, matched by REFERENCE -----------
+    # --- exactly-identified parts, matched by REFERENCE (F1 categorized
+    # as Electromechanical, everything else here is a Connector) --------
     for ref, (mpn, mfr, desc, qual) in BOARD_SIDE_CONNECTORS.items():
         if any(p["ref"] == ref for p in parts):
             matched.add(ref)
             pkg = next(p["package"] for p in parts if p["ref"] == ref)
-            lines.append(("Connectors", mpn, mfr, desc, pkg, 1, ref, qual))
-
-    # --- real families with an open exact-P/N decision, by REFERENCE ---
-    for ref, (mpn, mfr, desc) in REF_KNOWN_FAMILY_TBD.items():
-        if any(p["ref"] == ref for p in parts):
-            matched.add(ref)
-            pkg = next(p["package"] for p in parts if p["ref"] == ref)
-            cat = "Electromechanical" if ref == "F1" else "Needs real part selection"
-            lines.append((cat, mpn, mfr, desc, pkg, 1, ref, "TBD"))
+            cat = "Electromechanical" if ref == "F1" else "Connectors"
+            lines.append((cat, mpn, mfr, desc, pkg, 1, ref, qual))
 
     # --- non-passives matched by real MPN token -------------------------
     groups = defaultdict(list)
@@ -515,17 +521,16 @@ HTML_TEMPLATE = r"""<title>Display Carrier Bill of Materials</title>
 
   <div class="note">
     <h2>How to read this list</h2>
-    <p><strong>This board has more open TBD lines than its siblings</strong> &mdash;
-    a real, honest reflection of where the design actually is: the AAOS pivot
-    that created this board only landed 2026-09-25, and several real decisions
-    (front-end FET/TVS exact parts, the fuse's exact rating suffix, which Verdin
-    SKU, and 4 provisional pin-header connectors standing in for harness
-    connectors not yet designed) were deliberately left open rather than guessed
-    at with a fabricated-precise part number.</p>
-    <p><strong>Active parts with a real MPN</strong> (U1/U2/U3/U4/U6/U7, Q3, D2,
-    J4) carry provenance straight from <code>build_schematic.py</code>'s own
-    comments, each one traced to a real datasheet during the design pass that
-    introduced it.</p>
+    <p><strong>Only one real open category remains</strong>: J2/J3/J8/J9 are 4
+    provisional pin-header connectors standing in for harness connectors
+    (power/CAN/JTAG/buttons) that haven't been designed yet - deliberately left
+    open rather than guessed at, since the real harness/enclosure requirements
+    aren't known. Everything else that started as an open item (the front-end
+    FET pair, the input TVS, the fuse's exact rating, and the Verdin SoM's
+    exact SKU) was resolved to a real, cited part on 2026-09-28.</p>
+    <p><strong>Active parts with a real MPN</strong> carry provenance straight
+    from <code>build_schematic.py</code>'s own comments, each one traced to a
+    real datasheet during the design pass that introduced it.</p>
     <p><strong>Passives are specified parametrically</strong> &mdash; value, package
     and the AEC-Q200 requirement &mdash; rather than pinned to one vendor.</p>
     <p><strong>Pricing and stock are not included.</strong></p>
@@ -552,9 +557,8 @@ HTML_TEMPLATE = r"""<title>Display Carrier Bill of Materials</title>
   <footer>
     <p>Generated directly from the project schematic by <code>build_bom.py</code>, so
     quantities and designators cannot drift from the board. What remains before
-    ordering: real part selection for every TBD line (front-end FETs/TVS, fuse
-    suffix, Verdin SKU, 4 harness connectors), and a purchasing pass for live
-    pricing and availability on everything else.</p>
+    ordering: real part selection for the 4 harness connectors (J2/J3/J8/J9),
+    and a purchasing pass for live pricing and availability on everything else.</p>
   </footer>
 </div>
 """

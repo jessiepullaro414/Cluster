@@ -37,6 +37,7 @@ This does NOT run kicad-cli DRC itself - run ../run_drc.py (it takes a
 path argument) afterward to verify the routed result.
 """
 import ast
+import json
 import os
 import re
 import subprocess
@@ -84,6 +85,39 @@ def find_java():
         if os.path.isfile(candidate):
             return candidate
     raise SystemExit("java not found - see README for the Java + FreeRouting setup")
+
+
+KICAD_CLI_CANDIDATES = [r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"]
+
+
+def find_kicad_cli():
+    import shutil
+    exe = shutil.which("kicad-cli")
+    if exe:
+        return exe
+    for candidate in KICAD_CLI_CANDIDATES:
+        if os.path.isfile(candidate):
+            return candidate
+    raise SystemExit("kicad-cli not found")
+
+
+def real_unconnected_count():
+    """The real ground truth for "is this board actually fully routed" -
+    kicad-cli's own DRC engine, not FreeRouting's own self-reported
+    unrouted count. Real, not theoretical: a first real run on this
+    board reported "0 unrouted" from FreeRouting/route_until_clean()
+    while kicad-cli's own DRC afterward found 5 real unconnected items,
+    all clustered around U1's own fine-pitch VQFN-24 footprint - the
+    SES import round-trip (or FreeRouting's own final pass) silently
+    left real connections incomplete despite the self-reported count
+    saying otherwise. This is the check that actually catches that."""
+    kicad_cli = find_kicad_cli()
+    report_path = os.path.join(os.environ.get("TEMP", HERE), "route_verify_drc.json")
+    subprocess.run([kicad_cli, "pcb", "drc", "--format", "json",
+                    "--output", report_path, "--exit-code-violations", PCB],
+                   capture_output=True, text=True)
+    drc = json.load(open(report_path, encoding="utf-8"))
+    return len(drc.get("unconnected_items", []))
 
 
 def run_kicad_python(label, script):
@@ -452,10 +486,48 @@ for w in sorted(hist, reverse=True):
 ''')
 
 
+# Real ceiling on full-pipeline retries (each one regenerates a fresh
+# unrouted board and re-runs FreeRouting from scratch) - separate from
+# MAX_ROUTE_ATTEMPTS, which only covers FreeRouting's own retries within
+# ONE pipeline pass. Needed because FreeRouting's own self-reported
+# "unrouted" count isn't always the real ground truth (see
+# real_unconnected_count()'s own comment) - when it's wrong, no amount
+# of retrying FreeRouting alone fixes it, since route_until_clean()
+# already believed it succeeded and stopped.
+MAX_PIPELINE_ATTEMPTS = 3
+
+
+def regenerate_unrouted_board():
+    build_pcb = os.path.join(HERE, "build_pcb.py")
+    result = subprocess.run([sys.executable, build_pcb], capture_output=True, text=True)
+    print(result.stdout.strip().splitlines()[-1] if result.stdout else "")
+    if result.returncode != 0:
+        print(result.stderr.strip()[-2000:], file=sys.stderr)
+        raise SystemExit("build_pcb.py failed while regenerating a fresh unrouted board")
+
+
 if __name__ == "__main__":
-    export_dsn()
-    route_until_clean()
-    import_ses()
-    widen_trunks()
-    add_and_fill_zones()
+    for pipeline_attempt in range(1, MAX_PIPELINE_ATTEMPTS + 1):
+        export_dsn()
+        route_until_clean()
+        import_ses()
+        widen_trunks()
+        add_and_fill_zones()
+        real_unconnected = real_unconnected_count()
+        if real_unconnected == 0:
+            print(f"\nReal DRC confirms 0 unconnected items (pipeline attempt "
+                  f"{pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS}).")
+            break
+        print(f"\nWARNING: FreeRouting/route_until_clean() reported success, but "
+              f"kicad-cli's own real DRC found {real_unconnected} unconnected "
+              f"item(s) (pipeline attempt {pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS}) - "
+              f"the self-reported count was wrong. ", end="")
+        if pipeline_attempt < MAX_PIPELINE_ATTEMPTS:
+            print("Regenerating a fresh unrouted board and trying the whole "
+                  "pipeline again.")
+            regenerate_unrouted_board()
+        else:
+            print(f"Out of pipeline attempts - this board has "
+                  f"{real_unconnected} real unrouted connection(s) left; "
+                  f"hand-route them in pcbnew before this board is real.")
     print("\nDone. Run: python ../run_drc.py ClusterDisplay.kicad_pcb")

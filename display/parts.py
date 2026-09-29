@@ -252,7 +252,12 @@ FOOTPRINTS = {
     "C":    "Capacitor_SMD:C_0603_1608Metric",
     "L":    "Inductor_SMD:L_1210_3225Metric",
     "TVS":  "Diode_SMD:D_SMB",
-    "FUSE": "Fuse:Fuse_Bourns_MF-RG300",
+    # Real part MF-RG500 (5.0A hold, matching F1's own real "5A" target -
+    # see build_schematic.py's own comment on F1). MF-RG300 (3.0A hold)
+    # was the wrong footprint AND the wrong real part - Bourns' MF-RG
+    # family's numeric suffix is the hold current, and each member has
+    # its own real, different physical package size, not a shared one.
+    "FUSE": "Fuse:Fuse_Bourns_MF-RG500",
     "NFET": "Package_TO_SOT_SMD:SOT-23",
 
     # Connectors. These are PROVISIONAL - 2.54 mm pin headers standing in

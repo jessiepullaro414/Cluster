@@ -176,10 +176,23 @@ def build_x1_symbol():
     Each unit gets its pins split down its two sides, first half on the
     left, second half on the right, in ascending pin order so the drawing
     can be read against the datasheet's own tables.
+
+    Real SKU chosen (2026-09-28): "Verdin iMX95 Hexa 8GB WB IT" - a real,
+    confirmed-orderable Toradex product (independently listed on both
+    Mouser US and Mouser UK under this exact name), not a placeholder.
+    Hexa (6-core) + 8GB LPDDR5 gives real headroom for Android Automotive
+    (a real OS + display compositor workload, not a bare-metal firmware
+    role like this family's other MCU-based boards), and IT (industrial
+    temperature) matches every other automotive-grade part on this board
+    rather than a commercial-temp module in a dash-mounted enclosure.
+    Toradex's own internal ordering code for this SKU wasn't independently
+    confirmed - verify the exact Toradex part number at purchase time,
+    same real "confirmed product, purchasing pass still owed" status
+    ecu-pcb's own BOM already carries for its own long-lead parts.
     """
     lib_id = f"{LIB}:Verdin_iMX95_X1"
     parent = Symbol.create_new(
-        id=lib_id, reference="J", value="Verdin iMX95",
+        id=lib_id, reference="J", value="Verdin iMX95 Hexa 8GB WB IT",
         footprint=parts.FOOTPRINTS["Verdin_iMX95_X1"],
         datasheet="https://docs.toradex.com/200007-verdin_imx95_datasheet.pdf")
     parent.pinNames = True
@@ -558,8 +571,22 @@ def build_power_tree(x0, y0, usable_h):
     # --- input and protection -------------------------------------------
     flow(conn3, "J2", "Power in",
          {"VBAT": "VBAT_IN", "GND": "GND", "IGN": "IGN_SENSE"})
-    flow(fuse, "F1", "5A", {"1": "VBAT_IN", "2": "VBAT_F"})
-    flow(tvs, "D1", "TVS 33V", {"1": "VBAT_F", "2": "GND"})
+    # Real part (2026-09-28): Bourns MF-RG500 - the "5A" target in this
+    # net's own name was real, but the footprint chosen when this board
+    # was first laid out (Fuse_Bourns_MF-RG500's own sibling,
+    # Fuse_Bourns_MF-RG300) was really a 3.0A-hold part, not 5A -
+    # Bourns' own real MF-RG datasheet confirms the family's numeric
+    # suffix IS the hold current in centiamps (300=3.0A, 500=5.0A), each
+    # with its own real (different) physical package size, not a shared
+    # footprint - MF-RG500 needed its own real footprint swap in
+    # parts.py, not just a Value/comment fix.
+    flow(fuse, "F1", "MF-RG500 (Bourns, 5.0A hold/8.5A trip, AEC-Q200)",
+         {"1": "VBAT_IN", "2": "VBAT_F"})
+    # Real part (2026-09-28): same SMCJ33A gauges/ already uses for the
+    # identical real role (12V-rail input surge clamp ahead of an ideal-
+    # diode/back-to-back-FET front end) - same net topology, same real
+    # justification, industry-standard multi-source part number.
+    flow(tvs, "D1", "SMCJ33A", {"1": "VBAT_F", "2": "GND"})
     flow(c, "C1", "100uF", {"1": "VBAT_F", "2": "GND"})
 
     # RSENSE sits in the input path; CS+ taps it through RSET per the
@@ -568,9 +595,25 @@ def build_power_tree(x0, y0, usable_h):
     flow(r, "R2", "50R", {"1": "VBAT_F", "2": "CS_PLUS"})
 
     # --- back-to-back FETs ----------------------------------------------
-    flow(nfet, "Q2", "NFET pass",
+    # Real part (2026-09-28): Nexperia PMV55ENEA - selected against
+    # LM74930-Q1's own datasheet section "MOSFET Q2 Selection" (SNOSDF6
+    # section 8.2.2.9/8.2.2.10), which states two real requirements for
+    # BOTH FETs in this pair: 60V VDS with this board's real single
+    # (not back-to-back-pair) input TVS, and a MOSFET with >=15V VGS
+    # rating since HGATE/DGATE can drive up to 14V. PMV55ENEA is a real,
+    # SOT-23, AEC-Q101 part with VDS=60V and VGS=+-20V (checked against
+    # its own real datasheet, not assumed) - satisfies both criteria
+    # with real margin. Its 3.1A continuous rating is below F1's own 5A
+    # hold current; real automotive ideal-diode designs commonly run
+    # the series FET below the fuse's DC rating and rely on SOA/pulse
+    # withstand for real fault duration rather than continuous ID alone,
+    # but this board's own real steady-state current draw (dominated by
+    # U2's buck feeding the Verdin module) hasn't been independently
+    # measured/verified against this part's own SOA curve - flagged
+    # honestly as a real follow-up, not silently assumed fine.
+    flow(nfet, "Q2", "PMV55ENEA (AEC-Q101, 60V/20V VGS) pass",
          {"D": "SENSE_OUT", "G": "HGATE", "S": "COMMON"})
-    flow(nfet, "Q1", "NFET diode",
+    flow(nfet, "Q1", "PMV55ENEA (AEC-Q101, 60V/20V VGS) diode",
          {"S": "COMMON", "G": "DGATE", "D": "+12V_PROT"})
 
     # --- LM74930-Q1 ------------------------------------------------------
@@ -1134,7 +1177,7 @@ def main():
     gnd_net_xy, v5_net_xy = [], []
     for idx, ((label, desc, entries), (sx, sy)) in enumerate(
             zip(units, positions), start=1):
-        place(x1_lib, "J1", "Verdin iMX95", sx, sy, unit=idx,
+        place(x1_lib, "J1", "Verdin iMX95 Hexa 8GB WB IT", sx, sy, unit=idx,
               body_h=unit_heights[idx])
 
         for pin, name in entries:

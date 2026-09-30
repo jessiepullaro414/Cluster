@@ -69,14 +69,16 @@ PCB = os.path.join(HERE, "ClusterDisplay.kicad_pcb")
 # failing loudly rather than reporting a stale part.
 #   token -> (MPN, manufacturer, description, qualification)
 MPN = {
-    "LM74930-Q1":   ("LM74930-Q1", "TI", "Automotive ideal-diode surge stopper w/ circuit breaker + OV clamp, VQFN-24 (datasheet SNOSDF6)", "AEC-Q100 (TI -Q1 suffix)"),
-    "LM61460-Q1":   ("LM61460-Q1", "TI", "Automotive 3-36V 6A low-EMI synchronous buck, main +5V rail, VQFN-HR-14 (datasheet SNVSB70F)", "AEC-Q100 (TI -Q1 suffix)"),
-    "TLV767-Q1":    ("TLV767-Q1", "TI", "Automotive 16V/1A adjustable LDO, +1V8 Verdin I/O rail, WSON-8 (datasheet SBVS381A)", "AEC-Q100 (TI -Q1 suffix)"),
-    "TCAN1044V-Q1": ("TCAN1044V-Q1", "TI", "Automotive CAN FD transceiver w/ 1.8V I/O support (V suffix load-bearing - see parts.py), SOIC-8 (datasheet SLLSF17D)", "AEC-Q100 (TI -Q1 suffix)"),
+    # Orderable P/Ns confirmed 2026-09-30 from TI's part-details pages and
+    # distributor listings (the -Q1 names are families, not orderable).
+    "LM74930-Q1":   ("LM74930QRGERQ1", "TI", "Automotive ideal-diode surge stopper w/ circuit breaker + OV clamp, VQFN-24 RGE (datasheet SNOSDF6); TI lists it Active/Production", "AEC-Q100 Grade 1"),
+    "LM61460-Q1":   ("LM61460AASQRJRRQ1", "TI", "Automotive 3-36V 6A low-EMI synchronous buck, main +5V rail, VQFN-HR-14 RJR (datasheet SNVSB70F). LM61460 is a FAMILY of three adjustable variants: AAS (auto light-load mode + spread spectrum, chosen), AAN (auto, no spread spectrum), AFS (forced-PWM + spread spectrum). AAS was picked for EMI; use AFS if PFM ripple at light load is a problem. Not yet bench-verified", "AEC-Q100 (TI -Q1 suffix)"),
+    "TLV767-Q1":    ("TLV76701QWDRBRQ1", "TI", "Automotive 16V/1A adjustable LDO, +1V8 Verdin I/O rail, VSON-8 DRB with wettable flanks (datasheet SBVS381A); 01 = adjustable, QW = wettable-flank automotive", "AEC-Q100 (TI -Q1 suffix)"),
+    "TCAN1044V-Q1": ("TCAN1044VDRQ1", "TI", "Automotive CAN FD transceiver w/ 1.8V I/O support (V variant is load-bearing - see parts.py), SOIC-8 D (datasheet SLLSF17D)", "AEC-Q100 Grade 1"),
     # Panel rails/backlight for the TSD TST040HDBC-42 (2026-09-30) - see
     # build_schematic.py's build_panel_bias()/build_panel_backlight().
-    "TPS65131-Q1":  ("TPS65131-Q1", "TI", "Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE (datasheet SLVSBB2F)", "AEC-Q100 Grade 2"),
-    "TPS61165-Q1":  ("TPS61165-Q1", "TI", "Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 (datasheet SLVSB73B)", "AEC-Q100"),
+    "TPS65131-Q1":  ("TPS65131TRGERQ1", "TI", "Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE with wettable flanks (datasheet SLVSBB2F); TI lists it Active", "AEC-Q100 Grade 2"),
+    "TPS61165-Q1":  ("TPS61165TDBVRQ1", "TI", "Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 DBV (datasheet SLVSB73B); TI lists the family Active. Orderable suffix taken from a TI E2E thread and a datasheet listing - confirm on TI's store", "AEC-Q100"),
     "XAL4030-472ME": ("XAL4030-472MEC", "Coilcraft", "4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "XAL4040-103ME": ("XAL4040-103MEC", "Coilcraft", "10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "SJ3":          ("(no part - PCB footprint only)", "-", "3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel's +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py", "n/a"),
@@ -87,7 +89,7 @@ MPN = {
     # VGS rating since HGATE/DGATE drive up to 14V) - see
     # build_schematic.py's own comment on Q1/Q2 for the real datasheet
     # citation and the honest flag on current margin vs. F1's 5A rating.
-    "PMV55ENEA":    ("PMV55ENEA", "Nexperia", "60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair", "AEC-Q101"),
+    "PMV55ENEA":    ("PMV55ENEAR", "Nexperia", "60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair (orderable suffix R = reel; 12NC 934068714215)", "AEC-Q101"),
     "SMCJ33A":      ("SMCJ33A (multi-source)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
                       "SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/'s own D1 already uses", "AEC-Q101"),
 }

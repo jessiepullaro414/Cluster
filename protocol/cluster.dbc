@@ -1,0 +1,77 @@
+VERSION "cluster-can-0.1"
+
+NS_ :
+
+BS_:
+
+BU_: ECU GAUGES DISPLAY
+
+BO_ 256 EcuState: 1 ECU
+ SG_ EngineState : 0|8@1+ (1,0) [0|255] "" GAUGES,DISPLAY
+
+BO_ 512 EcuEngine: 7 ECU
+ SG_ Rpm : 0|16@1+ (1,0) [0|12000] "rpm" GAUGES,DISPLAY
+ SG_ MapKpa : 16|16@1+ (0.1,0) [0|400] "kPa" DISPLAY
+ SG_ CoolantC : 32|16@1- (0.1,0) [-40|150] "degC" GAUGES,DISPLAY
+ SG_ ThrottlePct : 48|8@1+ (0.4,0) [0|100] "%" DISPLAY
+
+BO_ 513 EcuVehicle: 7 ECU
+ SG_ SpeedKph : 0|16@1+ (0.1,0) [0|300] "km/h" DISPLAY
+ SG_ BatteryV : 16|16@1+ (0.01,0) [0|20] "V" GAUGES,DISPLAY
+ SG_ OilPressKpa : 32|16@1+ (1,0) [0|1000] "kPa" GAUGES,DISPLAY
+ SG_ CheckEngine : 48|1@1+ (1,0) [0|1] "" DISPLAY
+
+BO_ 768 GaugesSense: 8 GAUGES
+ SG_ FuelPct : 0|16@1+ (0.01,0) [0|100] "%" DISPLAY
+ SG_ OilKpa : 16|16@1+ (1,0) [0|1000] "kPa" DISPLAY
+ SG_ CoolantC : 32|16@1- (0.1,0) [-40|150] "degC" DISPLAY
+ SG_ BatteryV : 48|16@1+ (0.01,0) [0|20] "V" DISPLAY
+
+BO_ 769 GaugesStatus: 4 GAUGES
+ SG_ FwMajor : 0|8@1+ (1,0) [0|255] "" DISPLAY
+ SG_ FwMinor : 8|8@1+ (1,0) [0|255] "" DISPLAY
+ SG_ FuelSenderOpen : 16|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ OilSenderOpen : 17|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ TempSenderOpen : 18|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ StandaloneMode : 19|1@1+ (1,0) [0|1] "" DISPLAY
+
+BO_ 1024 DisplayGauges: 8 DISPLAY
+ SG_ FuelFrac : 0|16@1+ (0.01,0) [0|100] "%" GAUGES
+ SG_ CoolantFrac : 16|16@1+ (0.01,0) [0|100] "%" GAUGES
+ SG_ OilFrac : 32|16@1+ (0.01,0) [0|100] "%" GAUGES
+ SG_ BatteryFrac : 48|16@1+ (0.01,0) [0|100] "%" GAUGES
+
+BO_ 1025 DisplayState: 3 DISPLAY
+ SG_ BrightnessPct : 0|8@1+ (1,0) [0|100] "%" GAUGES
+ SG_ NightMode : 8|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ FuelFromEcu : 9|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ CoolantFromEcu : 10|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ OilFromEcu : 11|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ BatteryFromEcu : 12|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ WarnFuel : 16|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ WarnCoolant : 17|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ WarnOil : 18|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ WarnBattery : 19|1@1+ (1,0) [0|1] "" GAUGES
+
+BO_ 1264 DisplayHeartbeat: 2 DISPLAY
+ SG_ Counter : 0|16@1+ (1,0) [0|65535] "" GAUGES
+
+CM_ BO_ 256 "Existing placeholder broadcast from ecu-firmware (keep the ID).";
+CM_ BO_ 512 "Engine telemetry the cluster shows or derives from.";
+CM_ BO_ 513 "Vehicle-level values the ECU knows.";
+CM_ BO_ 768 "Local resistive-sender readings, after the ADC lookup tables. Used when the ECU is absent or silent.";
+CM_ BO_ 769 "Health and firmware identity.";
+CM_ BO_ 1024 "What each small gauge should draw, as a fraction of full scale (0-100%). Order: fuel, coolant temp, oil pressure, battery.";
+CM_ BO_ 1025 "Global rendering state for the small gauges.";
+CM_ BO_ 1264 "Liveness; GAUGES goes standalone if this stops.";
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
+BA_DEF_DEF_ "GenMsgCycleTime" 0;
+BA_ "GenMsgCycleTime" BO_ 256 100;
+BA_ "GenMsgCycleTime" BO_ 512 50;
+BA_ "GenMsgCycleTime" BO_ 513 100;
+BA_ "GenMsgCycleTime" BO_ 768 100;
+BA_ "GenMsgCycleTime" BO_ 769 1000;
+BA_ "GenMsgCycleTime" BO_ 1024 50;
+BA_ "GenMsgCycleTime" BO_ 1025 100;
+BA_ "GenMsgCycleTime" BO_ 1264 1000;

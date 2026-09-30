@@ -108,10 +108,13 @@ BOARD_SIDE_CONNECTORS = {
     # for real AAOS headroom, IT for automotive temp range). Toradex's
     # own internal ordering code wasn't independently confirmed - real
     # product name is, verify the exact code at purchase time.
-    "J1": ("Verdin iMX95 Hexa 8GB WB IT (Toradex PN 0089)", "Toradex",
-           "SoM, real datasheet cited (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), "
-           "socketed via a generic SODIMM-260_DDR4 footprint (not a Toradex-specific "
-           "connector MPN). Toradex product no. 0089 per developer.toradex.com "
+    "J1": ("2309409-2 socket + Verdin iMX95 Hexa 8GB WB IT (Toradex PN 0089)",
+           "TE Connectivity + Toradex",
+           "TWO purchases on this one line: the 260-position DDR4 SODIMM socket (TE "
+           "2309409-2, 5.2mm stack - the socket Toradex recommends in datasheet section "
+           "6.5.1, matching this board's SODIMM-260_DDR4_H4.0-5.2 footprint) and the SoM "
+           "that plugs into it (docs.toradex.com/200007-verdin_imx95_datasheet.pdf). "
+           "Toradex product no. 0089 per developer.toradex.com "
            "(checked 2026-09-30): V1.0A is end-of-life, V1.0B moved to B0 silicon, "
            "V1.1A fixed errata HAR-12581, and V1.1B (Q3 2026) moved to mass-production "
            "SoC and PMIC - order the latest revision. Also listed on Mouser", "-"),

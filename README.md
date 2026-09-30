@@ -8,12 +8,12 @@ The center gauge runs Android Automotive; the four small gauges are driven by a 
 
 | Dir | Role | Core | Board |
 |---|---|---|---|
-| [display/](display/) | Android center gauge | Toradex Verdin iMX95 SoM, round MIPI-DSI panel | 104.8 x 106.0mm |
+| [display/](display/) | Android center gauge | Toradex Verdin iMX95 SoM, 4in 800-nit round MIPI-DSI panel | ~113 x 106mm |
 | [gauges/](gauges/) | 4 small aux gauges + resistive sender front end | NXP S32K144, 4x GC9A01 round SPI | 447.1 x 42.6mm |
 
 Both are schematic ERC-clean, fully routed, DRC-clean, and have generated BOMs (`ClusterDisplay_BOM.html`, `ClusterGauges_BOM.html`). CAN0 links display/, gauges/ and ecu-pcb. The data protocol is not designed yet.
 
-Open items and rationale live in the working plan, not here. Known TBDs: harness connectors J2/J3/J8/J9 on display/, panel choice (brightness/temperature/fit under review), backlight dimming, CAN protocol, firmware.
+Open items and rationale live in the working plan, not here. Panel: TSD TST040HDBC-42 (4in round, 800 nits, -30..+80C, fits the opening uncropped). Known TBDs: harness connectors J2/J3/J8/J9 on display/, the panel's unresolved +/-6.5V pin polarity (open solder jumpers JP1/JP2), CAN protocol, firmware.
 
 ## Workflow
 

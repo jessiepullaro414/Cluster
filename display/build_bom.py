@@ -19,7 +19,13 @@ sibling board's own BOM.
   * ACTIVE parts carry REAL manufacturer part numbers where
     build_schematic.py's own comments state one - that provenance is
     in that file, not invented here. This originally covered U1/U2/U3/
-    U4/U6/U7, Q3, D2, J4; as of 2026-09-28 it also covers Q1/Q2 (real
+    U4/U6/U7, D2, J4 (panel-support parts U6/U7/L2-L4/D2-D4/J4 were
+    all replaced 2026-09-30 when the panel changed from the 350-nit
+    DisplayModule DM-TFTR50-413 to the 800-nit Team Source Display
+    TST040HDBC-42: TPS65131-Q1 +/-6.5V bias, TPS61165-Q1 15V/180mA
+    backlight, Coilcraft XAL inductors, Hirose FH26 FPC connector, and
+    two open solder jumpers for the panel's unresolved +/-6.5V pin
+    polarity); as of 2026-09-28 it also covers Q1/Q2 (real
     Nexperia PMV55ENEA, selected against LM74930-Q1's own datasheet
     MOSFET-selection guidance), D1 (real SMCJ33A, same part gauges/'s
     own front end already uses), F1 (real Bourns MF-RG500 - MF-RG300,
@@ -28,13 +34,15 @@ sibling board's own BOM.
     orderable Toradex product name "Verdin iMX95 Hexa 8GB WB IT" -
     Toradex's own internal order code still wants confirming at
     purchase time).
-  * J2/J3/J8/J9 are still explicitly named "PROVISIONAL" 2.54mm pin
-    headers in parts.py itself - real generic headers standing in for
-    connectors that haven't been designed yet (power/CAN/JTAG/button
-    harness), the one real category of TBD line still open on this
-    board. Real, not guessed at, because the actual harness/enclosure
-    requirements aren't known yet - picking connectors now would be
-    guessing, not deferring.
+  * J2/J3/J8/J9 (formerly provisional 2.54mm headers) were resolved
+    2026-09-30 once the user's question about what they connect to
+    clarified their roles: J2 = car 12V/GND/IGN input (Phoenix MKDS
+    1,5/3-5,08, same family as gauges/'s J1), J3 = the CAN tap that is
+    the display<->gauges<->ECU link (Molex KK 254 22-27-2031, same family
+    as gauges/'s J7), J8/J9 = bench/service headers (Samtec TSW-108-07-G-S
+    / TSW-104-07-G-S). Wire gauge and final harness routing are still
+    unknown, so the harness-side pigtails (DTM06-3S) are a same-family
+    assumption, not a measured requirement.
   * PASSIVES are specified parametrically - value, package, and the
     AEC-Q200 requirement - same real reasoning as every sibling board.
   * LIVE PRICING AND STOCK ARE NOT INCLUDED.
@@ -65,9 +73,13 @@ MPN = {
     "LM61460-Q1":   ("LM61460-Q1", "TI", "Automotive 3-36V 6A low-EMI synchronous buck, main +5V rail, VQFN-HR-14 (datasheet SNVSB70F)", "AEC-Q100 (TI -Q1 suffix)"),
     "TLV767-Q1":    ("TLV767-Q1", "TI", "Automotive 16V/1A adjustable LDO, +1V8 Verdin I/O rail, WSON-8 (datasheet SBVS381A)", "AEC-Q100 (TI -Q1 suffix)"),
     "TCAN1044V-Q1": ("TCAN1044V-Q1", "TI", "Automotive CAN FD transceiver w/ 1.8V I/O support (V suffix load-bearing - see parts.py), SOIC-8 (datasheet SLLSF17D)", "AEC-Q100 (TI -Q1 suffix)"),
-    "TPS60403-Q1":  ("TPS60403-Q1", "TI", "Unregulated charge-pump inverter, generates panel's real -5V VSN rail, SOT-23-5 (datasheet SGLS246B)", "AEC-Q100 Grade 1"),
-    "AL8853AQ":     ("AL8853AQ", "Diodes Incorporated", "Automotive boost LED controller, panel backlight (~38V, 6-LED string), SO-8 (datasheet DS45623)", "AEC-Q100 Grade 1"),
-    "MFT6N2A5S23A": ("MFT6N2A5S23A", "Meritek", "Boost switch NFET, 60V/2.5A, SOT-23, RDS(on) <=75mR", "AEC-Q101"),
+    # Panel rails/backlight for the TSD TST040HDBC-42 (2026-09-30) - see
+    # build_schematic.py's build_panel_bias()/build_panel_backlight().
+    "TPS65131-Q1":  ("TPS65131-Q1", "TI", "Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE (datasheet SLVSBB2F)", "AEC-Q100 Grade 2"),
+    "TPS61165-Q1":  ("TPS61165-Q1", "TI", "Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 (datasheet SLVSB73B)", "AEC-Q100"),
+    "XAL4030-472ME": ("XAL4030-472MEC", "Coilcraft", "4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
+    "XAL4040-103ME": ("XAL4040-103MEC", "Coilcraft", "10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
+    "SJ3":          ("(no part - PCB footprint only)", "-", "3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel's +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py", "n/a"),
     "PMEG6010ELRX": ("PMEG6010ELRX", "Nexperia", "Boost rectifier Schottky, 60V/1A, SOD-123W", "AEC-Q101"),
 
     # Real parts chosen 2026-09-28, selected against LM74930-Q1's own
@@ -85,7 +97,11 @@ MPN = {
 # match, e.g. J4's real datasheet-derived table, or - for the TBD
 # family/SKU cases below - too generic to trust a token match against).
 BOARD_SIDE_CONNECTORS = {
-    "J4": ("DF40C-50DP-0.4V(51)", "Hirose", "50-pin (2x25) 0.4mm-pitch board-to-FPC connector for the DM-TFTR50-413 panel - real datasheet OCR-mangled the part as \"JF40C...\", confirmed as the real Hirose part and matched exactly to KiCad's own bundled footprint", "-"),
+    "J4": ("FH26-39S-0.3SHW(99)", "Hirose", "39-position 0.3mm-pitch FPC connector for the TST040HDBC-42's 39-pin FPC. The panel datasheet does NOT name a connector: 0.3mm pitch is inferred from the FPC's 12mm width across 39 pins, and FH26 is bottom-contact - specify the FPC's exposed-pad side when ordering from TSD. Hirose lists the (05) variant obsolete and FH26W-39S-0.3SHW(60) as current: confirm its land pattern against the bundled FH26 footprint before ordering", "-"),
+    "J2": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end: sealed Deutsch DTM06-3S (TE) pigtail, as on gauges/", "-"),
+    "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/'s J7 uses. This is the display<->gauges<->ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail", "-"),
+    "J8": ("TSW-108-07-G-S", "Samtec", "1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness", "-"),
+    "J9": ("TSW-104-07-G-S", "Samtec", "1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness", "-"),
     "J10": ("1058", "Keystone Electronics", "20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments", "-"),
     # Real SoM SKU chosen 2026-09-28 - see build_x1_symbol()'s own
     # comment in build_schematic.py for the real reasoning (Hexa/8GB
@@ -111,10 +127,13 @@ BOARD_SIDE_CONNECTORS = {
 # Real display panel this board is designed for - referenced via J4
 # above, not a separate placed component (its own driver IC, HX8399,
 # is built into the panel module, not separately populated here).
-PANEL_NOTE = ("DisplayModule DM-TFTR50-413", "DisplayModule",
-              "5.0in 1080x1080 native MIPI-DSI round panel, HX8399 driver IC built "
-              "into the module - real datasheet pulled and read in full; connects "
-              "via J4 above, not its own BOM line")
+PANEL_NOTE = ("Team Source Display TST040HDBC-42", "Team Source Display (TSD)",
+              "4.0in 720x720 round IPS, native MIPI-DSI (3 lanes), ICNL9707 driver built "
+              "into the module, 800 cd/m2, -30..+80C, 101.52mm active circle - datasheet "
+              "V1.0 (2023-06-29) read in full; connects via J4 above, not its own BOM "
+              "line. Datasheet table and drawing DISAGREE on which FPC pins carry +6.5V "
+              "vs -6.5V - resolve with TSD before bridging JP1/JP2. Order the FPC with the "
+              "exposed-pad side matching J4's bottom-contact")
 
 PASSIVE_PREFIXES = ("R", "C", "L", "FB", "Y")
 
@@ -272,7 +291,7 @@ def build():
         if p["ref"] in matched:
             continue
         prefix = re.match(r"^([A-Z]+)", p["ref"]).group(1)
-        if prefix in PASSIVE_PREFIXES and prefix != "FB":
+        if prefix in PASSIVE_PREFIXES and prefix not in ("FB", "L"):
             continue
         hit = next((tok for tok in MPN if tok in p["value"]), None)
         if hit is None:
@@ -508,8 +527,8 @@ HTML_TEMPLATE = r"""<title>Display Carrier Bill of Materials</title>
     <h1>Display Carrier Bill of Materials</h1>
     <p class="standfirst">Every part on the Android Automotive display carrier of
     the Mustang restomod cluster &mdash; a Toradex Verdin iMX95 SoM driving a
-    5in round MIPI-DSI panel directly, with its own -5V VSN and backlight
-    boost rails, CAN out to gauges/ and ecu-pcb.</p>
+    4in 800-nit round MIPI-DSI panel directly, with its own &plusmn;6.5V
+    analog rails and 15V backlight boost, CAN out to gauges/ and ecu-pcb.</p>
   </header>
 
   <div class="figures">
@@ -521,13 +540,15 @@ HTML_TEMPLATE = r"""<title>Display Carrier Bill of Materials</title>
 
   <div class="note">
     <h2>How to read this list</h2>
-    <p><strong>Only one real open category remains</strong>: J2/J3/J8/J9 are 4
-    provisional pin-header connectors standing in for harness connectors
-    (power/CAN/JTAG/buttons) that haven't been designed yet - deliberately left
-    open rather than guessed at, since the real harness/enclosure requirements
-    aren't known. Everything else that started as an open item (the front-end
+    <p><strong>No line is left as a placeholder part.</strong> J2/J3 are the real
+    harness connectors (power and CAN, same families as gauges/), J8/J9 are
+    bench-only headers. Still unknown: final wire gauge and harness routing, so
+    the DTM06-3S pigtails are a same-family assumption. Everything else that started as an open item (the front-end
     FET pair, the input TVS, the fuse's exact rating, and the Verdin SoM's
-    exact SKU) was resolved to a real, cited part on 2026-09-28.</p>
+    exact SKU) was resolved to a real, cited part on 2026-09-28. Also open, and
+    flagged in the J4 and panel lines: the panel datasheet's table and drawing
+    disagree on which FPC pins carry +6.5V vs -6.5V (JP1/JP2 are left open until
+    resolved), and its FPC connector is inferred, not named.</p>
     <p><strong>Active parts with a real MPN</strong> carry provenance straight
     from <code>build_schematic.py</code>'s own comments, each one traced to a
     real datasheet during the design pass that introduced it.</p>
@@ -557,8 +578,8 @@ HTML_TEMPLATE = r"""<title>Display Carrier Bill of Materials</title>
   <footer>
     <p>Generated directly from the project schematic by <code>build_bom.py</code>, so
     quantities and designators cannot drift from the board. What remains before
-    ordering: real part selection for the 4 harness connectors (J2/J3/J8/J9),
-    and a purchasing pass for live pricing and availability on everything else.</p>
+    ordering: confirm the harness wire gauge, resolve the panel's +/-6.5V pin
+    polarity with TSD, and run a purchasing pass for live pricing and availability.</p>
   </footer>
 </div>
 """

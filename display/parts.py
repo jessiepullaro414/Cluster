@@ -168,6 +168,68 @@ TLV767_Q1 = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# TPS65131-Q1 - automotive dual-output (positive boost + inverting) LCD
+# bias supply: VIN 2.7-5.5 V, VPOS 3.2-15 V, VNEG -15 to -2 V, ~200 mA,
+# AEC-Q100 Grade 2. Source: TI SLVSBB2F (Aug 2024), Table 5-1, RGE
+# package (VQFN-24, 4x4 mm; package outline RGE0024B, thermal pad 2.45 mm).
+# Powers the TST040HDBC-42 panel's +6.5 V / -6.5 V analog rails from +5V.
+#
+# GOTCHA: VPOS/VNEG are datasheet-typed as sense INPUTS. They are modelled
+# as power_out here because they are the nets these converters regulate;
+# without a power_out on the net ERC reports the panel's supply pins as
+# undriven.
+# GOTCHA: BSW (7) is the gate drive for an OPTIONAL external load-disconnect
+# PMOS. The datasheet says to leave it floating when unused.
+# GOTCHA: the datasheet's own duplicated pins (INP 1/24, PGND 2/3, INN 5/6,
+# OUTN 13/14) get distinct names here only so verify() can keep names unique.
+# ---------------------------------------------------------------------------
+TPS65131_Q1 = [
+    (1,  "INP1",  "passive"),      # boost switch pin
+    (2,  "PGND1", "power_in"),
+    (3,  "PGND2", "power_in"),
+    (4,  "VIN",   "power_in"),     # control supply, RC filtered from +5V
+    (5,  "INN1",  "power_in"),     # inverter input
+    (6,  "INN2",  "power_in"),
+    (7,  "BSW",   "output"),       # optional load-disconnect PMOS gate
+    (8,  "ENP",   "input"),        # boost enable, VIH 1.4 V min
+    (9,  "PSP",   "input"),        # boost power-save (0 V = forced PWM)
+    (10, "ENN",   "input"),        # inverter enable
+    (11, "PSN",   "input"),        # inverter power-save
+    (12, "NC1",   "no_connect"),
+    (13, "OUTN1", "passive"),      # inverter switch output
+    (14, "OUTN2", "passive"),
+    (15, "VNEG",  "power_out"),    # -6.5 V output / sense
+    (16, "FBN",   "input"),        # divider to VREF, not GND
+    (17, "VREF",  "output"),       # 220 nF to GND
+    (18, "CN",    "passive"),      # 4.7 nF comp cap, inverter
+    (19, "AGND",  "power_in"),
+    (20, "NC2",   "no_connect"),
+    (21, "CP",    "passive"),      # 10 nF comp cap, boost
+    (22, "FBP",   "input"),        # divider to GND, VFB = 1.213 V
+    (23, "VPOS",  "power_out"),    # +6.5 V output / sense
+    (24, "INP2",  "passive"),
+    (25, "EP",    "power_in"),     # thermal pad -> PGND
+]
+
+
+# ---------------------------------------------------------------------------
+# TPS61165-Q1 - automotive boost white-LED driver: VIN 3-18 V, up to 38 V
+# out, 1.2 A switch (0.96-1.44 A over temperature), 1.2 MHz, VFB = 0.2 V,
+# CTRL = enable + PWM dimming (5-100 kHz), AEC-Q100. Source: TI SLVSB73B
+# (May 2015), DBV (SOT-23-6) pin table.
+# Drives the TST040HDBC-42 backlight (15 V / 180 mA) from +5V.
+# ---------------------------------------------------------------------------
+TPS61165_Q1 = [
+    (1, "VIN",  "power_in"),
+    (2, "CTRL", "input"),          # enable + PWM dimming; ~800k pulldown
+    (3, "SW",   "passive"),
+    (4, "GND",  "power_in"),
+    (5, "COMP", "passive"),        # 220 nF to GND
+    (6, "FB",   "input"),          # 0.2 V across the sense resistor
+]
+
+
 # NOTE: this file previously carried SN65DSI85-Q1 (DSI-to-LVDS bridge),
 # removed 2026-09-25 when the board's target panel changed to a real
 # native-MIPI-DSI round panel (DisplayModule DM-TFTR50-413) - see
@@ -181,7 +243,9 @@ def verify():
     for name, pins in (("LM74930_Q1", LM74930_Q1),
                        ("TCAN1044V_Q1", TCAN1044V_Q1),
                        ("LM61460_Q1", LM61460_Q1),
-                       ("TLV767_Q1", TLV767_Q1)):
+                       ("TLV767_Q1", TLV767_Q1),
+                       ("TPS65131_Q1", TPS65131_Q1),
+                       ("TPS61165_Q1", TPS61165_Q1)):
         numbers = [p[0] for p in pins]
         if numbers != list(range(1, len(pins) + 1)):
             problems.append(f"{name}: pin numbers are not 1..{len(pins)} "
@@ -201,6 +265,10 @@ def verify():
                         f"has {len(LM61460_Q1)}")
     if len(TLV767_Q1) != 9:
         problems.append(f"TLV767_Q1 should have 9 pins (8 + EP), has {len(TLV767_Q1)}")
+    if len(TPS65131_Q1) != 25:
+        problems.append(f"TPS65131_Q1 should have 25 pins (24 + thermal pad), has {len(TPS65131_Q1)}")
+    if len(TPS61165_Q1) != 6:
+        problems.append(f"TPS61165_Q1 should have 6 pins, has {len(TPS61165_Q1)}")
     return problems
 
 
@@ -211,7 +279,9 @@ if __name__ == "__main__":
     for name, pins in (("LM74930-Q1 (VQFN-24)", LM74930_Q1),
                        ("TCAN1044V-Q1 (SOIC-8)", TCAN1044V_Q1),
                        ("LM61460-Q1 (VQFN-HR-14)", LM61460_Q1),
-                       ("TLV767-Q1 (WSON-8)", TLV767_Q1)):
+                       ("TLV767-Q1 (WSON-8)", TLV767_Q1),
+                       ("TPS65131-Q1 (VQFN-24)", TPS65131_Q1),
+                       ("TPS61165-Q1 (SOT-23-6)", TPS61165_Q1)):
         print(f"\n=== {name}: {len(pins)} pins ===")
         for num, pname, etype in pins:
             print(f"   {num:2d}  {pname:<8s} {etype}")
@@ -259,16 +329,35 @@ FOOTPRINTS = {
     # its own real, different physical package size, not a shared one.
     "FUSE": "Fuse:Fuse_Bourns_MF-RG500",
     "NFET": "Package_TO_SOT_SMD:SOT-23",
+    # RGE0024B: 4x4 mm, 24 pins at 0.5 mm, thermal pad 2.45 mm per TI's own
+    # package drawing. KiCad's stock HVQFN-24 4x4/0.5mm footprint carries a
+    # 2.5 mm pad - the closest bundled match, 0.05 mm larger than TI's
+    # land pattern example.
+    "TPS65131-Q1": "Package_DFN_QFN:HVQFN-24-1EP_4x4mm_P0.5mm_EP2.5x2.5mm",
+    "TPS61165-Q1": "Package_TO_SOT_SMD:SOT-23-6",
+    # Coilcraft XAL, AEC-Q200 125C shielded molded inductors (datasheet
+    # Document 806-1): XAL4030-472ME 4.7 uH / Isat 4.6 A / 40 mOhm typ and
+    # XAL4040-103ME 10 uH / Isat 3.0 A / 84 mOhm typ.
+    "L_4U7": "Inductor_SMD:L_Coilcraft_XAL4030-XXX",
+    "L_10U": "Inductor_SMD:L_Coilcraft_XAL4040-XXX",
+    "SCHOTTKY_SOD123W": "Diode_SMD:Nexperia_CFP3_SOD-123W",
+    "C_0805": "Capacitor_SMD:C_0805_2012Metric",
+    "C_1206": "Capacitor_SMD:C_1206_3216Metric",
+    # Open 3-pad solder jumpers for the panel's +/-6.5 V pin-group polarity.
+    "SOLDERJUMPER3": "Jumper:SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm",
 
-    # Connectors. These are PROVISIONAL - 2.54 mm pin headers standing in
-    # so the board can be placed and routed end to end, same convention
-    # fascia-pcb uses for its own not-yet-finalised connectors.
-    # CONN_PANEL waits on DisplayModule's real DM-TFTR50-413 datasheet
-    # PDF - real pin count/pitch unconfirmed, same open item as
-    # fascia-pcb's own CONN_PANEL was at this stage.
-    "CONN3":      "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
-    "CONN_CAN":   "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
-    "CONN_PANEL": "Connector_PinHeader_2.54mm:PinHeader_1x13_P2.54mm_Vertical",
+    # Connectors. J2/J3 are real harness parts (see below); J8 (JTAG) and
+    # J9 (buttons) are bench/service-only 2.54 mm headers (Samtec
+    # TSW-108-07-G-S / TSW-104-07-G-S) that never enter the vehicle harness.
+    # J2 (12V/GND/IGN in): real Phoenix MKDS 1,5/3-5,08 (order no. 1715734,
+    # 17.5 A / 400 V nominal) - same MKDS 5.08 family gauges/'s own J1 power
+    # input uses. J3 (CAN): real Molex KK 254 22-27-2031, 3 circuits, 4 A /
+    # 250 V per contact - same KK 254 family gauges/'s own J7 uses.
+    "CONN3":      "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal",
+    "CONN_CAN":   "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical",
+    # Real: Hirose FH26 0.3 mm-pitch 39-position FPC connector for the
+    # TST040HDBC-42's 39-pin FPC (KiCad bundled footprint, 2 rows staggered).
+    "CONN_PANEL": "Connector_FFC-FPC:Hirose_FH26-39S-0.3SHW_2Rows-39Pins-1MP_P0.60mm_Horizontal",
     "CONN_JTAG":  "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical",
     "CONN_BTN":   "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
     "CONN_CELL":  "Battery:BatteryHolder_Keystone_1058_1x2032",

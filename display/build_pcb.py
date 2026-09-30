@@ -377,10 +377,12 @@ CORE_ZONES = [
                "R9", "R10", "R11", "R12", "R13", "R14", "R15", "R16", "U1", "U2"]),
     ("CAN0_1V8", ["C9", "C10", "C11", "C12", "C13", "J3", "R17", "R18", "R19",
                   "R20", "R21", "U3", "U4"]),
-    ("PANEL_VSN", ["C40", "C41", "C42", "U6"]),
-    ("PANEL_BACKLIGHT", ["C43", "C44", "C45", "D2", "L2", "Q3", "R37", "R38",
-                          "R39", "R40", "U7"]),
-    ("CONTROL", ["C39", "J4", "J8", "J9", "J10", "R44", "R45", "R46", "R47", "R48", "R49"]),
+    ("PANEL_BIAS", ["C40", "C41", "C42", "C43", "C44", "C45", "C46", "C47",
+                    "C48", "C49", "D2", "D3", "L2", "L3", "R37", "R38", "R39",
+                    "R40", "R41", "U6"]),
+    ("PANEL_BACKLIGHT", ["C50", "C51", "C52", "D4", "L4", "R42", "U7"]),
+    ("CONTROL", ["C39", "J4", "J8", "J9", "J10", "JP1", "JP2", "R43", "R44",
+                 "R45", "R46", "R47", "R48", "R49", "R50"]),
 ]
 
 _accounted = set(CONNECTOR_REFS)
@@ -938,6 +940,21 @@ result = subprocess.run([KICAD_CLI, "pcb", "drc", "--format", "json",
                         capture_output=True, text=True)
 drc = json.load(open(drc_path, encoding="utf-8"))
 violations = drc.get("violations", [])
+
+
+def _only_on_solder_jumpers(v):
+    """An OPEN solder jumper's F.Mask aperture deliberately spans pads on
+    different nets (JP1/JP2, the panel polarity jumpers) so a solder blob
+    can bridge them - KiCad's solder_mask_bridge check flags exactly that
+    by design. Any such finding NOT on a JP part is still a real problem."""
+    if v.get("type") != "solder_mask_bridge":
+        return False
+    return all(any(f" of {jp} " in it.get("description", "") or
+                   f"of {jp} on" in it.get("description", "")
+                   for jp in ("JP1", "JP2")) for it in v.get("items", []))
+
+
+violations = [v for v in violations if not _only_on_solder_jumpers(v)]
 by_type = {}
 for v in violations:
     t = v.get("type", "unknown")

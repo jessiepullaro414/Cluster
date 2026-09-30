@@ -107,26 +107,28 @@
     <h1>Display Carrier Bill of Materials</h1>
     <p class="standfirst">Every part on the Android Automotive display carrier of
     the Mustang restomod cluster &mdash; a Toradex Verdin iMX95 SoM driving a
-    5in round MIPI-DSI panel directly, with its own -5V VSN and backlight
-    boost rails, CAN out to gauges/ and ecu-pcb.</p>
+    4in 800-nit round MIPI-DSI panel directly, with its own &plusmn;6.5V
+    analog rails and 15V backlight boost, CAN out to gauges/ and ecu-pcb.</p>
   </header>
 
   <div class="figures">
-    <div class="fig"><b>46</b><span>Line items</span></div>
-    <div class="fig"><b>72</b><span>Placements</span></div>
+    <div class="fig"><b>56</b><span>Line items</span></div>
+    <div class="fig"><b>88</b><span>Placements</span></div>
     <div class="fig"><b>4</b><span>Copper layers</span></div>
-    <div class="fig"><b>104.8 &times; 106.0</b><span>Board, mm</span></div>
+    <div class="fig"><b>113.2 &times; 106.0</b><span>Board, mm</span></div>
   </div>
 
   <div class="note">
     <h2>How to read this list</h2>
-    <p><strong>Only one real open category remains</strong>: J2/J3/J8/J9 are 4
-    provisional pin-header connectors standing in for harness connectors
-    (power/CAN/JTAG/buttons) that haven't been designed yet - deliberately left
-    open rather than guessed at, since the real harness/enclosure requirements
-    aren't known. Everything else that started as an open item (the front-end
+    <p><strong>No line is left as a placeholder part.</strong> J2/J3 are the real
+    harness connectors (power and CAN, same families as gauges/), J8/J9 are
+    bench-only headers. Still unknown: final wire gauge and harness routing, so
+    the DTM06-3S pigtails are a same-family assumption. Everything else that started as an open item (the front-end
     FET pair, the input TVS, the fuse's exact rating, and the Verdin SoM's
-    exact SKU) was resolved to a real, cited part on 2026-09-28.</p>
+    exact SKU) was resolved to a real, cited part on 2026-09-28. Also open, and
+    flagged in the J4 and panel lines: the panel datasheet's table and drawing
+    disagree on which FPC pins carry +6.5V vs -6.5V (JP1/JP2 are left open until
+    resolved), and its FPC connector is inferred, not named.</p>
     <p><strong>Active parts with a real MPN</strong> carry provenance straight
     from <code>build_schematic.py</code>'s own comments, each one traced to a
     real datasheet during the design pass that introduced it.</p>
@@ -147,57 +149,66 @@
       </thead>
       <tbody>
 <tr class="cat"><td colspan="7">Semiconductors</td></tr>
+<tr><td class="mpn">PMEG6010ELRX</td><td>Nexperia</td><td class="desc">Boost rectifier Schottky, 60V/1A, SOD-123W</td><td class="pkg">Nexperia_CFP3_SOD-123W</td><td class="qty">3</td><td class="refs">D2-D4</td><td><span class="q-yes">AEC-Q101</span></td></tr>
+<tr><td class="mpn">(no part - PCB footprint only)</td><td>-</td><td class="desc">3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel&#x27;s +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py</td><td class="pkg">SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm</td><td class="qty">2</td><td class="refs">JP1, JP2</td><td><span class="q-yes">n/a</span></td></tr>
 <tr><td class="mpn">PMV55ENEA</td><td>Nexperia</td><td class="desc">60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair</td><td class="pkg">SOT-23</td><td class="qty">2</td><td class="refs">Q1, Q2</td><td><span class="q-yes">AEC-Q101</span></td></tr>
-<tr><td class="mpn">AL8853AQ</td><td>Diodes Incorporated</td><td class="desc">Automotive boost LED controller, panel backlight (~38V, 6-LED string), SO-8 (datasheet DS45623)</td><td class="pkg">SOIC-8_3.9x4.9mm_P1.27mm</td><td class="qty">1</td><td class="refs">U7</td><td><span class="q-yes">AEC-Q100 Grade 1</span></td></tr>
+<tr><td class="mpn">XAL4030-472MEC</td><td>Coilcraft</td><td class="desc">4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)</td><td class="pkg">L_Coilcraft_XAL4030-XXX</td><td class="qty">2</td><td class="refs">L2, L3</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">LM61460-Q1</td><td>TI</td><td class="desc">Automotive 3-36V 6A low-EMI synchronous buck, main +5V rail, VQFN-HR-14 (datasheet SNVSB70F)</td><td class="pkg">TI_RJR0014A_VQFN-HR-14_4x3.5mm</td><td class="qty">1</td><td class="refs">U2</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
 <tr><td class="mpn">LM74930-Q1</td><td>TI</td><td class="desc">Automotive ideal-diode surge stopper w/ circuit breaker + OV clamp, VQFN-24 (datasheet SNOSDF6)</td><td class="pkg">Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm</td><td class="qty">1</td><td class="refs">U1</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
-<tr><td class="mpn">MFT6N2A5S23A</td><td>Meritek</td><td class="desc">Boost switch NFET, 60V/2.5A, SOT-23, RDS(on) &lt;=75mR</td><td class="pkg">SOT-23</td><td class="qty">1</td><td class="refs">Q3</td><td><span class="q-yes">AEC-Q101</span></td></tr>
-<tr><td class="mpn">PMEG6010ELRX</td><td>Nexperia</td><td class="desc">Boost rectifier Schottky, 60V/1A, SOD-123W</td><td class="pkg">Nexperia_CFP3_SOD-123W</td><td class="qty">1</td><td class="refs">D2</td><td><span class="q-yes">AEC-Q101</span></td></tr>
 <tr><td class="mpn">SMCJ33A (multi-source)</td><td>Littelfuse / onsemi / Vishay (industry-standard P/N)</td><td class="desc">SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/&#x27;s own D1 already uses</td><td class="pkg">D_SMB</td><td class="qty">1</td><td class="refs">D1</td><td><span class="q-yes">AEC-Q101</span></td></tr>
 <tr><td class="mpn">TCAN1044V-Q1</td><td>TI</td><td class="desc">Automotive CAN FD transceiver w/ 1.8V I/O support (V suffix load-bearing - see parts.py), SOIC-8 (datasheet SLLSF17D)</td><td class="pkg">SOIC-8_3.9x4.9mm_P1.27mm</td><td class="qty">1</td><td class="refs">U4</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
 <tr><td class="mpn">TLV767-Q1</td><td>TI</td><td class="desc">Automotive 16V/1A adjustable LDO, +1V8 Verdin I/O rail, WSON-8 (datasheet SBVS381A)</td><td class="pkg">Texas_DRB0008A</td><td class="qty">1</td><td class="refs">U3</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
-<tr><td class="mpn">TPS60403-Q1</td><td>TI</td><td class="desc">Unregulated charge-pump inverter, generates panel&#x27;s real -5V VSN rail, SOT-23-5 (datasheet SGLS246B)</td><td class="pkg">SOT-23-5</td><td class="qty">1</td><td class="refs">U6</td><td><span class="q-yes">AEC-Q100 Grade 1</span></td></tr>
+<tr><td class="mpn">TPS61165-Q1</td><td>TI</td><td class="desc">Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 (datasheet SLVSB73B)</td><td class="pkg">SOT-23-6</td><td class="qty">1</td><td class="refs">U7</td><td><span class="q-yes">AEC-Q100</span></td></tr>
+<tr><td class="mpn">TPS65131-Q1</td><td>TI</td><td class="desc">Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE (datasheet SLVSBB2F)</td><td class="pkg">HVQFN-24-1EP_4x4mm_P0.5mm_EP2.5x2.5mm</td><td class="qty">1</td><td class="refs">U6</td><td><span class="q-yes">AEC-Q100 Grade 2</span></td></tr>
+<tr><td class="mpn">XAL4040-103MEC</td><td>Coilcraft</td><td class="desc">10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)</td><td class="pkg">L_Coilcraft_XAL4040-XXX</td><td class="qty">1</td><td class="refs">L4</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr class="cat"><td colspan="7">Electromechanical</td></tr>
 <tr><td class="mpn">MF-RG500</td><td>Bourns</td><td class="desc">PTC resettable fuse, 5.0A hold / 8.5A trip / 16V max, AEC-Q200 - real part matching the circuit&#x27;s own target rating, not the 3.0A-hold MF-RG300 this board&#x27;s footprint previously (wrongly) cited</td><td class="pkg">Fuse_Bourns_MF-RG500</td><td class="qty">1</td><td class="refs">F1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr class="cat"><td colspan="7">Connectors</td></tr>
 <tr><td class="mpn">1058</td><td>Keystone Electronics</td><td class="desc">20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family&#x27;s own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py&#x27;s own comments</td><td class="pkg">BatteryHolder_Keystone_1058_1x2032</td><td class="qty">1</td><td class="refs">J10</td><td><span class="q-na">-</span></td></tr>
-<tr><td class="mpn">DF40C-50DP-0.4V(51)</td><td>Hirose</td><td class="desc">50-pin (2x25) 0.4mm-pitch board-to-FPC connector for the DM-TFTR50-413 panel - real datasheet OCR-mangled the part as &quot;JF40C...&quot;, confirmed as the real Hirose part and matched exactly to KiCad&#x27;s own bundled footprint</td><td class="pkg">Hirose_DF40C-50DP-0.4V_2x25-1MP_P0.4mm</td><td class="qty">1</td><td class="refs">J4</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">22-27-2031</td><td>Molex</td><td class="desc">3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/&#x27;s J7 uses. This is the display&lt;-&gt;gauges&lt;-&gt;ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail</td><td class="pkg">Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J3</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">FH26-39S-0.3SHW(99)</td><td>Hirose</td><td class="desc">39-position 0.3mm-pitch FPC connector for the TST040HDBC-42&#x27;s 39-pin FPC. The panel datasheet does NOT name a connector: 0.3mm pitch is inferred from the FPC&#x27;s 12mm width across 39 pins, and FH26 is bottom-contact - specify the FPC&#x27;s exposed-pad side when ordering from TSD. Hirose lists the (05) variant obsolete and FH26W-39S-0.3SHW(60) as current: confirm its land pattern against the bundled FH26 footprint before ordering</td><td class="pkg">Hirose_FH26-39S-0.3SHW_2Rows-39Pins-1MP_P0.60mm_Horizontal</td><td class="qty">1</td><td class="refs">J4</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">MKDS 1,5/ 3-5,08 (1715734)</td><td>Phoenix Contact</td><td class="desc">3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/&#x27;s J1 uses. Harness end: sealed Deutsch DTM06-3S (TE) pigtail, as on gauges/</td><td class="pkg">TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal</td><td class="qty">1</td><td class="refs">J2</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">TSW-104-07-G-S</td><td>Samtec</td><td class="desc">1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness</td><td class="pkg">PinHeader_1x04_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J9</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">TSW-108-07-G-S</td><td>Samtec</td><td class="desc">1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness</td><td class="pkg">PinHeader_1x08_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J8</td><td><span class="q-na">-</span></td></tr>
 <tr><td class="mpn">Verdin iMX95 Hexa 8GB WB IT</td><td>Toradex</td><td class="desc">SoM, real datasheet cited (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), socketed via a generic SODIMM-260_DDR4 footprint (not a Toradex-specific connector MPN) - confirmed real, orderable product name (independently listed on Mouser US and Mouser UK); exact Toradex internal order code still needs confirming at purchase time</td><td class="pkg">SODIMM-260_DDR4_H4.0-5.2_OrientationStd_Socket</td><td class="qty">1</td><td class="refs">J1</td><td><span class="q-na">-</span></td></tr>
 <tr class="cat"><td colspan="7">Displays (reference only)</td></tr>
-<tr><td class="mpn">DisplayModule DM-TFTR50-413</td><td>DisplayModule</td><td class="desc">5.0in 1080x1080 native MIPI-DSI round panel, HX8399 driver IC built into the module - real datasheet pulled and read in full; connects via J4 above, not its own BOM line</td><td class="pkg">n/a - see J4</td><td class="qty">-</td><td class="refs">(via J4)</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">Team Source Display TST040HDBC-42</td><td>Team Source Display (TSD)</td><td class="desc">4.0in 720x720 round IPS, native MIPI-DSI (3 lanes), ICNL9707 driver built into the module, 800 cd/m2, -30..+80C, 101.52mm active circle - datasheet V1.0 (2023-06-29) read in full; connects via J4 above, not its own BOM line. Datasheet table and drawing DISAGREE on which FPC pins carry +6.5V vs -6.5V - resolve with TSD before bridging JP1/JP2. Order the FPC with the exposed-pad side matching J4&#x27;s bottom-contact</td><td class="pkg">n/a - see J4</td><td class="qty">-</td><td class="refs">(via J4)</td><td><span class="q-na">-</span></td></tr>
 <tr class="cat"><td colspan="7">Passives</td></tr>
-<tr><td class="mpn">10k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 10k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">7</td><td class="refs">R21, R39, R44-R48</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">100n Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 100n - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">6</td><td class="refs">C2, C3, C7, C11, C12, C39</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">1u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 1u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">6</td><td class="refs">C6, C40-C43, C45</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">100n Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 100n - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">7</td><td class="refs">C2, C3, C7, C11, C12, C39, C42</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">10k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 10k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">6</td><td class="refs">R21, R44-R48</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">100k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 100k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">5</td><td class="refs">R15, R16, R41, R43, R50</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">FB Resistor</td><td>(any qualified)</td><td class="desc">Resistor FB - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">4</td><td class="refs">R10, R11, R17, R18</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">10u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 10u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">3</td><td class="refs">C5, C9, C10</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">100k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 100k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R15, R16</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">220n Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 220n - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">2</td><td class="refs">C43, C51</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">22u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 22u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_1206_3216Metric</td><td class="qty">2</td><td class="refs">C46, C47</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">4.7u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 4.7u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0805_2012Metric</td><td class="qty">2</td><td class="refs">C40, C41</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">4n7 Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 4n7 - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">2</td><td class="refs">C13, C45</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">60R Resistor</td><td>(any qualified)</td><td class="desc">Resistor 60R - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R19, R20</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">EN Resistor</td><td>(any qualified)</td><td class="desc">Resistor EN - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R13, R14</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">OV Resistor</td><td>(any qualified)</td><td class="desc">Resistor OV - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R5, R6</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">UV Resistor</td><td>(any qualified)</td><td class="desc">Resistor UV - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R7, R8</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">10.0R Resistor</td><td>(any qualified)</td><td class="desc">Resistor 10.0R - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R40</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">1.10R Resistor</td><td>(any qualified)</td><td class="desc">Resistor 1.10R - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R42</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">100R Resistor</td><td>(any qualified)</td><td class="desc">Resistor 100R - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R37</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">100uF Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 100uF - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">10n Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 10n - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C44</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">2.00R Resistor</td><td>(any qualified)</td><td class="desc">Resistor 2.00R - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R37</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">10u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 10u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0805_2012Metric</td><td class="qty">1</td><td class="refs">C50</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">10u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 10u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_1206_3216Metric</td><td class="qty">1</td><td class="refs">C52</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">12p Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 12p - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C48</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">130k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 130k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R39</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">15p Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 15p - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C49</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">1u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 1u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C6</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">2.2u Inductor</td><td>(any qualified)</td><td class="desc">Inductor 2.2u - AEC-Q200</td><td class="pkg">L_1210_3225Metric</td><td class="qty">1</td><td class="refs">L1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">232k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 232k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R38</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">2m Resistor</td><td>(any qualified)</td><td class="desc">Resistor 2m - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">44u Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 44u - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C8</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">47k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 47k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R49</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">4n7 Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor 4n7 - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C13</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">50R Resistor</td><td>(any qualified)</td><td class="desc">Resistor 50R - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R2</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">536k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 536k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R40</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">562k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 562k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R38</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">5k Resistor</td><td>(any qualified)</td><td class="desc">Resistor 5k - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R4</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr><td class="mpn">680u Inductor</td><td>(any qualified)</td><td class="desc">Inductor 680u - AEC-Q200</td><td class="pkg">L_1210_3225Metric</td><td class="qty">1</td><td class="refs">L2</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">RBOOT Resistor</td><td>(any qualified)</td><td class="desc">Resistor RBOOT - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R9</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">RILIM Resistor</td><td>(any qualified)</td><td class="desc">Resistor RILIM - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R3</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">RT Resistor</td><td>(any qualified)</td><td class="desc">Resistor RT - thick film, AEC-Q200</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R12</td><td><span class="q-yes">AEC-Q200</span></td></tr>
 <tr><td class="mpn">open Capacitor</td><td>(any qualified)</td><td class="desc">Capacitor open - X7R/X5R ceramic, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C4</td><td><span class="q-yes">AEC-Q200</span></td></tr>
-<tr class="cat"><td colspan="7">Needs real part selection</td></tr>
-<tr><td class="mpn">Buttons</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;Buttons&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x04_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J9</td><td><span class="q-tbd">TBD</span></td></tr>
-<tr><td class="mpn">CAN to ECU</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;CAN to ECU&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x03_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J3</td><td><span class="q-tbd">TBD</span></td></tr>
-<tr><td class="mpn">JTAG debug</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;JTAG debug&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x08_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J8</td><td><span class="q-tbd">TBD</span></td></tr>
-<tr><td class="mpn">Power in</td><td>(not yet specified)</td><td class="desc">Schematic Value: &quot;Power in&quot; - real manufacturer part number not yet chosen, see build_schematic.py&#x27;s own header for what IS/ISN&#x27;T pinned down</td><td class="pkg">PinHeader_1x03_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J2</td><td><span class="q-tbd">TBD</span></td></tr>
       </tbody>
     </table>
   </div>
@@ -207,7 +218,7 @@
   <footer>
     <p>Generated directly from the project schematic by <code>build_bom.py</code>, so
     quantities and designators cannot drift from the board. What remains before
-    ordering: real part selection for the 4 harness connectors (J2/J3/J8/J9),
-    and a purchasing pass for live pricing and availability on everything else.</p>
+    ordering: confirm the harness wire gauge, resolve the panel's +/-6.5V pin
+    polarity with TSD, and run a purchasing pass for live pricing and availability.</p>
   </footer>
 </div>

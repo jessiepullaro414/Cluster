@@ -11,10 +11,11 @@ transceiver (TCAN1044V-Q1) - with fascia's touchscreen-specific
 subsystems (PCAP touch, USB-C, the PCM3168A-Q1 audio codec + level
 shifters) removed, AND fascia's own SN65DSI85-Q1 DSI-to-LVDS bridge
 removed too: this board drives ONE round MIPI-DSI panel behind the
-dash's center opening (real target: DisplayModule DM-TFTR50-413, 5.0",
-1080x1080, native MIPI-DSI, HX8399 driver - a real, orderable, bigger
-round panel per the user's own "find a slightly larger round display
-... to maximize" request), and that panel speaks DSI natively, so
+dash's center opening (real target since 2026-09-30: Team Source
+Display TST040HDBC-42, 4.0", 720x720, native MIPI-DSI, ICNL9707 driver,
+800 nits, -30..+80 C, 101.5 mm active circle that fits the opening
+uncropped - it replaced the 350-nit, 127 mm DisplayModule DM-TFTR50-413,
+see build_panel()), and that panel speaks DSI natively, so
 converting to LVDS and back would be pure overhead fascia's own board
 needed (its target panel was LVDS-only) and this one doesn't. Same
 script-driven discipline as every sibling project: this script is the
@@ -35,10 +36,11 @@ gauges/'s own S32K144, which needs Android's aggregated gauge data
 pushed to it - the user's own request, "the other displays need to get
 data from android ... lets add some way for them to communicate"), a
 direct MIPI-DSI panel connector (no bridge chip - see build_panel()'s
-own docstring for why), and control/JTAG/RTC. CONN_PANEL's exact pin
-count/pitch is still provisional pending DisplayModule's real datasheet
-PDF, same "real part, provisional connector" situation fascia-pcb's own
-CONN_PANEL was in at this stage.
+own docstring for why), the panel's +/-6.5 V bias rails (TPS65131-Q1)
+and 15 V/180 mA backlight (TPS61165-Q1), and control/JTAG/RTC. Open:
+the panel datasheet's pin table and drawing disagree on which FPC pins
+carry +6.5 V vs -6.5 V (hedged with open solder jumpers JP1/JP2), and
+its FPC connector (Hirose FH26, 0.3 mm) is inferred, not named.
 
 What IS final at this stage:
   - all 260 X1 pins exist, banked into 5 units by verdin_x1.py (this
@@ -110,13 +112,15 @@ X1_NETS = {
     "DSI_1_D0_P": "DSI_D0_P", "DSI_1_D0_N": "DSI_D0_N",
     "DSI_1_D1_P": "DSI_D1_P", "DSI_1_D1_N": "DSI_D1_N",
     "DSI_1_D2_P": "DSI_D2_P", "DSI_1_D2_N": "DSI_D2_N",
-    "DSI_1_D3_P": "DSI_D3_P", "DSI_1_D3_N": "DSI_D3_N",
+    # DSI_1_D3 is unused: the TST040HDBC-42 has three data lanes.
     "DSI_1_CLK_P": "DSI_CLK_P", "DSI_1_CLK_N": "DSI_CLK_N",
     # I2C_2_DSI_SDA/SCL dropped: that was the SN65DSI85-Q1 bridge's own
     # config bus, and there is no bridge on this board anymore (direct
     # DSI to the panel - see build_panel()'s own docstring). They fall
     # through to bank C's genuinely-unused pins.
     "GPIO_9_DSI": "DSI_PANEL_EN",
+    "GPIO_10_DSI": "PANEL_BIAS_EN",   # TPS65131-Q1 ENP/ENN
+    "PWM_3_DSI": "PANEL_BL_PWM",      # TPS61165-Q1 CTRL (PWM dimming)
     # Control and sequencing.
     "CTRL_PWR_EN_MOCI":  "PWR_EN_MOCI",
     "CTRL_RESET_MOCI#":  "RESET_MOCI",
@@ -137,6 +141,8 @@ X1_NETS = {
 # that this design has no use for. They get real NoConnect items, same as
 # bank E, rather than being left to show up as ERC noise.
 X1_NC = {
+    "DSI_1_D3_P", "DSI_1_D3_N",  # panel has 3 lanes, not 4
+    "I2C_2_DSI_SDA", "I2C_2_DSI_SCL",  # bridge-config bus; no bridge on this board
     "CTRL_FORCE_OFF_MOCI#",  # datasheet: "can be left floating"
     "CTRL_WAKE1_MICO#",      # "can be left floating if wake is disabled"
     "CTRL_SLEEP_MOCI#",      # no carrier rail is sequenced off in sleep
@@ -370,7 +376,11 @@ def pin_xy(unit, pin, sym_x, sym_y):
 # pins, so ERC needs them driven. Both arrive through passive parts (a
 # fuse, and the ideal-diode FET), so nothing on the sheet "drives" them
 # and each needs a PWR_FLAG the same way GND and +5V do.
-POWER_NETS = {"GND", "+5V", "+12V_PROT", "+1V8", "+3V3", "VBAT_F"}
+# PANEL_BIAS_VIN is TPS65131-Q1's RC-filtered control supply (+5V through
+# R37): ERC cannot trace a power pin through a resistor, so it gets the
+# same PWR_FLAG treatment as the other rails.
+POWER_NETS = {"GND", "+5V", "+12V_PROT", "+1V8", "+3V3", "VBAT_F",
+              "PANEL_BIAS_VIN"}
 
 # net -> a real (x, y) on that net, for anchoring PWR_FLAGs. This project's
 # KiCad notes record that a flag merged only by name, with nothing
@@ -569,7 +579,7 @@ def build_power_tree(x0, y0, usable_h):
         cur["y"] += need
 
     # --- input and protection -------------------------------------------
-    flow(conn3, "J2", "Power in",
+    flow(conn3, "J2", "Phoenix MKDS 1,5/3-5,08 power in (DTM06-3S pigtail)",
          {"VBAT": "VBAT_IN", "GND": "GND", "IGN": "IGN_SENSE"})
     # Real part (2026-09-28): Bourns MF-RG500 - the "5A" target in this
     # net's own name was real, but the footprint chosen when this board
@@ -748,7 +758,7 @@ def build_1v8_and_can(x0, y0, usable_h):
     # later to reclaim low-power standby.
     flow(r, "R21", "10k STB pd", {"1": "CAN1_STB", "2": "GND"})
 
-    flow(conn_can, "J3", "CAN to ECU",
+    flow(conn_can, "J3", "Molex KK-254 22-27-2031 CAN (DTM06-3S pigtail)",
          {"CANH": "CAN1_H", "CANL": "CAN1_L", "GND": "GND"})
 
 
@@ -756,86 +766,88 @@ def build_panel(x0, y0, usable_h):
     """
     Direct MIPI-DSI panel connector - NO bridge chip.
 
-    RE-SCOPED 2026-09-25: the target panel is now DisplayModule
-    DM-TFTR50-413 (5.0", 1080x1080, real MIPI-DSI interface, HX8399
-    driver, $119, real datasheet pulled and read in full - a much
-    bigger real round panel than the original 2.1" BH021WVC02, per the
-    user's "find a slightly larger round display ... to maximize"
-    request now that the faceplate is custom anyway). Because this
-    panel speaks DSI natively, fascia-pcb's own reason for the
-    SN65DSI85-Q1 bridge (its target panel was LVDS-only, and needed a
-    resolution above the Verdin module's native LVDS ceiling) simply
-    doesn't apply here. Wiring the Verdin's own DSI_1_* X1 pins straight
-    to the panel is both simpler (one fewer real IC) and more direct
-    than converting to LVDS and back to a digital panel that never
-    wanted LVDS in the first place.
+    RE-SCOPED 2026-09-30: the panel is now the Team Source Display (TSD)
+    TST040HDBC-42 - 4.0" round IPS, 720x720, ICNL9707 driver, native
+    MIPI DSI, 800 cd/m2, -30..+80 C operating, active circle 101.52 mm
+    (datasheet V1.0, 2023-06-29). It replaces DisplayModule's
+    DM-TFTR50-413, which was rejected on three real counts found on
+    2026-09-30: 350 nits (CDTech's guidance is >=800 nits for direct
+    sun, and the user's call was "we have to use the 800 nit"), only
+    -20..+60 C operating, and a 127 mm active circle that is taller than
+    the dash opening (105.54 mm inner / 116.69 mm outer), so it would
+    have been cropped at 12 and 6 o'clock. The TSD's 101.52 mm circle
+    fits the 105.54 mm inner height uncropped.
 
-    CONN_PANEL is now REAL, not provisional: the datasheet's own
-    mechanical drawing (section 4.1) specifies "CONNECTOR: JF40C-50DP-
-    0.4V(51), Hirose" - a clear OCR mangle of **Hirose DF40C-50DP-
-    0.4V(51)**, confirmed as a real, currently-stocked part (DigiKey/
-    Mouser/JLCPCB) and matched EXACTLY against KiCad's own bundled
-    footprint library: `Connector_Hirose_DF40:
-    Hirose_DF40C-50DP-0.4V_2x25-1MP_P0.4mm` (2x25 = 50 positions,
-    0.4mm pitch - the real geometry, not assumed to exist).
+    Real 39-pin FPC table (datasheet section 3): GND 1/6/9/12/15/17/19/
+    23/27/31/35/39, LEDA 2-3, LEDK 4-5, "VSP +6.5 V" 7-8, "VSN -6.5 V"
+    10-11, IOVCC (1.8 V) 13-14, RESET 16, TE 18, LAN2 P/N 24/26, CLK P/N
+    28/30, LAN1 P/N 32/34, LAN0 P/N 36/38, NC 20-22/25/29/33/37. Three
+    data lanes + clock; the Verdin's fourth lane (DSI_1_D3) is unused.
 
-    The real 50-pin table (datasheet section 3.1) surfaced TWO genuine
-    new circuit requirements this board did not have before - both now
-    have real, designed circuits (build_panel_vsn() /
-    build_panel_backlight(), below), same "found a real gap the
-    original architecture pass didn't anticipate" pattern the original
-    Cluster design hit with BT817AQ's VCC1V2 rail:
-      - **VSN (pins 30/32): a real -5V analog rail** for the panel's
-        TFT gate drive. Real part: TI TPS60403-Q1 charge-pump inverter.
-      - **LEDA/LEDK (pins 10/12 anode, 4/6 cathode): the backlight is
-        NOT a simple low-voltage LED like the aux gauges' GC9A01
-        modules.** Datasheet section 5.4: 6 white LEDs in series
-        internally, VF=37.2V typ (38.4V max), IF=20mA. Real part:
-        Diodes Inc AL8853AQ automotive boost LED controller.
+    **REAL DATASHEET CONFLICT, NOT RESOLVED - hedged in hardware.** The
+    interface table says pins 7-8 = VSP (+6.5 V) and 10-11 = VSN
+    (-6.5 V). The same PDF's mechanical drawing header row (rendered and
+    read at 400 dpi) says the opposite: 7-8 = "VDD(-6.3V)" and 10-11 =
+    "VDD(+6.3V)". Feeding the wrong polarity would destroy the panel, so
+    neither is assumed: the two pin groups (PANEL_PIN_A = pins 7-8,
+    PANEL_PIN_B = pins 10-11) each connect to the +6.5 V and -6.5 V rails
+    through a 3-pad OPEN solder jumper (JP1/JP2). Table reading: bridge
+    JP1 pads 1-2 and JP2 pads 2-3. Drawing reading: JP1 2-3 and JP2 1-2.
+    Confirm with TSD (or by probing a sample's FPC) BEFORE bridging
+    either; unbridged, the panel simply has no analog supply.
 
-    VSP (pins 36/38, +5V analog, DC spec 4.8-6.0V typ 5.0V) reuses this
-    board's existing +5V rail directly - a real fit, not a new need.
-    IOVCC (pins 22/24, 1.65-3.3V typ 1.8V) reuses the existing +1V8
-    rail, likewise a real fit.
+    Connector: Hirose FH26-39S-0.3SHW (0.3 mm pitch, 39 positions, KiCad
+    bundled footprint). The datasheet does not name a connector; 0.3 mm
+    pitch is inferred from the FPC's 12 mm width across 39 pins, and the
+    0.2 mm FPC thickness matches the FH26 family. FH26 is bottom-contact;
+    the FPC's exposed-pad side must be specified when ordering (TSD lists
+    customisable FPC). Hirose lists FH26-39S-0.3SHW(05) as obsolete and
+    FH26W-39S-0.3SHW(60) as the current variant - confirm the land pattern
+    before ordering.
 
-    Real per-pin NC treatment straight from the datasheet's own
-    guidance ("if not used, open"): ID_PIN1/ID_PIN2 (module ID straps),
-    LEDPWM (backlight PWM dimming input) and TE (tearing-effect output)
-    all get real NoConnect items - none of them are required for basic
-    operation, and the datasheet explicitly says to leave them open
-    rather than tie them off.
+    IOVCC (1.8 V, datasheet 1.75-1.85) reuses the existing +1V8 rail. VSP/
+    VSN and the backlight are new circuits: build_panel_bias() and
+    build_panel_backlight(). TE is left open. RESET (DSI_PANEL_EN from
+    the Verdin's GPIO_9_DSI) and the bias enable are pulled low so the
+    panel is held in reset with no analog rails until software releases
+    them.
     """
+    # Symbol pin number, name, electrical type - straight from the
+    # datasheet's own pin table (section 3), pins 1-39.
     real_panel_pins = [
-        (1, "GND", "power_in"), (2, "GND", "power_in"),
-        (3, "LAN2_P", "input"), (4, "LEDK", "passive"),
-        (5, "LAN2_N", "input"), (6, "LEDK", "passive"),
-        (7, "GND", "power_in"), (8, "GND", "power_in"),
-        (9, "LAN1_P", "input"), (10, "LEDA", "passive"),
-        (11, "LAN1_N", "input"), (12, "LEDA", "passive"),
-        (13, "GND", "power_in"), (14, "GND", "power_in"),
-        (15, "CLK_P", "input"), (16, "ID_PIN2", "passive"),
-        (17, "CLK_N", "input"), (18, "ID_PIN1", "passive"),
-        (19, "GND", "power_in"), (20, "GND", "power_in"),
-        (21, "LAN0_P", "input"), (22, "IOVCC", "power_in"),
-        (23, "LAN0_N", "input"), (24, "IOVCC", "power_in"),
-        (25, "GND", "power_in"), (26, "GND", "power_in"),
-        (27, "LAN3_P", "input"), (28, "NC", "no_connect"),
-        (29, "LAN3_N", "input"), (30, "VSN", "power_in"),
-        (31, "GND", "power_in"), (32, "VSN", "power_in"),
-        (33, "NC", "no_connect"), (34, "NC", "no_connect"),
-        (35, "NC", "no_connect"), (36, "VSP", "power_in"),
-        (37, "GND", "power_in"), (38, "VSP", "power_in"),
-        (39, "NC", "no_connect"), (40, "NC", "no_connect"),
-        (41, "NC", "no_connect"), (42, "GND", "power_in"),
-        (43, "NC", "no_connect"), (44, "LEDPWM", "input"),
-        (45, "NC", "no_connect"), (46, "TE", "output"),
-        (47, "GND", "power_in"), (48, "RESET", "input"),
-        (49, "GND", "power_in"), (50, "GND", "power_in"),
+        (1, "GND", "power_in"), (2, "LEDA", "passive"), (3, "LEDA", "passive"),
+        (4, "LEDK", "passive"), (5, "LEDK", "passive"), (6, "GND", "power_in"),
+        # Typed passive on purpose: these pins are fed only through the
+        # open polarity jumpers JP1/JP2, and ERC would (correctly) call
+        # an unbridged jumper "not driven".
+        (7, "VPIN_A", "passive"), (8, "VPIN_A", "passive"),
+        (9, "GND", "power_in"),
+        (10, "VPIN_B", "passive"), (11, "VPIN_B", "passive"),
+        (12, "GND", "power_in"),
+        (13, "IOVCC", "power_in"), (14, "IOVCC", "power_in"),
+        (15, "GND", "power_in"), (16, "RESET", "input"),
+        (17, "GND", "power_in"), (18, "TE", "output"),
+        (19, "GND", "power_in"),
+        (20, "NC", "no_connect"), (21, "NC", "no_connect"),
+        (22, "NC", "no_connect"),
+        (23, "GND", "power_in"), (24, "LAN2_P", "input"),
+        (25, "NC", "no_connect"), (26, "LAN2_N", "input"),
+        (27, "GND", "power_in"), (28, "CLK_P", "input"),
+        (29, "NC", "no_connect"), (30, "CLK_N", "input"),
+        (31, "GND", "power_in"), (32, "LAN1_P", "input"),
+        (33, "NC", "no_connect"), (34, "LAN1_N", "input"),
+        (35, "GND", "power_in"), (36, "LAN0_P", "input"),
+        (37, "NC", "no_connect"), (38, "LAN0_N", "input"),
+        (39, "GND", "power_in"),
     ]
+    assert len(real_panel_pins) == 39
     conn_panel = build_generic_symbol(
-        f"{LIB}:CONN_PANEL", "J", "DM-TFTR50-413 (Hirose DF40C-50DP-0.4V)",
-        real_panel_pins,
-        footprint="Connector_Hirose_DF40:Hirose_DF40C-50DP-0.4V_2x25-1MP_P0.4mm")
+        f"{LIB}:CONN_PANEL", "J", "TST040HDBC-42 (Hirose FH26-39S-0.3SHW)",
+        real_panel_pins)
+    jumper = build_generic_symbol(
+        f"{LIB}:SOLDERJUMPER3", "JP", "SJ3",
+        [(1, "A", "passive"), (2, "COM", "passive"), (3, "B", "passive")])
+    r = f"{LIB}:R"
 
     COL_W, ROW_H = 78.0, 26.0
     cur = {"col": 0, "y": y0}
@@ -855,55 +867,74 @@ def build_panel(x0, y0, usable_h):
         "LAN0_P": "DSI_D0_P", "LAN0_N": "DSI_D0_N",
         "LAN1_P": "DSI_D1_P", "LAN1_N": "DSI_D1_N",
         "LAN2_P": "DSI_D2_P", "LAN2_N": "DSI_D2_N",
-        "LAN3_P": "DSI_D3_P", "LAN3_N": "DSI_D3_N",
         "CLK_P": "DSI_CLK_P", "CLK_N": "DSI_CLK_N",
         "IOVCC": "+1V8",
-        "VSP": "+5V",
-        # Real, confirmed-needed, not-yet-designed - see docstring.
-        "VSN": "PANEL_VSN_NEG5V",
-        "LEDA": "PANEL_BL_LEDA_38V", "LEDK": "PANEL_BL_LEDK",
-        # Real hardware reset - GPIO_9_DSI already reaches this net via
-        # X1_NETS ("GPIO_9_DSI": "DSI_PANEL_EN").
+        "VPIN_A": "PANEL_PIN_A", "VPIN_B": "PANEL_PIN_B",
+        "LEDA": "PANEL_BL_LEDA", "LEDK": "PANEL_BL_LEDK",
+        # Panel hardware reset - GPIO_9_DSI reaches this net via X1_NETS.
         "RESET": "DSI_PANEL_EN",
-        # Real "if not used, open" per the datasheet - not guessed.
-        "ID_PIN1": None, "ID_PIN2": None, "LEDPWM": None, "TE": None,
-        "NC": None,
+        "TE": None, "NC": None,
     }
-    flow(conn_panel, "J4", "DM-TFTR50-413 panel", panel)
+    flow(conn_panel, "J4", "TST040HDBC-42 panel", panel)
+    flow(jumper, "JP1",
+         "SJ3 OPEN: bridge 1-2 if datasheet TABLE is right (7-8=+6.5V), "
+         "2-3 if DRAWING is - VERIFY POLARITY FIRST",
+         {"A": "PANEL_VSP", "COM": "PANEL_PIN_A", "B": "PANEL_VSN"})
+    flow(jumper, "JP2",
+         "SJ3 OPEN: bridge 2-3 if datasheet TABLE is right (10-11=-6.5V), "
+         "1-2 if DRAWING is - VERIFY POLARITY FIRST",
+         {"A": "PANEL_VSP", "COM": "PANEL_PIN_B", "B": "PANEL_VSN"})
+    flow(r, "R43", "100k bias-enable pulldown",
+         {"1": "PANEL_BIAS_EN", "2": "GND"})
+    flow(r, "R50", "100k panel-reset pulldown",
+         {"1": "DSI_PANEL_EN", "2": "GND"})
 
 
-def build_panel_vsn(x0, y0, usable_h):
+def build_panel_bias(x0, y0, usable_h):
     """
-    VSN (-5V) rail for the DM-TFTR50-413 panel's TFT gate drive.
+    +6.5 V / -6.5 V analog rails for the TST040HDBC-42 panel.
 
-    Real part: TI TPS60403-Q1 - AEC-Q100 Grade 1 (-40 to 125C), 5-pin
-    SOT-23, unregulated charge-pump inverter, VI 1.8-5.25V. Its own
-    datasheet lists "Automotive Cluster" and "LCD Displays" among its
-    real named Applications - a direct match, not a repurposed part.
-    Real pin table (TI SGLS246B, DBV package): OUT=1, IN=2, CFLY-=3,
-    GND=4, CFLY+=5. VO = -VI (unregulated); with IN on this board's
-    +5V rail (5.0V nominal), VO sits close to -5.0V, inside the panel's
-    own real DC spec window (VSN/VDD- min -6.0V, typ -5.0V, max -4.8V -
-    datasheet section 5.3). IN must be +5V, NOT +12V_PROT: the part's
-    absolute max input is 5.25V, and 12V would destroy it.
+    Datasheet section 6: VSP typ +6.5 V, VSN typ -6.5 V (the mechanical
+    drawing labels them +/-6.3 V - part of the polarity/value ambiguity
+    hedged by JP1/JP2, see build_panel()). Panel current is "TBD" in the
+    datasheet; the design assumes well under 100 mA per rail and the part
+    is good for ~200 mA each.
 
-    Real circuit (datasheet Figure 23, "Typical Operating Circuit" -
-    TPS60403 variant, 1uF caps): three 1uF ceramic caps - C(fly) across
-    CFLY+/CFLY-, CI on IN, CO on OUT. No other components needed - this
-    is genuinely the complete circuit, not a simplification.
-
-    Output current need here is trivial (the panel's VSN pin only
-    biases internal TFT gate-drive analog circuitry, real load likely
-    under 1mA) - nowhere near the part's real 60mA rating, so no
-    further sizing analysis is needed beyond using the datasheet's own
-    standard 1uF/1uF/1uF configuration.
+    Real part: TI TPS65131-Q1 - AEC-Q100 Grade 2, split-rail boost +
+    inverter, VIN 2.7-5.5 V (runs from +5V), VPOS 3.2-15 V, VNEG -15..-2 V
+    (TI SLVSBB2F, RGE package). Topology is the datasheet's own Figure 8-1:
+      * Boost: +5V -> L2 -> INP node -> D2 -> VPOS. VPOS = 1.213 V x
+        (1 + R1/R2)  [datasheet Eq. 1]. R2 = 130k, R1 = 562k gives
+        1.213 x (1 + 562/130) = 6.457 V.
+      * Inverter: +5V -> INN; OUTN node -> L3 -> GND; D3 anode = VNEG,
+        cathode = OUTN node. VNEG = -1.213 V x R3/R4 [Eq. 2], with R4 from
+        FBN to VREF (NOT GND). R4 = 100k, R3 = 536k gives -6.502 V.
+      * L2, L3 = 4.7 uH (datasheet: optimised for 3.3-6.8 uH). Coilcraft
+        XAL4030-472ME: Isat 4.6 A typ vs the 1.95 A nominal switch limit.
+      * 4.7 uF at each converter input, 22 uF at each output (Fig. 8-1),
+        10 nF at CP, 4.7 nF at CN, 220 nF at VREF, R = 100 ohm + 100 nF
+        filter into VIN (Fig. 8-1's R7/C3).
+      * Feed-forward caps: datasheet Eq. 11/12 C9 = 6.8 uV-s / R1,
+        C10 = 7.5 uV-s / R3 -> 12 pF and 15 pF (E12).
+      * BSW (load-disconnect PMOS gate) left floating - datasheet: leave
+        floating if the external PMOS is not used. NC pins no-connect.
+      * ENP/ENN together are PANEL_BIAS_EN (Verdin GPIO_10_DSI, 1.8 V,
+        above the part's 1.4 V VIH) with a 100k pulldown, so software
+        can sequence the rails after IOVCC. PSP/PSN tied low = forced PWM
+        (no power-save burst ripple on the panel's analog supplies).
+    Rectifiers: Nexperia PMEG6010ELRX (60 V / 1 A Schottky, AEC-Q101) -
+    same real part as D4; pad 1 = cathode, pad 2 = anode.
     """
+    assert abs(1.213 * (1 + 562 / 130) - 6.5) < 0.1
+    assert abs(1.213 * 536 / 100 - 6.5) < 0.1
     r, c = f"{LIB}:R", f"{LIB}:C"
-    u_vsn = build_generic_symbol(f"{LIB}:TPS60403-Q1", "U", "TPS60403-Q1",
-                                 [(1, "OUT", "power_out"), (2, "IN", "power_in"),
-                                  (3, "CFLYN", "passive"), (4, "GND", "power_in"),
-                                  (5, "CFLYP", "passive")],
-                                 footprint="Package_TO_SOT_SMD:SOT-23-5")
+    c1206 = build_generic_symbol(f"{LIB}:C_1206", "C", "C", PASSIVE_PINS)
+    c0805 = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
+    l47 = build_generic_symbol(f"{LIB}:L_4U7", "L", "L", PASSIVE_PINS)
+    schottky = build_generic_symbol(f"{LIB}:SCHOTTKY_SOD123W", "D", "Schottky",
+                                    PASSIVE_PINS)
+    u_bias = build_generic_symbol(f"{LIB}:TPS65131-Q1", "U", "TPS65131-Q1",
+                                  parts.TPS65131_Q1)
 
     COL_W, ROW_H = 78.0, 26.0
     cur = {"col": 0, "y": y0}
@@ -918,108 +949,100 @@ def build_panel_vsn(x0, y0, usable_h):
                    x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
         cur["y"] += need
 
-    flow(u_vsn, "U6", "TPS60403-Q1", {
-        "OUT": "PANEL_VSN_NEG5V", "IN": "+5V", "GND": "GND",
-        "CFLYN": "VSN_CFLY_N", "CFLYP": "VSN_CFLY_P",
+    flow(u_bias, "U6", "TPS65131-Q1", {
+        "INP1": "PANEL_BOOST_SW", "INP2": "PANEL_BOOST_SW",
+        "PGND1": "GND", "PGND2": "GND", "AGND": "GND", "EP": "GND",
+        "VIN": "PANEL_BIAS_VIN",
+        "INN1": "+5V", "INN2": "+5V",
+        "BSW": None, "NC1": None, "NC2": None,
+        "ENP": "PANEL_BIAS_EN", "ENN": "PANEL_BIAS_EN",
+        "PSP": "GND", "PSN": "GND",
+        "OUTN1": "PANEL_INV_SW", "OUTN2": "PANEL_INV_SW",
+        "VNEG": "PANEL_VSN", "FBN": "PANEL_FBN", "VREF": "PANEL_VREF",
+        "CN": "PANEL_CN", "CP": "PANEL_CP",
+        "FBP": "PANEL_FBP", "VPOS": "PANEL_VSP",
     })
-    flow(c, "C40", "1u Cfly (AEC-Q200)",
-         {"1": "VSN_CFLY_P", "2": "VSN_CFLY_N"})
-    flow(c, "C41", "1u CI (AEC-Q200)", {"1": "+5V", "2": "GND"})
-    flow(c, "C42", "1u CO (AEC-Q200)",
-         {"1": "PANEL_VSN_NEG5V", "2": "GND"})
+    flow(r, "R37", "100R VIN filter", {"1": "+5V", "2": "PANEL_BIAS_VIN"})
+    flow(c, "C42", "100n VIN filter (AEC-Q200)",
+         {"1": "PANEL_BIAS_VIN", "2": "GND"})
+    flow(c0805, "C40", "4.7u boost in (AEC-Q200)", {"1": "+5V", "2": "GND"})
+    flow(c0805, "C41", "4.7u inverter in (AEC-Q200)", {"1": "+5V", "2": "GND"})
+    flow(l47, "L2", "4.7u boost (Coilcraft XAL4030-472ME)",
+         {"1": "+5V", "2": "PANEL_BOOST_SW"})
+    flow(schottky, "D2", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
+         {"1": "PANEL_VSP", "2": "PANEL_BOOST_SW"})
+    flow(c1206, "C46", "22u VPOS out 16V (AEC-Q200)",
+         {"1": "PANEL_VSP", "2": "GND"})
+    flow(r, "R38", "562k VPOS top R1 (see docstring)",
+         {"1": "PANEL_VSP", "2": "PANEL_FBP"})
+    flow(r, "R39", "130k VPOS bottom R2 (see docstring)",
+         {"1": "PANEL_FBP", "2": "GND"})
+    flow(c, "C48", "12p VPOS feed-forward (AEC-Q200)",
+         {"1": "PANEL_VSP", "2": "PANEL_FBP"})
+    flow(l47, "L3", "4.7u inverter (Coilcraft XAL4030-472ME)",
+         {"1": "PANEL_INV_SW", "2": "GND"})
+    flow(schottky, "D3", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
+         {"1": "PANEL_INV_SW", "2": "PANEL_VSN"})
+    flow(c1206, "C47", "22u VNEG out 16V (AEC-Q200)",
+         {"1": "PANEL_VSN", "2": "GND"})
+    flow(r, "R40", "536k VNEG top R3 (see docstring)",
+         {"1": "PANEL_VSN", "2": "PANEL_FBN"})
+    flow(r, "R41", "100k VNEG bottom R4 to VREF (see docstring)",
+         {"1": "PANEL_FBN", "2": "PANEL_VREF"})
+    flow(c, "C49", "15p VNEG feed-forward (AEC-Q200)",
+         {"1": "PANEL_VSN", "2": "PANEL_FBN"})
+    flow(c, "C43", "220n VREF (AEC-Q200)",
+         {"1": "PANEL_VREF", "2": "GND"})
+    flow(c, "C44", "10n CP comp (AEC-Q200)", {"1": "PANEL_CP", "2": "GND"})
+    flow(c, "C45", "4n7 CN comp (AEC-Q200)", {"1": "PANEL_CN", "2": "GND"})
 
 
 def build_panel_backlight(x0, y0, usable_h):
     """
-    Backlight boost driver for the DM-TFTR50-413 panel's 6-LED string.
+    Backlight boost driver for the TST040HDBC-42.
 
-    Real part: Diodes Inc AL8853AQ - AEC-Q100 Grade 1, SO-8, automotive
-    boost/SEPIC LED controller, VIN 6-40V, 400kHz fixed frequency,
-    200mV/-+-3% current-sense reference. Its own datasheet Applications
-    list names "Infotainment and cluster backlight displays" directly.
-    Real pin table (Diodes DS45623): VIN=1, GATE=2, GND=3, CS=4, FB=5,
-    COMP=6, OVP=7, PWM=8. Topology: boost (Figure 1, "Typical Boost
-    Schematic for Constant Current Output Application") - this board's
-    panel needs a fixed ~38V string, not the bidirectional/floating
-    output a SEPIC exists for.
+    Datasheet sections 1/7: 20 LEDs, 180 mA, Vf 15 V typ, 2.7 W - the
+    array is 5 series x 4 parallel per the drawing's circuit diagram, all
+    tied to one LEDA/LEDK pair (2 pins each). This is ~3.6x the power of
+    the rejected DM-TFTR50-413's backlight and is the price of 800 nits.
 
-    VIN is +12V_PROT (NOT +5V - AL8853AQ's own 6V minimum is above the
-    5V rail), the same real always-on protected battery rail
-    LM61460-Q1 already uses.
-
-    All values below are real, derived from the panel's own real
-    datasheet numbers (DisplayModule DM-TFTR50-413, section 5.4: 6
-    white LEDs in series, VF=37.2V typ/38.4V max, IF=20mA) and
-    AL8853AQ's own real design equations (DS45623 section "Application
-    Information"), not round-number guesses:
-
-      R_FB (LED current, Eq. 8: I_LED = 200mV / R_FB):
-        target I_LED = 20mA (typ) -> R_FB = 200mV / 20mA = 10.0 ohm
-
-      L1 (inductor, Eq. 9/11/12, boost, sized at nominal 12V input,
-      VOUT = 38.4V max, f = 400kHz, ripple ratio gamma = 0.4 - a real
-      mid-range value per the datasheet's own "0.3 to 0.5" guidance,
-      assumed conversion efficiency eta = 0.85):
-        I_L(avg) = I_LED x VOUT / (VIN x eta)
-                 = 20mA x 38.4V / (12V x 0.85) = 75.3mA
-        I_P-P(target) = gamma x I_L = 0.4 x 75.3mA = 30.1mA
-        L = VIN(VOUT-VIN) / (VOUT x I_P-P x f)
-          = 12 x 26.4 / (38.4 x 0.0301 x 400000) = 685uH
-        -> real standard value: 680uH (E12 series)
-
-      R_CS/OCP (Eq. 13/14, peak inductor current at the real WORST
-      CASE - minimum automotive input 9V, not the 12V design center,
-      since lower VIN means higher current for the same output power;
-      OCP set the datasheet's own required 30% above that peak):
-        I_L(9V)   = 20mA x 38.4V / (9V x 0.85) = 100.4mA
-        I_P-P(9V) = 9 x (38.4-9) / (38.4 x 680uH x 400000) = 25.3mA
-        I_PK(9V)  = 100.4mA + 25.3mA/2 = 113.1mA
-        I_OCP = 1.3 x 113.1mA = 147.0mA
-        R_OCP = 300mV / 147.0mA = 2.04 ohm -> real E96 value: 2.00 ohm
-
-      R4/R5 (OVP divider, Eq. 15, threshold set 25% above the panel's
-      own real 38.4V max - comfortably clear of the datasheet's own
-      "at least 20% margin" floor):
-        target V_OVP = 1.25 x 38.4V = 48.0V
-        R5 = 10.0k (real E96) -> R4 = R5 x (V_OVP/2V - 1)
-           = 10.0k x 23 = 230k -> real E96 value: 232k
-        check: (232k+10.0k)/10.0k x 2V = 48.4V (real, within margin)
-
-    Q3 (boost switch) and D2 (rectifier) are real, named parts: Meritek
-    MFT6N2A5S23A (AEC-Q101, SOT-23, 60V/2.5A) and Nexperia PMEG6010ELRX
-    (AEC-Q101, SOD-123W, 60V/1A) - both comfortably clear the real
-    voltage requirement (BVDSS/VRRM >= 58V, over the 48V OVP threshold)
-    with current ratings far beyond what this ~20mA/~113mA-peak circuit
-    ever draws.
-
-    PWM (pin 8) is tied directly to +5V (always full brightness) as a
-    real, working baseline - not a placeholder. Real PWM dimming from
-    the Verdin (5kHz-50kHz per the datasheet's own real range) is a
-    genuine future enhancement needing a spare X1 GPIO not yet claimed,
-    same as the panel's own LEDPWM pin being left open for now.
-
-    COMP compensation cap (C46) is a typical 10nF value taken from the
-    conventional range other boost-controller COMP nodes in this
-    family use, NOT independently loop-stability-verified against this
-    specific L/C/load combination - flagged honestly, not asserted as
-    final.
+    Real part: TI TPS61165-Q1 - AEC-Q100, SOT-23-6 boost white-LED driver,
+    VIN 3-18 V, up to 38 V out, 1.2 MHz, 1.2 A typ switch limit (0.96 A
+    min / 1.44 A max), VFB = 0.2 V, CTRL = enable + PWM dimming 5-100 kHz
+    (TI SLVSB73B). Powered from +5V, NOT +12V_PROT: a boost cannot
+    regulate a 15 V output from a 9-16 V (and load-dumped) input, while
+    +5V -> 15 V is always a real boost. The previous AL8853AQ design
+    (6 V minimum VIN, 37 V / 20 mA panel) is gone with the old panel.
+      * R42 = 1.10 ohm sets ILED = 0.2 V / 1.10 = 182 mA (178-185 mA over
+        the datasheet's 196-204 mV VFB window) vs the panel's 180 mA.
+      * L4 = 10 uH (datasheet range 10-22 uH), Coilcraft XAL4040-103ME:
+        Isat 3.0 A, above the 1.44 A worst-case switch limit.
+      * D4 = PMEG6010ELRX (60 V, 1 A, AEC-Q101); TI recommends a fast
+        Schottky with VR above the 38 V OVP threshold.
+      * C51 = 220 nF COMP (datasheet: 220 nF suits most applications).
+        C50 = 10 uF input, C52 = 10 uF / 25 V output (datasheet CO range
+        1-10 uF; a 25 V ceramic keeps roughly 40% capacitance at 15 V).
+      * Output-current check (datasheet Eq. 3/4 logic): at VIN = 4.75 V,
+        VOUT = 15.2 V the boost duty is ~0.69; with the 0.96 A MINIMUM
+        limit the deliverable output is roughly 0.24 A, so 180 mA has
+        only ~1.3x margin at the worst corner. Flagged, not hidden.
+      * Thermal, flagged: 2.7 W of LED load through a SOT-23-6 (RthJA
+        210 C/W) - internal FET loss is only ~0.1-0.2 W but must be
+        checked on a prototype at 85 C ambient.
+      * CTRL <- PANEL_BL_PWM (Verdin PWM_3_DSI, 1.8 V, above the 1.2 V VIH).
+        This resolves the old "backlight dimming not wired" gap: the PWM
+        duty sets VFB. Keep the PWM between 5 and 100 kHz; held low
+        >2.5 ms it shuts the converter down.
+      * +5V load: 2.7 W / ~0.88 = ~3.1 W = ~0.65 A extra on LM61460-Q1's
+        6 A rail.
     """
-    r, c, l = f"{LIB}:R", f"{LIB}:C", f"{LIB}:L"
-    nfet = f"{LIB}:NFET"
-    # A dedicated symbol, not the shared "TVS" - real part (Nexperia
-    # PMEG6010ELRX) is package SOD-123W specifically, a different real
-    # footprint from the TVS clamp diodes' own D_SMB elsewhere on this
-    # board. Confirmed against KiCad's own bundled library:
-    # Diode_SMD:Nexperia_CFP3_SOD-123W.
-    schottky = build_generic_symbol(f"{LIB}:SCHOTTKY_SOD123W", "D", "Schottky",
-                                    PASSIVE_PINS,
-                                    footprint="Diode_SMD:Nexperia_CFP3_SOD-123W")
-    u_bl = build_generic_symbol(f"{LIB}:AL8853AQ", "U", "AL8853AQ",
-                                [(1, "VIN", "power_in"), (2, "GATE", "output"),
-                                 (3, "GND", "power_in"), (4, "CS", "input"),
-                                 (5, "FB", "input"), (6, "COMP", "passive"),
-                                 (7, "OVP", "input"), (8, "PWM", "input")],
-                                footprint="Package_SO:SOIC-8_3.9x4.9mm_P1.27mm")
+    r, c = f"{LIB}:R", f"{LIB}:C"
+    c1206 = f"{LIB}:C_1206"
+    c0805 = f"{LIB}:C_0805"
+    l10 = build_generic_symbol(f"{LIB}:L_10U", "L", "L", PASSIVE_PINS)
+    schottky = f"{LIB}:SCHOTTKY_SOD123W"
+    u_bl = build_generic_symbol(f"{LIB}:TPS61165-Q1", "U", "TPS61165-Q1",
+                                parts.TPS61165_Q1)
 
     COL_W, ROW_H = 78.0, 26.0
     cur = {"col": 0, "y": y0}
@@ -1034,55 +1057,20 @@ def build_panel_backlight(x0, y0, usable_h):
                    x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
         cur["y"] += need
 
-    flow(u_bl, "U7", "AL8853AQ", {
-        "VIN": "+12V_PROT", "GND": "GND",
-        "GATE": "BL_GATE", "CS": "BL_CS_NODE",
-        # FB reads PANEL_BL_LEDK directly - that node's voltage above
-        # GND (set by R40 and the LED-string return current) IS the
-        # real feedback signal, same as AL8853AQ's own Figure 1.
-        "FB": "PANEL_BL_LEDK",
-        "COMP": "BL_COMP", "OVP": "BL_OVP_DIV",
-        "PWM": "+5V",   # always-on baseline - see docstring
+    flow(u_bl, "U7", "TPS61165-Q1", {
+        "VIN": "+5V", "GND": "GND", "SW": "BL_SW",
+        "CTRL": "PANEL_BL_PWM",
+        "FB": "PANEL_BL_LEDK", "COMP": "BL_COMP",
     })
-    flow(c, "C43", "1u VIN (AEC-Q200)", {"1": "+12V_PROT", "2": "GND"})
-    flow(c, "C44", "10n COMP (typical, not loop-verified)",
-         {"1": "BL_COMP", "2": "GND"})
-    # L2, not L1 - the power tree's own LM61460-Q1 buck inductor already
-    # uses L1 (real bug caught before PCB layout: kiutils' own schematic
-    # symbol loop silently keeps only the LAST same-ref instance when
-    # build_pcb.py reads parts back out, which would have dropped one of
-    # the two real inductors from the board entirely with no error).
-    flow(l, "L2", "680u boost inductor (real, see docstring math)",
-         {"1": "+12V_PROT", "2": "BL_SW"})
-    # Q3's source and R37 share BL_CS_NODE with U7's own CS pin above -
-    # that's the real current-sense node, not three separate nets.
-    # Real part: Meritek MFT6N2A5S23A - AEC-Q101, SOT-23, 60V/2.5A,
-    # RDS(on)=75mOhm max - real BVDSS margin over the 48V OVP threshold
-    # (target was >=58V) and enormous current margin over the real
-    # ~113mA peak this circuit ever sees.
-    flow(nfet, "Q3", "MFT6N2A5S23A (AEC-Q101, 60V/2.5A)",
-         {"G": "BL_GATE", "D": "BL_SW", "S": "BL_CS_NODE"})
-    flow(r, "R37", "2.00R OCP/CS sense (real, see docstring math)",
-         {"1": "BL_CS_NODE", "2": "GND"})
-    # D2's cathode is PANEL_BL_LEDA_38V directly - the boost output IS
-    # the LED string's anode supply, same real net build_panel() already
-    # wires to the panel connector's LEDA pins. Real part: Nexperia
-    # PMEG6010ELRX - AEC-Q101, SOD-123W, 60V VRRM (real margin over the
-    # 48V OVP threshold), 1A average forward current (real margin over
-    # the ~20mA this circuit ever sees).
-    flow(schottky, "D2", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
-         {"1": "BL_SW", "2": "PANEL_BL_LEDA_38V"})
-    flow(c, "C45", "1u VOUT, 63V-rated (AEC-Q200)",
-         {"1": "PANEL_BL_LEDA_38V", "2": "GND"})
-    flow(r, "R38", "232k OVP top (real, see docstring math)",
-         {"1": "PANEL_BL_LEDA_38V", "2": "BL_OVP_DIV"})
-    flow(r, "R39", "10k OVP bottom (real, see docstring math)",
-         {"1": "BL_OVP_DIV", "2": "GND"})
-    # R40 sits between the panel's real LEDK (cathode) return and GND -
-    # its voltage IS the FB sense voltage (U7's FB pin reads
-    # PANEL_BL_LEDK directly, wired above), matching AL8853AQ's own
-    # Figure 1 reference circuit.
-    flow(r, "R40", "10.0R LED FB (real, see docstring math)",
+    flow(c0805, "C50", "10u BL input (AEC-Q200)", {"1": "+5V", "2": "GND"})
+    flow(l10, "L4", "10u BL boost (Coilcraft XAL4040-103ME)",
+         {"1": "+5V", "2": "BL_SW"})
+    flow(schottky, "D4", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
+         {"1": "PANEL_BL_LEDA", "2": "BL_SW"})
+    flow(c1206, "C52", "10u BL output 25V (AEC-Q200)",
+         {"1": "PANEL_BL_LEDA", "2": "GND"})
+    flow(c, "C51", "220n BL COMP (AEC-Q200)", {"1": "BL_COMP", "2": "GND"})
+    flow(r, "R42", "1.10R LED current sense (0.2V/1.10=182mA)",
          {"1": "PANEL_BL_LEDK", "2": "GND"})
 
 
@@ -1127,12 +1115,12 @@ def build_control(x0, y0, usable_h):
                    x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
         cur["y"] += need
 
-    flow(conn_jtag, "J8", "JTAG debug", {
+    flow(conn_jtag, "J8", "Samtec TSW-108-07-G-S JTAG (bench only)", {
         "VREF": "JTAG_VREF", "TMS": "JTAG_TMS", "TCK": "JTAG_TCK",
         "TDO": "JTAG_TDO", "TDI": "JTAG_TDI", "TRST": "JTAG_TRST",
         "RESET": "RESET_MICO", "GND": "GND",
     })
-    flow(conn_btn, "J9", "Buttons", {
+    flow(conn_btn, "J9", "Samtec TSW-104-07-G-S buttons (bench only)", {
         "PWR_BTN": "PWR_BTN", "RECOVERY": "RECOVERY",
         "RESET": "RESET_MICO", "GND": "GND",
     })
@@ -1238,7 +1226,7 @@ def main():
     build_1v8_and_can(300.0, 430.0, 370.0)
     build_power_tree(660.0, 60.0, 700.0)
     build_control(60.0, 60.0, 280.0)
-    build_panel_vsn(920.0, 60.0, 300.0)
+    build_panel_bias(920.0, 60.0, 330.0)
     build_panel_backlight(920.0, 400.0, 400.0)
 
     # Neither rail has a regulator on the sheet yet, so nothing drives

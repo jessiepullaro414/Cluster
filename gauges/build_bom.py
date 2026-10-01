@@ -81,6 +81,11 @@ MPN = {
     "Littelfuse 297": ("3568", "Keystone", "Mini blade fuse holder, PCB mount (fuse element ordered separately)", "-"),
 
     "Tag-Connect": ("TC2030-IDC-NL", "Tag-Connect", "SWD programming/debug connector, 2x3 1.27mm, no-legs cable version", "-"),
+
+    # Rev B (2026-09-30), gateway architecture: private CAN1 link to
+    # display/ and Hall speed input conditioning.
+    "TCAN1044V-Q1": ("TCAN1044VDRQ1", "TI", "Automotive CAN FD transceiver w/ VIO pin, SOIC-8 - private CAN1 link to display/ (same part as display/'s transceiver; datasheet SLLSF17D)", "AEC-Q100 Grade 1"),
+    "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8)", "AEC-Q101"),
 }
 
 # Real harness pigtail connectors (the cable-side mate for J1/J7's own
@@ -90,7 +95,7 @@ MPN = {
 # below), so these are appended as extra lines the same way the fuse
 # element is, not matched through the placement-coverage token loop.
 HARNESS_PIGTAILS = [
-    ("DTM06-2S", "TE Connectivity (Deutsch DTM series)", "2-position sealed harness pigtail connector, 12V input + GND - mates with J1's own board-side terminal block", "J1"),
+    ("DTM06-3S", "TE Connectivity (Deutsch DTM series)", "3-position sealed harness pigtail connector, 12V input + GND + ignition - mates with J1's own board-side terminal block (rev B: was 2-position before the ignition wire was added)", "J1"),
     ("DTM06-5S", "TE Connectivity (Deutsch DTM series)", "5-position sealed harness pigtail connector: CAN0_H/L + 3x sender input - mates with J7's own board-side header", "J7"),
 ]
 
@@ -99,8 +104,10 @@ HARNESS_PIGTAILS = [
 # just described by the schematic Value string, so they get their own
 # BOM lines keyed by REFERENCE rather than by Value-token match.
 BOARD_SIDE_CONNECTORS = {
-    "J1": ("MKDS 1,5/2-5,08", "Phoenix Contact", "2-position 5.08mm pluggable terminal block, board side of the 12V input pigtail", "-"),
+    "J1": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm screw terminal block, board side of the 12V input + ignition pigtail (rev B: was 2-position)", "-"),
     "J7": ("22-27-2051", "Molex", "5-position KK 254 (2.54mm) header, board side of the CAN0+sender pigtail", "-"),
+    "J8": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, private CAN1 link to display/ (CAN1_H / CAN1_L / GND); mating housing and crimps are separate Molex KK 254 parts", "-"),
+    "J9": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, Hall speed sender input (signal + ground); the sender is powered from the car harness, not from this board", "-"),
 }
 
 PASSIVE_PREFIXES = ("R", "C", "L", "FB", "Y")

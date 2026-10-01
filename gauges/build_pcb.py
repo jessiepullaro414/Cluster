@@ -375,6 +375,11 @@ CORE_ZONES = [
                "C3", "C10", "C11", "C12", "L1", "R2", "R3"]),
     ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2"]),
     ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "J7"]),
+    # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
+    # ignition sense - see build_schematic.py's rev B comments.
+    ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8"]),
+    ("SPEED+IGN", ["J9", "R43", "R44", "R45", "C43", "D10",
+                   "R46", "R47", "C44", "D11"]),
     ("AUX BL SWITCH", ["Q2", "R10", "R11"]),
     ("SENSORS", ["R16", "R17", "R18", "C28", "C29", "C30"]),
 ]

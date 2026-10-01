@@ -498,6 +498,21 @@ register_symbol(f"{LIB}:IC_LDO33", "U", "TLV733P-Q1", "Package_TO_SOT_SMD:SOT-23
 #     ecu-pcb's own TJA1043T wiring already established (real 4-state
 #     mode select, not a single 3-state pin - see that project's own
 #     registration comment for the full reasoning).
+# REV B PIN CLAIMS (2026-09-30, gateway architecture - see the plan). Real
+# pins from NXP's own S32K144_IO_Signal_Description_Input_Multiplexing.xlsx
+# (the attachment inside the S32K1xx Reference Manual PDF, Rev 8), read by
+# the "S32K144_64lqfp" column, checked free against every pin claimed here:
+#   - FlexCAN1 (private link to display/): CAN1_RX=pin52 (PTC6),
+#     CAN1_TX=pin51 (PTC7). Pins 56/55 (PTA12/PTA13) are the alternate pair.
+#     (CAN0, the car bus, stays on pins 6/5.) Only CAN0 supports partial
+#     networking wake, which is fine: CAN1 is the private link.
+#   - SPEED_IN = pin58 (PTA10, FTM1_CH4): timer input capture for the Hall
+#     speed pulses. Pin57 (PTA11, FTM1_CH5) is its paired channel, left free.
+#   - IGN_SENSE = pin59 (PTE1): plain GPIO with a pin interrupt. The RM's
+#     AWIC table (Table 7-8) says "any enabled pin interrupt is capable of
+#     waking the system" from STOP and VLPS, so no dedicated wake-up unit is
+#     needed (the S32K1xx has no LLWU).
+#   - CAN1_STB = pin60 (PTE0): standby control for the second transceiver.
 MCU_LEFT = [P(11, "OSC_IN", "passive"), P(12, "OSC_OUT", "passive"),
             P(64, "SWDIO", "bidirectional"), P(62, "SWCLK", "input"),
             P(29, "LPSPI2_SCK", "output"), P(26, "LPSPI2_SIN", "input"),
@@ -508,7 +523,11 @@ MCU_RIGHT = [P(6, "CAN0_RX", "input"), P(5, "CAN0_TX", "output"),
              P(13, "AUX_CS0", "output"), P(14, "AUX_CS1", "output"),
              P(15, "AUX_CS2", "output"), P(16, "AUX_CS3", "output"),
              P(17, "AUX_DC0", "output"), P(22, "AUX_DC1", "output"),
-             P(23, "AUX_DC2", "output"), P(24, "AUX_DC3", "output")]
+             P(23, "AUX_DC2", "output"), P(24, "AUX_DC3", "output"),
+             # Rev B (2026-09-30) - see the "REV B PIN CLAIMS" comment above.
+             P(52, "CAN1_RX", "input"), P(51, "CAN1_TX", "output"),
+             P(58, "SPEED_IN", "input"), P(59, "IGN_SENSE", "input"),
+             P(60, "CAN1_STB", "output")]
 MCU_BOTTOM_EXTRA = [P(30, "LPSPI2_CS", "output"), P(42, "AUX_RST", "output"),
                     P(39, "BL_EN", "output"),
                     P(18, "CAN0_EN", "output"), P(19, "CAN0_STB_N", "output")]
@@ -541,9 +560,12 @@ register_symbol(f"{LIB}:CONN_SWD", "J", "SWD (Tag-Connect)",
                        P(6, "GND", "power_in")]},
                 hide_pin_names=True)
 
-register_symbol(f"{LIB}:CONN_PWR", "J", "Phoenix MKDS 1,5/2-5,08 (board side; DTM06-2S nickel on the outboard pigtail end)",
-                "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-2-5.08_1x02_P5.08mm_Horizontal",
-                {'L': [P(1, "VIN", "passive"), P(2, "GND", "passive")]},
+# REV B: 3 positions now (VIN, GND, IGN) - the ignition wire wakes the MCU
+# from STOP mode and is reported to display/ over the private link.
+register_symbol(f"{LIB}:CONN_PWR", "J", "Phoenix MKDS 1,5/3-5,08 (board side; DTM06-3S nickel on the outboard pigtail end)",
+                "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal",
+                {'L': [P(1, "VIN", "passive"), P(2, "GND", "passive"),
+                       P(3, "IGN", "passive")]},
                 hide_pin_names=True)
 # Board-side power landing reuses thermo-pcb's real connector strategy
 # (Phoenix MKDS screw terminal, sealed DTM06-2S crimped on the outboard
@@ -572,6 +594,40 @@ register_symbol(f"{LIB}:CONN_HARNESS", "J", "Molex KK-254 22-27-2051 (board side
                        P(5, "TEMP_SENSE", "passive")]},
                 hide_pin_names=True)
 # flagged for the connector-strategy pass, not assumed final.
+
+# --- REV B symbols (2026-09-30) -------------------------------------------
+# Second CAN transceiver for the private link to display/: the same real
+# TCAN1044V-Q1 display/ uses (TI SLLSF17D, SOIC-8): TXD=1, GND=2, VCC=3 (4.5-
+# 5.5 V), RXD=4, VIO=5 (1.7-5.5 V, here 3.3 V to match the MCU), CANL=6,
+# CANH=7, STB=8 (standby, integrated pull-up).
+register_symbol(f"{LIB}:TCAN1044V", "U", "TCAN1044V-Q1 CAN transceiver, private link to display/ (AEC-Q100 G1)",
+                "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+                {'T': [P(3, "VCC", "power_in"), P(5, "VIO", "power_in")],
+                 'B': [P(2, "GND", "power_in")],
+                 'L': [P(1, "TXD", "input"), P(4, "RXD", "output"),
+                       P(8, "STB", "input")],
+                 'R': [P(7, "CANH", "bidirectional"), P(6, "CANL", "bidirectional")]},
+                datasheet="https://www.ti.com/product/TCAN1044V-Q1")
+register_symbol(f"{LIB}:CONN_LINK", "J", "Molex KK-254 22-27-2031 (private link to display/)",
+                "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical",
+                {'L': [P(1, "CAN1_H", "passive"), P(2, "CAN1_L", "passive"),
+                       P(3, "GND", "passive")]},
+                hide_pin_names=True)
+register_symbol(f"{LIB}:CONN_SPEED", "J", "Molex KK-254 22-27-2021 (Hall speed sender input)",
+                "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
+                {'L': [P(1, "SPEED_SIG", "passive"), P(2, "GND", "passive")]},
+                hide_pin_names=True)
+# Nexperia BAV99-Q (AEC-Q101): dual series diode, SOT-23. Pinning from the
+# Nexperia BAV99 series datasheet (Rev. 8) Table 3: pin 1 = anode of diode 1,
+# pin 2 = cathode of diode 2, pin 3 = cathode of diode 1 AND anode of diode
+# 2. Used as an input clamp: pin 3 = signal, pin 1 = GND, pin 2 = +3V3.
+# Power pins sit on the T/B sides so their power symbols cannot cross a
+# neighbouring stub (the failure mode the file's other comments describe).
+register_symbol(f"{LIB}:D_BAV99", "D", "BAV99-Q clamp (AEC-Q101)",
+                "Package_TO_SOT_SMD:SOT-23",
+                {'T': [P(2, "K2", "passive")],
+                 'B': [P(1, "A1", "passive")],
+                 'R': [P(3, "CA", "passive")]})
 
 # --- CAN0 transceiver (plan Step 2): real TJA1043T (SO-14), pin table and
 # wiring topology reused VERBATIM from ecu-pcb's own already-verified
@@ -653,8 +709,9 @@ section_text("5V BUCK + 3.3V LDO", 200, 28)
 section_text("MCU CORE (NXP S32K144, 3.3V LOGIC) - FIXED PINS ONLY", 30, 175)
 
 # --- 12V rail, left to right ---
-place(f"{LIB}:CONN_PWR", "J1", "DTM06-2S nickel, 12V input (sealed)", 40, RAIL,
-      conn={'1': ('pwr', 'VIN', 5.08), '2': ('pwr', 'GND', 7.62)})
+place(f"{LIB}:CONN_PWR", "J1", "DTM06-3S nickel, 12V input + ignition (sealed)", 40, RAIL,
+      conn={'1': ('pwr', 'VIN', 5.08), '2': ('pwr', 'GND', 7.62),
+            '3': ('label', 'IGN_RAW', 12.7)})
 place(f"{LIB}:Fuse", "F1", "Mini blade holder, 2A Littelfuse 297 fuse (SAE J2077/ISO 8820-3)", 50, RAIL,
       conn={'1': ('pwr', 'VIN'), '2': ('wire',)})
 place(f"{LIB}:MOSFET_N", "Q1", "PMV37ENEA automotive (AEC-Q101)", 85, RAIL,
@@ -790,6 +847,82 @@ place(f"{LIB}:C_V", "C16", "4.7nF SPLIT stabilization (AEC-Q200)", 580, 245,
 # link, not geometric alignment (U1 and U5 aren't row-aligned).
 # CAN0_H/CAN0_L/the vehicle-harness landing for this bus are real, named,
 # forward-looking stubs pending plan Step 6 (connector strategy).
+
+# =========================== REV B ADDITIONS ================================
+# Gateway architecture (see the plan, 2026-09-30): this board is the only
+# node on the car bus (CAN0, firmware keeps it listen-only) and talks to
+# display/ (Android) over a private two-node link on CAN1.
+section_text("REV B: CAN1 PRIVATE LINK TO display/ (TCAN1044V-Q1)", 700, 175)
+place(f"{LIB}:TCAN1044V", "U10", "TCAN1044V-Q1 (AEC-Q100 G1)", 760, 250,
+      conn={'3': ('pwr', '+5V', 5.08), '5': ('pwr', '+3V3', 5.08),
+            '2': ('pwr', 'GND', 2.54),
+            '1': ('label', 'CAN1_TX', 7.62), '4': ('label', 'CAN1_RX', 7.62),
+            '8': ('label', 'CAN1_STB', 7.62),
+            '7': ('label', 'CAN1_H', 7.62), '6': ('label', 'CAN1_L', 7.62)})
+place(f"{LIB}:C_V", "C40", "100nF VCC decouple (AEC-Q200)", 730, 220,
+      conn={'1': ('pwr', '+5V'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C41", "100nF VIO decouple (AEC-Q200)", 705, 220,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+# STB has an internal pull-up (standby by default); this pulldown keeps the
+# transceiver in NORMAL mode while the MCU is in reset. Firmware drives
+# CAN1_STB high before entering STOP mode to cut the transceiver's current.
+place(f"{LIB}:R_V", "R40", "10k STB pulldown, normal mode while MCU resets (AEC-Q200)", 800, 215,
+      conn={'1': ('label', 'CAN1_STB'), '2': ('pwr', 'GND')})
+# Private link is a two-node bus, so BOTH ends are terminated (unlike CAN0,
+# where termination is DNP unless this board is a bus end-node). Split
+# termination, same 2x60R + 4.7nF network as CAN0, populated here.
+place(f"{LIB}:R_V", "R41", "60R split termination (AEC-Q200)", 880, 230,
+      conn={'1': ('label', 'CAN1_H'), '2': ('label', 'CAN1_SPLIT')})
+place(f"{LIB}:R_V", "R42", "60R split termination (AEC-Q200)", 880, 260,
+      conn={'1': ('label', 'CAN1_SPLIT'), '2': ('label', 'CAN1_L')})
+place(f"{LIB}:C_V", "C42", "4.7nF SPLIT stabilization (AEC-Q200)", 910, 245,
+      conn={'1': ('label', 'CAN1_SPLIT'), '2': ('pwr', 'GND')})
+place(f"{LIB}:CONN_LINK", "J8", "KK-254 22-27-2031, private link to display/ J3 (DTM06-3S pigtail)", 960, 250,
+      conn={'1': ('label', 'CAN1_H'), '2': ('label', 'CAN1_L'),
+            '3': ('pwr', 'GND', 7.62)})
+
+section_text("REV B: HALL SPEED INPUT (AutoMeter-type 12 V pulse sender)", 700, 330)
+# The sender is powered from the car harness (switched, fused there), so this
+# board sees only SIGNAL and ground. AutoMeter's Hall senders output a 12 V
+# square wave, 16 pulses per revolution (16,000 pulses/mile at 1000 rev/
+# mile); output topology (push-pull vs open collector) is not stated in the
+# material found, so a pull-up to the protected battery rail is always
+# populated: harmless against a push-pull output, required by an open-
+# collector one. Divider 33k/15k: 9 V -> 2.8 V, 12 V -> 3.8 V (clamped),
+# comfortably above the S32K144's ~2.3 V input-high level at 3.3 V; a BAV99
+# clamp holds the pin to the rails against spikes. 1 nF gives about 10 us
+# of filtering, far below the ~1 ms periods at 533 Hz (120 mph).
+place(f"{LIB}:CONN_SPEED", "J9", "KK-254 22-27-2021, Hall speed sender (signal + ground)", 700, 380,
+      conn={'1': ('label', 'SPEED_RAW'), '2': ('pwr', 'GND', 7.62)})
+place(f"{LIB}:R_V", "R43", "4.7k pull-up to VIN_PROT for open-collector senders (AEC-Q200)", 760, 360,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('label', 'SPEED_RAW')})
+place(f"{LIB}:R_V", "R44", "33k series (AEC-Q200)", 790, 380,
+      conn={'1': ('label', 'SPEED_RAW'), '2': ('label', 'SPEED_IN')})
+place(f"{LIB}:R_V", "R45", "15k divider bottom (AEC-Q200)", 820, 400,
+      conn={'1': ('label', 'SPEED_IN'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C43", "1nF input filter (AEC-Q200)", 850, 400,
+      conn={'1': ('label', 'SPEED_IN'), '2': ('pwr', 'GND')})
+place(f"{LIB}:D_BAV99", "D10", "BAV99-Q input clamp (AEC-Q101)", 890, 385,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'),
+            '3': ('label', 'SPEED_IN')})
+
+section_text("REV B: IGNITION SENSE (STOP-mode wake)", 700, 450)
+# IGN arrives on J1 pin 3 straight from the harness with no front-end
+# protection of its own, so the series resistor limits the clamp current
+# during load dump / ISO 7637 pulses: 56k at 80 V is ~1.4 mA, well inside the
+# BAV99's 500 mA repetitive rating. Divider 56k/27k: 9 V -> 2.9 V (above the
+# MCU's ~2.3 V input-high), 16 V -> 5.2 V (clamped). 10 nF = ~2 ms filter;
+# firmware debounces further. A reverse-polarity ignition wire at -14 V is
+# held to about -0.7 V by the clamp's GND diode.
+place(f"{LIB}:R_V", "R46", "56k series (AEC-Q200)", 760, 480,
+      conn={'1': ('label', 'IGN_RAW'), '2': ('label', 'IGN_SENSE')})
+place(f"{LIB}:R_V", "R47", "27k divider bottom (AEC-Q200)", 790, 500,
+      conn={'1': ('label', 'IGN_SENSE'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C44", "10nF input filter (AEC-Q200)", 820, 500,
+      conn={'1': ('label', 'IGN_SENSE'), '2': ('pwr', 'GND')})
+place(f"{LIB}:D_BAV99", "D11", "BAV99-Q input clamp (AEC-Q101)", 860, 485,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'),
+            '3': ('label', 'IGN_SENSE')})
 
 # --- 4x GC9A01 aux gauges (plan Step 3) ---
 section_text("4x GC9A01 AUX GAUGES: FUEL / OIL / COOLANT TEMP / BATTERY (PLAN STEP 3)", 30, 430)
@@ -964,6 +1097,10 @@ NOTE_LINES = [
     "   sender readings - a real 3-node bus, per the user's own request for the two",
     "   carriers to communicate.",
     "   PCB layout/routing/DRC/BOM are separate, not-yet-started next phases.",
+    "8. REV B (2026-09-30): gateway architecture. This board is the ONLY node on the car",
+    "   bus (CAN0, firmware listen-only) and aggregates values for display/ over a private",
+    "   CAN1 link (U10, J8). Added a Hall speed input (J9) and an ignition input (J1 pin 3).",
+    "   See protocol/ for the message set and the plan for the reasons.",
 ]
 NOTES_PER_COL = (len(NOTE_LINES) + 1) // 2
 for i, line in enumerate(NOTE_LINES):

@@ -1,0 +1,49 @@
+VERSION "haltech-v2.35.0-subset"
+
+NS_ :
+
+BS_:
+
+BU_: ECU GAUGES
+
+BO_ 864 HaltechEngine: 8 ECU
+ SG_ Rpm : 7|16@0+ (1,0) [0|20000] "rpm" GAUGES
+ SG_ MapKpaAbs : 23|16@0+ (0.1,0) [0|1000] "kPa" GAUGES
+ SG_ ThrottlePct : 39|16@0+ (0.1,0) [0|100] "%" GAUGES
+ SG_ CoolantPressureKpa : 55|16@0+ (0.1,-101.3) [-101.3|1000] "kPa" GAUGES
+
+BO_ 865 HaltechPressures: 8 ECU
+ SG_ FuelPressureKpa : 7|16@0+ (0.1,-101.3) [-101.3|1000] "kPa" GAUGES
+ SG_ OilPressureKpa : 23|16@0+ (0.1,-101.3) [-101.3|1000] "kPa" GAUGES
+ SG_ EngineDemandPct : 39|16@0+ (0.1,0) [0|400] "%" GAUGES
+
+BO_ 880 HaltechSpeed: 8 ECU
+ SG_ VehicleSpeedKph : 7|16@0+ (0.1,0) [0|400] "km/h" GAUGES
+
+BO_ 882 HaltechBattery: 8 ECU
+ SG_ BatteryV : 7|16@0+ (0.1,0) [0|30] "V" GAUGES
+
+BO_ 992 HaltechTemps: 8 ECU
+ SG_ CoolantTempK : 7|16@0+ (0.1,0) [0|500] "K" GAUGES
+ SG_ AirTempK : 23|16@0+ (0.1,0) [0|500] "K" GAUGES
+ SG_ FuelTempK : 39|16@0+ (0.1,0) [0|500] "K" GAUGES
+ SG_ OilTempK : 55|16@0+ (0.1,0) [0|500] "K" GAUGES
+
+BO_ 994 HaltechFuelLevel: 8 ECU
+ SG_ FuelLevelL : 7|16@0+ (0.1,0) [0|500] "L" GAUGES
+
+CM_ BO_ 864 "RPM, manifold pressure (absolute), throttle, coolant pressure.";
+CM_ BO_ 865 "Fuel pressure, oil pressure (absolute minus 101.3), demand.";
+CM_ BO_ 880 "Vehicle speed (only sent if the ECU's speed input is set up).";
+CM_ BO_ 882 "Battery voltage.";
+CM_ BO_ 992 "Temperatures in kelvin (x/10).";
+CM_ BO_ 994 "Fuel level in litres (x/10).";
+
+BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
+BA_DEF_DEF_ "GenMsgCycleTime" 0;
+BA_ "GenMsgCycleTime" BO_ 864 20;
+BA_ "GenMsgCycleTime" BO_ 865 20;
+BA_ "GenMsgCycleTime" BO_ 880 50;
+BA_ "GenMsgCycleTime" BO_ 882 100;
+BA_ "GenMsgCycleTime" BO_ 992 200;
+BA_ "GenMsgCycleTime" BO_ 994 200;

@@ -341,6 +341,7 @@ FOOTPRINTS = {
     "L_4U7": "Inductor_SMD:L_Coilcraft_XAL4030-XXX",
     "L_10U": "Inductor_SMD:L_Coilcraft_XAL4040-XXX",
     "SCHOTTKY_SOD123W": "Diode_SMD:Nexperia_CFP3_SOD-123W",
+    "D_BAV99": "Package_TO_SOT_SMD:SOT-23",
     "C_0805": "Capacitor_SMD:C_0805_2012Metric",
     "C_1206": "Capacitor_SMD:C_1206_3216Metric",
     # Open 3-pad solder jumpers for the panel's +/-6.5 V pin-group polarity.

@@ -119,6 +119,12 @@ X1_NETS = {
     # DSI to the panel - see build_panel()'s own docstring). They fall
     # through to bank C's genuinely-unused pins.
     "GPIO_9_DSI": "DSI_PANEL_EN",
+    # Ignition wake (rev B): Verdin datasheet Table 9/30 - pin 252 is the
+    # default, only guaranteed-compatible wake-up pin, 1.8 V, "wake-capable
+    # pin that allows the system to resume from sleep mode", also a regular
+    # GPIO (GPIO1_IO10). Active-low by name (the # suffix); software picks
+    # the edge. Driven by the ignition network in build_control().
+    "CTRL_WAKE1_MICO#": "IGN_WAKE_N",
     "GPIO_10_DSI": "PANEL_BIAS_EN",   # TPS65131-Q1 ENP/ENN
     "PWM_3_DSI": "PANEL_BL_PWM",      # TPS61165-Q1 CTRL (PWM dimming)
     # Control and sequencing.
@@ -144,7 +150,6 @@ X1_NC = {
     "DSI_1_D3_P", "DSI_1_D3_N",  # panel has 3 lanes, not 4
     "I2C_2_DSI_SDA", "I2C_2_DSI_SCL",  # bridge-config bus; no bridge on this board
     "CTRL_FORCE_OFF_MOCI#",  # datasheet: "can be left floating"
-    "CTRL_WAKE1_MICO#",      # "can be left floating if wake is disabled"
     "CTRL_SLEEP_MOCI#",      # no carrier rail is sequenced off in sleep
     "TAMPER0", "TAMPER1",    # SoC tamper detect, unused here
     "PWR_1V8_MOCI",          # the carrier makes its own 1.8 V
@@ -758,7 +763,7 @@ def build_1v8_and_can(x0, y0, usable_h):
     # later to reclaim low-power standby.
     flow(r, "R21", "10k STB pd", {"1": "CAN1_STB", "2": "GND"})
 
-    flow(conn_can, "J3", "Molex KK-254 22-27-2031 CAN (DTM06-3S pigtail)",
+    flow(conn_can, "J3", "Molex KK-254 22-27-2031 private CAN link to gauges/ J8",
          {"CANH": "CAN1_H", "CANL": "CAN1_L", "GND": "GND"})
 
 
@@ -1133,6 +1138,37 @@ def build_control(x0, y0, usable_h):
         flow(r, ref, "10k pullup", {"1": net, "2": "+1V8"})
     flow(r, "R47", "10k pullup", {"1": "RESET_MOCI", "2": "+1V8"})
     flow(r, "R48", "10k JTAG Vref", {"1": "JTAG_VREF", "2": "+1V8"})
+
+    # --- Ignition wake (rev B, 2026-09-30) --------------------------------
+    # The Verdin sleeps (suspend-to-RAM) with ignition off and resumes when
+    # ignition goes on, via its wake-capable pin CTRL_WAKE1_MICO# (X1 252,
+    # 1.8 V). The ignition wire arrives on J2 with NO front-end protection,
+    # so the network is built to survive load dump / ISO 7637 pulses:
+    #   IGN -> R51 56k -> gate node (R52 33k to GND) -> Q3 gate
+    # 9 V ignition gives 3.3 V at the gate (above PMV55ENEA's 2.4 V max
+    # Vth); 16 V gives 5.9 V. D5 (BAV99-Q, AEC-Q101) clamps the gate node to
+    # GND and +5V, so even an 80 V pulse through 56k is only ~1.4 mA into the
+    # clamp and the gate never sees more than ~5.7 V (Vgs max is 20 V).
+    # Q3 pulls IGN_WAKE_N low when ignition is on; R53 10k pulls it up to
+    # +1V8 when off. The +1V8 LDO (U3) is always on while the 5 V buck runs,
+    # so the idle level survives suspend. 10k is stiff enough against the
+    # SoC pad's reset-state pull-down (the datasheet lists one but not its
+    # value). The pin is also readable as a GPIO, so Android can see key
+    # state directly in addition to gauges/'s PowerState message.
+    # Verdin datasheet does not state the wake polarity: it is a software
+    # edge setting, confirm on the module.
+    nfet_sym = f"{LIB}:NFET"
+    bav99 = build_generic_symbol(f"{LIB}:D_BAV99", "D", "BAV99-Q clamp",
+                                 [(1, "A1", "passive"), (2, "K2", "passive"),
+                                  (3, "CA", "passive")])
+    flow(r, "R51", "56k ignition series", {"1": "IGN_SENSE", "2": "IGN_GATE"})
+    flow(r, "R52", "33k ignition divider bottom", {"1": "IGN_GATE", "2": "GND"})
+    flow(c, "C53", "10n ignition filter", {"1": "IGN_GATE", "2": "GND"})
+    flow(bav99, "D5", "BAV99-Q ignition clamp (AEC-Q101)",
+         {"A1": "GND", "K2": "+5V", "CA": "IGN_GATE"})
+    flow(nfet_sym, "Q3", "PMV55ENEA ignition wake pulldown",
+         {"G": "IGN_GATE", "D": "IGN_WAKE_N", "S": "GND"})
+    flow(r, "R53", "10k wake pull-up to +1V8", {"1": "+1V8", "2": "IGN_WAKE_N"})
 
     # RTC backup. The datasheet is explicit that a current-limiting
     # resistor of at least 47k must sit between the cell and VCC_BACKUP -

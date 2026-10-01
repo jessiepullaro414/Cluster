@@ -81,6 +81,7 @@ MPN = {
     "TPS61165-Q1":  ("TPS61165TDBVRQ1", "TI", "Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 DBV (datasheet SLVSB73B); TI lists the family Active. Orderable suffix taken from a TI E2E thread and a datasheet listing - confirm on TI's store", "AEC-Q100"),
     "XAL4030-472ME": ("XAL4030-472MEC", "Coilcraft", "4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "XAL4040-103ME": ("XAL4040-103MEC", "Coilcraft", "10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
+    "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)", "AEC-Q101"),
     "SJ3":          ("(no part - PCB footprint only)", "-", "3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel's +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py", "n/a"),
     "PMEG6010ELRX": ("PMEG6010ELRX", "Nexperia", "Boost rectifier Schottky, 60V/1A, SOD-123W", "AEC-Q101"),
 

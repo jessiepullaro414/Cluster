@@ -404,6 +404,27 @@ register_symbol(f"{LIB}:TVS_V", "D", "SMCJ33A", "Diode_SMD:D_SMC",
 register_symbol(f"{LIB}:C_V", "C", "100nF", "Capacitor_SMD:C_0603_1608Metric",
                 {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
                 hide_pin_names=True)
+# Power-stage audit 2026-10-02 (LMR33630-Q1 datasheet SNVSB26C): the input
+# needs at least 10 uF of ceramic rated for at least twice the maximum input
+# voltage plus a 220 nF high-frequency capacitor at VIN; the inductor's
+# saturation current must not be below the low-side current limit (4.1 A
+# max) and ideally not below the high-side limit (5.05 A max). A 10 uH XAL4040
+# (3.0 A) fails that, and a 1210 inductor cannot meet it either, so L1 is a
+# Coilcraft XAL5050-103ME (Isat 4.9 A, DCR 41 mohm). Output: two 22 uF 10 V
+# 1206 capacitors; input: 10 uF 50 V 1210 (the 50 V rating covers the TVS
+# clamp) and 220 nF 50 V.
+register_symbol(f"{LIB}:C_1210", "C", "10uF", "Capacitor_SMD:C_1210_3225Metric",
+                {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
+                hide_pin_names=True)
+register_symbol(f"{LIB}:C_1206", "C", "22uF", "Capacitor_SMD:C_1206_3216Metric",
+                {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
+                hide_pin_names=True)
+register_symbol(f"{LIB}:L_5050", "L", "10uH", "Inductor_SMD:L_Coilcraft_XAL5050-XXX",
+                {'L': [P(1, "~", "passive")], 'R': [P(2, "~", "passive")]},
+                hide_pin_names=True)
+register_symbol(f"{LIB}:L_FB", "L", "ferrite bead", "Inductor_SMD:L_0603_1608Metric",
+                {'L': [P(1, "~", "passive")], 'R': [P(2, "~", "passive")]},
+                hide_pin_names=True)
 register_symbol(f"{LIB}:L_H", "L", "10uH", "Inductor_SMD:L_1210_3225Metric",
                 {'L': [P(1, "~", "passive")], 'R': [P(2, "~", "passive")]},
                 hide_pin_names=True)
@@ -726,7 +747,7 @@ place(f"{LIB}:C_V", "C10", "100nF charge-pump cap (AEC-Q200)", 60, 100,
       conn={'1': ('label', 'VCAP'), '2': ('label', 'VIN_FUSED')})
 place(f"{LIB}:TVS_V", "D1", "SMCJ33A automotive (AEC-Q101)", 113, 70,
       conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
-place(f"{LIB}:C_V", "C1", "10uF X7R (AEC-Q200)", 150, 70,
+place(f"{LIB}:C_1210", "C1", "10uF 50V X7R CIN (AEC-Q200)", 150, 70,
       conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
 
 vin_x, vin_y = pin_pos[("F1", "1")]
@@ -749,10 +770,14 @@ place(f"{LIB}:C_V", "C11", "100nF BOOT cap (AEC-Q200)", 195, 90,
 place(f"{LIB}:C_V", "C12", "1uF VCC decouple (AEC-Q200)", 218, 90,
       conn={'1': ('label', 'VCC_INT'), '2': ('pwr', 'GND')})
 y_l1 = pin_pos[("U2", "12")][1] - off(f"{LIB}:L_H", 1)[1]
-place(f"{LIB}:L_H", "L1", "10uH power (AEC-Q200)", 205, y_l1,
+place(f"{LIB}:L_5050", "L1", "10uH power XAL5050-103ME (AEC-Q200)", 205, y_l1,
       conn={'1': ('wire',), '2': ('pwr', '+5V')})
-place(f"{LIB}:C_V", "C2", "22uF X7R (AEC-Q200)", 232, 70,
+place(f"{LIB}:C_1206", "C2", "22uF 10V X7R COUT (AEC-Q200)", 232, 70,
       conn={'1': ('pwr', '+5V'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_1206", "C45", "22uF 10V X7R COUT (AEC-Q200)", 258, 70,
+      conn={'1': ('pwr', '+5V'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C46", "220nF 50V CHF at VIN (AEC-Q200)", 128, 100,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
 # FB divider: same real values as manifold-pcb/thermo-pcb (RFBT=10k,
 # RFBB=2.49k -> ~5.02V, TI's own worked example scaled by 10x).
 place(f"{LIB}:R_V", "R2", "10k (AEC-Q200)", 155, 128,
@@ -803,7 +828,7 @@ place(f"{LIB}:C_V", "C6", "100nF (AEC-Q200)", 150, 190,
       conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_V", "C7", "100nF (AEC-Q200)", 170, 190,
       conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
-place(f"{LIB}:L_H", "L2", "ferrite bead (AEC-Q200)", 150, 210,
+place(f"{LIB}:L_FB", "L2", "ferrite bead (AEC-Q200)", 150, 210,
       conn={'1': ('pwr', '+3V3'), '2': ('label', 'VDDA')})
 place(f"{LIB}:C_V", "C8", "1uF (AEC-Q200)", 175, 210,
       conn={'1': ('label', 'VDDA'), '2': ('pwr', 'GND')})

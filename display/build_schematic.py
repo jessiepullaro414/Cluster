@@ -545,9 +545,65 @@ def build_power_tree(x0, y0, usable_h):
     The back-to-back FET arrangement is the part worth reading carefully:
     Q2 (pass, HGATE) and Q1 (ideal diode, DGATE) share a COMMON source
     node, and both the A and OUT pins sit on it.
+
+    POWER STAGE VALUES (2026-10-02). Until now every resistor and capacitor
+    in this block carried only a placeholder name inherited from the
+    fascia-pcb port ("RILIM", "OV top", "RT", "FB top"...), which is not
+    orderable. They are now calculated from TI's own datasheets:
+
+    LM74930-Q1 (SNOSDF6, section 8.2.2, equations 12-17):
+      * RSET (R2) = 49.9 ohm, the 50 ohm the datasheet says to use with
+        CS+ (recommended 50-100 ohm).
+      * RSENSE (R1) = 2 mohm. The default short-circuit threshold is 20 mV,
+        so the short-circuit limit is 20 mV / 2 mohm = 10 A, above the 8.5 A
+        trip of F1 so the fuse stays the last line of defence.
+      * RILIM (R3), Eq. 15: 12 x RSET / (ILIM x RSENSE). For a 5 A circuit
+        breaker (F1's hold current) that is 12 x 50 / (5 x 0.002) = 60 kohm,
+        60.4 kohm as the standard 1% value.
+      * CTMR (C4), Eq. 16: TOC = 1.2 x C / 82.3 uA. 100 nF gives about
+        1.5 ms of overcurrent blanking (the datasheet example uses 68 nF for
+        1 ms).
+      * RIMON (R4), Eq. 17: V(IMON) = 0.9 x VSENSE x RIMON / RSET. 10 kohm
+        gives 1.8 V at 5 A (VSENSE = 10 mV), which keeps IMON inside a 1.8 V
+        ADC range if it is ever read. It is not connected to anything yet.
+      * UV divider (R7/R8), Eq. 12 with the datasheet's 0.55 V falling
+        threshold: 100 k / 11.5 k gives the datasheet example's 5.5 V cut-off
+        (above a cold-crank dip). OV divider (R5/R6), Eq. 13: OV rising
+        threshold 0.6 V, 100 k / 2.05 k gives 0.6 x (100 + 2.05) / 2.05 =
+        29.9 V. With OVCLAMP tied to OV the output is CLAMPED there during a
+        load dump, which keeps the LM61460-Q1 (42 V absolute maximum) safe.
+      * CVS (C2) and CCAP (C3) 100 nF per the pin descriptions (VS and CAP).
+
+    LM61460-Q1 (SNVSB70F, Tables 10-2 and 10-5, 5 V output at 2.1 MHz, above
+    the AM band):
+      * RFBT (R10) 100 kohm / RFBB (R11) 24.9 kohm (VREF = 1 V gives 5.02 V),
+        CFF (C58) 22 pF across RFBT.
+      * RT (R12) = 6.04 kohm for 2100 kHz (datasheet Table 10-5; the
+        datasheet's own spec points are 5.76 kohm = 2.2 MHz, 33.2 kohm =
+        400 kHz).
+      * L1 = 1 uH, Coilcraft XEL5030-102ME (the part Table 10-5 used for 5 V
+        2.1 MHz): Isat 16.9 A against the 11.5 A maximum high-side current
+        limit, DCR 7 mohm typical.
+      * COUT = 3 x 22 uF (C8, C54, C59), CIN = 2 x 4.7 uF (C5, C55) plus
+        2 x 100 nF (C56, C57), one pair per VIN pin, per Table 10-5.
+      * RBOOT (R9) 0 ohm, CBOOT (C7) 100 nF, CVCC (C6) 1 uF per Table 10-2.
+      * EN (R13/R14): the enable threshold is 1.263 V rising with 28 %
+        hysteresis, so 100 k / 24.9 k starts the buck at 1.263 x (124.9 /
+        24.9) = 6.3 V and stops it near 4.6 V.
+    C1 is a hold-up capacitor on the protected 12 V rail, where the LM74930
+    datasheet (section 8.2.2.8) puts one, not on the unprotected input side
+    where it would sit across a reverse-battery event. Panasonic
+    EEH-ZA1V101P, 100 uF 35 V hybrid polymer, 8 x 10.2 mm, AEC-Q200.
     """
     r, c, l = f"{LIB}:R", f"{LIB}:C", f"{LIB}:L"
     tvs, fuse, nfet = f"{LIB}:TVS", f"{LIB}:FUSE", f"{LIB}:NFET"
+    # Real package choices (2026-10-02 power-stage audit): see POWER STAGE
+    # VALUES below. Each distinct package is its own symbol so the footprint
+    # follows the real part, not a one-size-fits-all 0603.
+    c1206 = build_generic_symbol(f"{LIB}:C_1206", "C", "C", PASSIVE_PINS)
+    cpol = build_generic_symbol(f"{LIB}:CP_HYBRID", "C", "C", PASSIVE_PINS)
+    l5030 = build_generic_symbol(f"{LIB}:L_5030", "L", "L", PASSIVE_PINS)
+    rsense = build_generic_symbol(f"{LIB}:R_1206", "R", "R", PASSIVE_PINS)
     conn3 = build_generic_symbol(f"{LIB}:CONN3", "J", "Power in",
                                  [(1, "VBAT", "passive"), (2, "GND", "passive"),
                                   (3, "IGN", "passive")])
@@ -602,12 +658,14 @@ def build_power_tree(x0, y0, usable_h):
     # diode/back-to-back-FET front end) - same net topology, same real
     # justification, industry-standard multi-source part number.
     flow(tvs, "D1", "SMCJ33A", {"1": "VBAT_F", "2": "GND"})
-    flow(c, "C1", "100uF", {"1": "VBAT_F", "2": "GND"})
+    flow(cpol, "C1", "100u 35V hybrid polymer hold-up (Panasonic EEH-ZA1V101P)",
+         {"1": "+12V_PROT", "2": "GND"})
 
     # RSENSE sits in the input path; CS+ taps it through RSET per the
     # datasheet's "connect a 50-ohm resistor across CS+".
-    flow(r, "R1", "2m sense", {"1": "VBAT_F", "2": "SENSE_OUT"})
-    flow(r, "R2", "50R", {"1": "VBAT_F", "2": "CS_PLUS"})
+    flow(rsense, "R1", "2m 2% sense (Susumu KRL3216E-C-R002-G-T5)",
+         {"1": "VBAT_F", "2": "SENSE_OUT"})
+    flow(r, "R2", "49.9R 1% RSET", {"1": "VBAT_F", "2": "CS_PLUS"})
 
     # --- back-to-back FETs ----------------------------------------------
     # Real part (2026-09-28): Nexperia PMV55ENEA - selected against
@@ -652,13 +710,13 @@ def build_power_tree(x0, y0, usable_h):
     for ref, val, nets in [
         ("C2", "100n CVS", {"1": "VBAT_F", "2": "GND"}),
         ("C3", "100n CCAP", {"1": "CAP_CP", "2": "VBAT_F"}),
-        ("C4", "open CT", {"1": "TMR", "2": "GND"}),
-        ("R3", "RILIM", {"1": "ILIM", "2": "GND"}),
-        ("R4", "5k RMON", {"1": "IMON", "2": "GND"}),
-        ("R5", "OV top", {"1": "SW_SENSE", "2": "OV_DIV"}),
-        ("R6", "OV bot", {"1": "OV_DIV", "2": "GND"}),
-        ("R7", "UV top", {"1": "SW_SENSE", "2": "UVLO_DIV"}),
-        ("R8", "UV bot", {"1": "UVLO_DIV", "2": "GND"}),
+        ("C4", "100n CTMR", {"1": "TMR", "2": "GND"}),
+        ("R3", "60.4k RILIM", {"1": "ILIM", "2": "GND"}),
+        ("R4", "10k RIMON", {"1": "IMON", "2": "GND"}),
+        ("R5", "100k OV top", {"1": "SW_SENSE", "2": "OV_DIV"}),
+        ("R6", "2.05k OV bot", {"1": "OV_DIV", "2": "GND"}),
+        ("R7", "100k UV top", {"1": "SW_SENSE", "2": "UVLO_DIV"}),
+        ("R8", "11.5k UV bot", {"1": "UVLO_DIV", "2": "GND"}),
     ]:
         flow(c if ref.startswith("C") else r, ref, val, nets)
 
@@ -671,17 +729,23 @@ def build_power_tree(x0, y0, usable_h):
         "RBOOT": "BOOT_R", "CBOOT": "BOOT_C",
     })
     for ref, val, lib, nets in [
-        ("C5", "10u in", c, {"1": "+12V_PROT", "2": "GND"}),
+        ("C5", "4.7u CIN VIN1", c1206, {"1": "+12V_PROT", "2": "GND"}),
+        ("C55", "4.7u CIN VIN2", c1206, {"1": "+12V_PROT", "2": "GND"}),
+        ("C56", "100n CHF VIN1", c, {"1": "+12V_PROT", "2": "GND"}),
+        ("C57", "100n CHF VIN2", c, {"1": "+12V_PROT", "2": "GND"}),
         ("C6", "1u VCC", c, {"1": "VCC_LDO", "2": "GND"}),
         ("C7", "100n boot", c, {"1": "BOOT_C", "2": "SW_5V"}),
-        ("R9", "RBOOT", r, {"1": "BOOT_R", "2": "BOOT_C"}),
-        ("L1", "2.2u", l, {"1": "SW_5V", "2": "+5V"}),
-        ("C8", "44u out", c, {"1": "+5V", "2": "GND"}),
-        ("R10", "FB top", r, {"1": "+5V", "2": "FB_5V"}),
-        ("R11", "FB bot", r, {"1": "FB_5V", "2": "GND"}),
-        ("R12", "RT", r, {"1": "RT_5V", "2": "GND"}),
-        ("R13", "EN top", r, {"1": "+12V_PROT", "2": "EN_5V"}),
-        ("R14", "EN bot", r, {"1": "EN_5V", "2": "GND"}),
+        ("R9", "0R RBOOT", r, {"1": "BOOT_R", "2": "BOOT_C"}),
+        ("L1", "1u XEL5030-102ME 2.1MHz", l5030, {"1": "SW_5V", "2": "+5V"}),
+        ("C8", "22u COUT", c1206, {"1": "+5V", "2": "GND"}),
+        ("C54", "22u COUT", c1206, {"1": "+5V", "2": "GND"}),
+        ("C59", "22u COUT", c1206, {"1": "+5V", "2": "GND"}),
+        ("R10", "100k FB top", r, {"1": "+5V", "2": "FB_5V"}),
+        ("R11", "24.9k FB bot", r, {"1": "FB_5V", "2": "GND"}),
+        ("C58", "22p CFF", c, {"1": "+5V", "2": "FB_5V"}),
+        ("R12", "6.04k RT", r, {"1": "RT_5V", "2": "GND"}),
+        ("R13", "100k EN top", r, {"1": "+12V_PROT", "2": "EN_5V"}),
+        ("R14", "24.9k EN bot", r, {"1": "EN_5V", "2": "GND"}),
         # FLT and PGOOD are open-drain and do nothing without these.
         ("R15", "100k FLT pu", r, {"1": "PWR_FLT", "2": "+5V"}),
         ("R16", "100k PG pu", r, {"1": "PG_5V", "2": "+5V"}),
@@ -735,10 +799,17 @@ def build_1v8_and_can(x0, y0, usable_h):
         "EN": "PWR_EN_MOCI",
         "NC1": None, "NC2": None, "EP": "GND",
     })
-    flow(c, "C9", "10u in", {"1": "+5V", "2": "GND"})
-    flow(c, "C10", "10u out", {"1": "+1V8", "2": "GND"})
-    flow(r, "R17", "FB top", {"1": "+1V8", "2": "FB_1V8"})
-    flow(r, "R18", "FB bot", {"1": "FB_1V8", "2": "GND"})
+    # TLV767-Q1 (SBVS381A): VFB = 0.8 V, VOUT = VFB x (1 + R1/R2). 124 k /
+    # 100 k gives 0.8 x 2.24 = 1.792 V (1.8 V nominal, inside the panel's
+    # 1.75-1.85 V IOVCC window); the divider current is 8 uA, above the 5 uA
+    # below which the datasheet requires a feed-forward capacitor. CIN/COUT
+    # must be at least 1 uF effective; 10 uF 10 V X7R in 0805 leaves margin
+    # for the datasheet's "expect up to 50 % less at bias".
+    c0805_ldo = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
+    flow(c0805_ldo, "C9", "10u CIN", {"1": "+5V", "2": "GND"})
+    flow(c0805_ldo, "C10", "10u COUT", {"1": "+1V8", "2": "GND"})
+    flow(r, "R17", "124k FB top", {"1": "+1V8", "2": "FB_1V8"})
+    flow(r, "R18", "100k FB bot", {"1": "FB_1V8", "2": "GND"})
 
     # --- CAN FD ----------------------------------------------------------
     flow(u_can, "U4", "TCAN1044V-Q1", {
@@ -1025,8 +1096,9 @@ def build_panel_backlight(x0, y0, usable_h):
       * D4 = PMEG6010ELRX (60 V, 1 A, AEC-Q101); TI recommends a fast
         Schottky with VR above the 38 V OVP threshold.
       * C51 = 220 nF COMP (datasheet: 220 nF suits most applications).
-        C50 = 10 uF input, C52 = 10 uF / 25 V output (datasheet CO range
-        1-10 uF; a 25 V ceramic keeps roughly 40% capacitance at 15 V).
+        C50 = 10 uF input, C52 = 4.7 uF / 50 V output (datasheet CO range
+        1-10 uF; a 50 V X7R part keeps most of its capacitance at 15 V,
+        unlike a 25 V part, and is the same verified part as C5/C55).
       * Output-current check (datasheet Eq. 3/4 logic): at VIN = 4.75 V,
         VOUT = 15.2 V the boost duty is ~0.69; with the 0.96 A MINIMUM
         limit the deliverable output is roughly 0.24 A, so 180 mA has
@@ -1072,7 +1144,7 @@ def build_panel_backlight(x0, y0, usable_h):
          {"1": "+5V", "2": "BL_SW"})
     flow(schottky, "D4", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
          {"1": "PANEL_BL_LEDA", "2": "BL_SW"})
-    flow(c1206, "C52", "10u BL output 25V (AEC-Q200)",
+    flow(c1206, "C52", "4.7u BL output, 50V part (AEC-Q200)",
          {"1": "PANEL_BL_LEDA", "2": "GND"})
     flow(c, "C51", "220n BL COMP (AEC-Q200)", {"1": "BL_COMP", "2": "GND"})
     flow(r, "R42", "1.10R LED current sense (0.2V/1.10=182mA)",

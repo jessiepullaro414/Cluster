@@ -372,14 +372,14 @@ LOCAL_CLUSTERS = {
 }
 CORE_ZONES = [
     ("POWER", ["J1", "F1", "Q1", "U2", "U3", "U4", "D1", "C1", "C2",
-               "C3", "C10", "C11", "C12", "L1", "R2", "R3"]),
+               "C3", "C10", "C11", "C12", "L1", "R2", "R3", "C45", "C46"]),
     ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2"]),
-    ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "J7"]),
     # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
     # ignition sense - see build_schematic.py's rev B comments.
-    ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8"]),
     ("SPEED+IGN", ["J9", "R43", "R44", "R45", "C43", "D10",
                    "R46", "R47", "C44", "D11"]),
+    ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8"]),
+    ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "J7"]),
     ("AUX BL SWITCH", ["Q2", "R10", "R11"]),
     ("SENSORS", ["R16", "R17", "R18", "C28", "C29", "C30"]),
 ]
@@ -846,7 +846,7 @@ _gr_circle((GAUGE_CX, GAUGE_CY), max(2.2 * S, 0.8), width=0.3)
 
 # "x1000 RPM" caption under the face, real tach convention
 _gr_text("x1000 RPM", _polar(GAUGE_CX, GAUGE_CY, GAUGE_R * 0.45, 270),
-          size=max(2.0 * S, 0.8), thickness=max(0.25 * S, 0.1))
+          size=max(2.0 * S, 1.0), thickness=max(0.25 * S, 0.15))
 
 # CLUSTER wordmark, right of the gauge face - big, bold, using the
 # board's own real wide aspect ratio instead of fighting it.
@@ -939,7 +939,7 @@ text = open(PCB, encoding="utf-8").read()
 for ref, (dx, dy) in ref_label_pos.items():
     old = f'(property "Reference" "{ref}")'
     new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "F.SilkS") '
-           f'(effects (font (size 0.8 0.8) (thickness 0.12))))')
+           f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)
     assert count == 1, f"expected exactly 1 bare Reference property for {ref}, found {count}"
     text = text.replace(old, new, 1)

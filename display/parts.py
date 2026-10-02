@@ -343,6 +343,12 @@ FOOTPRINTS = {
     "SCHOTTKY_SOD123W": "Diode_SMD:Nexperia_CFP3_SOD-123W",
     "D_BAV99": "Package_TO_SOT_SMD:SOT-23",
     "C_0805": "Capacitor_SMD:C_0805_2012Metric",
+    # Power-stage packages (2026-10-02 audit): XEL5030 shares the XAL5030
+    # land pattern (pads 1.18 x 4.70 mm, both datasheets), 2 mohm sense
+    # resistor in 1206, and the 8 x 10.2 mm hybrid polymer can.
+    "L_5030": "Inductor_SMD:L_Coilcraft_XAL5030-XXX",
+    "R_1206": "Resistor_SMD:R_1206_3216Metric",
+    "CP_HYBRID": "Capacitor_SMD:CP_Elec_8x10",
     "C_1206": "Capacitor_SMD:C_1206_3216Metric",
     # Open 3-pad solder jumpers for the panel's +/-6.5 V pin-group polarity.
     "SOLDERJUMPER3": "Jumper:SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm",

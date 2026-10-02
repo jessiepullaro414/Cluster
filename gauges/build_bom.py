@@ -43,6 +43,10 @@ from collections import defaultdict
 from kiutils.schematic import Schematic
 from kiutils.utils import sexpr
 
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+import passive_catalog  # noqa: E402  real orderable passives, see that file
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCH = os.path.join(HERE, "ClusterGauges.kicad_sch")
 OUT_HTML = os.path.join(HERE, "ClusterGauges_BOM.html")
@@ -80,6 +84,7 @@ MPN = {
     # (same real split ecu-pcb's own BOM makes).
     "Littelfuse 297": ("3568", "Keystone", "Mini blade fuse holder, PCB mount (fuse element ordered separately)", "-"),
 
+    "XAL5050-103ME": ("XAL5050-103MEC", "Coilcraft", "10uH shielded molded power inductor, Isat 4.9A, DCR 41mR typ, 5x5x5mm, AEC-Q200 - meets the LMR33630-Q1 datasheet's rule that Isat not be below the 4.1A low-side limit (datasheet Document 806-1 family; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "Tag-Connect": ("TC2030-IDC-NL", "Tag-Connect", "SWD programming/debug connector, 2x3 1.27mm, no-legs cable version", "-"),
 
     # Rev B (2026-09-30), gateway architecture: private CAN1 link to
@@ -265,7 +270,7 @@ def build():
         if p["ref"] in matched:
             continue
         prefix = re.match(r"^([A-Z]+)", p["ref"]).group(1)
-        if prefix in PASSIVE_PREFIXES and prefix != "FB":
+        if prefix in PASSIVE_PREFIXES and prefix not in ("FB", "L"):
             continue
         hit = next((tok for tok in MPN if tok in p["value"]), None)
         if hit is None:
@@ -332,13 +337,30 @@ def build():
             "L": ("Inductor", "AEC-Q200"),
             "FB": ("Ferrite bead", "AEC-Q200"),
             "Y": ("Crystal", "AEC-Q200")}
+    # Value-spelling check runs on the value-based labels BEFORE they are
+    # replaced by real part numbers (two spellings of one value would
+    # otherwise become two order lines).
+    spell_lines = []
+    for (prefix, val, tol, package), refs in pgroups.items():
+        name, _ = kind.get(prefix, ("Part", ""))
+        label = f"{val} {tol} {name}" if tol else f"{val} {name}"
+        spell_lines.append(("Passives", label, "", "", package, len(refs), "", ""))
+    check_value_spellings(spell_lines)
+
     for (prefix, val, tol, package), refs in pgroups.items():
         name, note = kind.get(prefix, ("Part", ""))
-        label = f"{val} {tol} {name}" if tol else f"{val} {name}"
-        desc = (f"{name} {val}, {tol} tolerance - {note}" if tol
-                else f"{name} {val} - {note}")
-        lines.append(("Passives", label, "(any qualified)",
-                      desc, package, len(refs),
+        hit = passive_catalog.lookup(prefix, val, package)
+        if hit is None:
+            label = f"{val} {tol} {name}" if tol else f"{val} {name}"
+            lines.append(("Needs real part selection", label, "(not in passive catalog)",
+                          f"{name} {val} in {package}: no real part number chosen yet - add it to "
+                          f"tools/passive_catalog.py", package, len(refs),
+                          collapse_refs(refs), "TBD"))
+            continue
+        mpn, mfr, desc, status = hit
+        if status != "verified":
+            desc += " [PATTERN: confirm this exact part number in the distributor cart]"
+        lines.append(("Passives", mpn, mfr, desc, package, len(refs),
                       collapse_refs(refs), "AEC-Q200"))
 
     order = {"Semiconductors": 0, "Displays": 1, "Electromechanical": 2, "Connectors": 3,

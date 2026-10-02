@@ -374,7 +374,8 @@ placed_rel = {}
 CORE_ZONES = [
     ("POWER", ["J2", "F1", "D1", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8",
                "L1", "Q1", "Q2", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8",
-               "R9", "R10", "R11", "R12", "R13", "R14", "R15", "R16", "U1", "U2"]),
+               "R9", "R10", "R11", "R12", "R13", "R14", "R15", "R16", "U1", "U2",
+               "C54", "C55", "C56", "C57", "C58", "C59"]),
     ("CAN0_1V8", ["C9", "C10", "C11", "C12", "C13", "J3", "R17", "R18", "R19",
                   "R20", "R21", "U3", "U4"]),
     ("PANEL_BIAS", ["C40", "C41", "C42", "C43", "C44", "C45", "C46", "C47",
@@ -826,7 +827,7 @@ _gr_line((GAUGE_CX, GAUGE_CY), _polar(GAUGE_CX, GAUGE_CY, GAUGE_R - 10 * S, _nee
 _gr_circle((GAUGE_CX, GAUGE_CY), max(2.2 * S, 0.8), width=0.3)
 
 _gr_text("x1000 RPM", _polar(GAUGE_CX, GAUGE_CY, GAUGE_R * 0.45, 270),
-          size=max(2.0 * S, 0.8), thickness=max(0.25 * S, 0.1))
+          size=max(2.0 * S, 1.0), thickness=max(0.25 * S, 0.15))
 
 # CLUSTER wordmark, stacked below the gauge in the same real corridor -
 # this board's dense right-side connector cluster leaves a tall narrow
@@ -921,7 +922,7 @@ text = open(PCB, encoding="utf-8").read()
 for ref, (dx, dy) in ref_label_pos.items():
     old = f'(property "Reference" "{ref}")'
     new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "F.SilkS") '
-           f'(effects (font (size 0.8 0.8) (thickness 0.12))))')
+           f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)
     assert count == 1, f"expected exactly 1 bare Reference property for {ref}, found {count}"
     text = text.replace(old, new, 1)

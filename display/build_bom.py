@@ -57,6 +57,10 @@ from collections import defaultdict
 from kiutils.schematic import Schematic
 from kiutils.utils import sexpr
 
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
+import passive_catalog  # noqa: E402  real orderable passives, see that file
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCH = os.path.join(HERE, "ClusterDisplay.kicad_sch")
 OUT_HTML = os.path.join(HERE, "ClusterDisplay_BOM.html")
@@ -79,6 +83,7 @@ MPN = {
     # build_schematic.py's build_panel_bias()/build_panel_backlight().
     "TPS65131-Q1":  ("TPS65131TRGERQ1", "TI", "Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE with wettable flanks (datasheet SLVSBB2F); TI lists it Active", "AEC-Q100 Grade 2"),
     "TPS61165-Q1":  ("TPS61165TDBVRQ1", "TI", "Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 DBV (datasheet SLVSB73B); TI lists the family Active. Orderable suffix taken from a TI E2E thread and a datasheet listing - confirm on TI's store", "AEC-Q100"),
+    "XEL5030-102ME": ("XEL5030-102MEC", "Coilcraft", "1uH shielded molded power inductor for the LM61460-Q1 5V buck at 2.1MHz: Isat 16.9A vs the 11.5A max high-side current limit, DCR 7mR typ, 5.5x5.3x3.1mm, AEC-Q200; the part the LM61460-Q1 datasheet's Table 10-5 used for 5V/2.1MHz (Coilcraft Document 1412-2; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "XAL4030-472ME": ("XAL4030-472MEC", "Coilcraft", "4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "XAL4040-103ME": ("XAL4040-103MEC", "Coilcraft", "10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)", "AEC-Q101"),
@@ -352,13 +357,30 @@ def build():
             "L": ("Inductor", "AEC-Q200"),
             "FB": ("Ferrite bead", "AEC-Q200"),
             "Y": ("Crystal", "AEC-Q200")}
+    # Value-spelling check runs on the value-based labels BEFORE they are
+    # replaced by real part numbers (two spellings of one value would
+    # otherwise become two order lines).
+    spell_lines = []
+    for (prefix, val, tol, package), refs in pgroups.items():
+        name, _ = kind.get(prefix, ("Part", ""))
+        label = f"{val} {tol} {name}" if tol else f"{val} {name}"
+        spell_lines.append(("Passives", label, "", "", package, len(refs), "", ""))
+    check_value_spellings(spell_lines)
+
     for (prefix, val, tol, package), refs in pgroups.items():
         name, note = kind.get(prefix, ("Part", ""))
-        label = f"{val} {tol} {name}" if tol else f"{val} {name}"
-        desc = (f"{name} {val}, {tol} tolerance - {note}" if tol
-                else f"{name} {val} - {note}")
-        lines.append(("Passives", label, "(any qualified)",
-                      desc, package, len(refs),
+        hit = passive_catalog.lookup(prefix, val, package)
+        if hit is None:
+            label = f"{val} {tol} {name}" if tol else f"{val} {name}"
+            lines.append(("Needs real part selection", label, "(not in passive catalog)",
+                          f"{name} {val} in {package}: no real part number chosen yet - add it to "
+                          f"tools/passive_catalog.py", package, len(refs),
+                          collapse_refs(refs), "TBD"))
+            continue
+        mpn, mfr, desc, status = hit
+        if status != "verified":
+            desc += " [PATTERN: confirm this exact part number in the distributor cart]"
+        lines.append(("Passives", mpn, mfr, desc, package, len(refs),
                       collapse_refs(refs), "AEC-Q200"))
 
     order = {"Semiconductors": 0, "Electromechanical": 1, "Connectors": 2,

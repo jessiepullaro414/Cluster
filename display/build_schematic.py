@@ -119,6 +119,13 @@ X1_NETS = {
     # DSI to the panel - see build_panel()'s own docstring). They fall
     # through to bank C's genuinely-unused pins.
     "GPIO_9_DSI": "DSI_PANEL_EN",
+    # Rotary dial (2026-10-02): a 360-degree potentiometer with a push
+    # switch, the way automakers add a controller to a screen with no touch.
+    # The wiper reads on Verdin ADC_1 (X1 pin 2, ADC_IN0; the datasheet's
+    # absolute maximum for ADC pins is 2.1 V, so the pot is powered from the
+    # 1.8 V rail), the click on GPIO_1 (X1 pin 206, 1.8 V logic).
+    "ADC_1": "DIAL_ADC",
+    "GPIO_1": "DIAL_CLICK",
     # Ignition wake (rev B): Verdin datasheet Table 9/30 - pin 252 is the
     # default, only guaranteed-compatible wake-up pin, 1.8 V, "wake-capable
     # pin that allows the system to resume from sleep mode", also a regular
@@ -1241,6 +1248,37 @@ def build_control(x0, y0, usable_h):
     flow(nfet_sym, "Q3", "PMV55ENEA ignition wake pulldown",
          {"G": "IGN_GATE", "D": "IGN_WAKE_N", "S": "GND"})
     flow(r, "R53", "10k wake pull-up to +1V8", {"1": "+1V8", "2": "IGN_WAKE_N"})
+
+    # --- Rotary dial input (J11), 2026-10-02 -----------------------------
+    # J11 pins: 1 = pot supply (+1V8 through a 100R / 100nF filter, so a
+    # shorted cable cannot pull the 1.8 V rail down), 2 = pot wiper, 3 =
+    # ground, 4 = push switch (normally open to ground). The pot should be a
+    # 10 kohm part (5-20 kohm works): its wiper then sees at most about 2.5
+    # kohm of source impedance, which the SoC ADC can read through the 1k /
+    # 100nF filter. Both external lines get a BAV99-Q clamp to ground and
+    # +1V8. KNOWN LIMIT: the clamp turns on near 2.5 V, a little above the
+    # ADC pin's 2.1 V absolute maximum, so the 1k series resistor (not the
+    # clamp alone) limits a fault current; fine for a short in-cabin cable,
+    # revisit for a long harness. A "360 degree" pot has a dead band where
+    # the wiper jumps between ends; software must unwrap the angle.
+    conn_dial = build_generic_symbol(
+        f"{LIB}:CONN_DIAL", "J", "Molex KK-254 22-27-2041 rotary dial",
+        [(1, "REF", "passive"), (2, "WIPER", "passive"),
+         (3, "GND", "passive"), (4, "CLICK", "passive")])
+    flow(conn_dial, "J11", "Molex KK-254 22-27-2041, rotary dial (pot + click)",
+         {"REF": "DIAL_REF", "WIPER": "DIAL_WIPER", "GND": "GND",
+          "CLICK": "DIAL_CLICK_RAW"})
+    flow(r, "R54", "100R dial supply series", {"1": "+1V8", "2": "DIAL_REF"})
+    flow(c, "C60", "100n dial supply filter", {"1": "DIAL_REF", "2": "GND"})
+    flow(r, "R55", "1k dial wiper series", {"1": "DIAL_WIPER", "2": "DIAL_ADC"})
+    flow(c, "C61", "100n dial wiper filter", {"1": "DIAL_ADC", "2": "GND"})
+    flow(bav99, "D6", "BAV99-Q dial wiper clamp (AEC-Q101)",
+         {"A1": "GND", "K2": "+1V8", "CA": "DIAL_ADC"})
+    flow(r, "R56", "1k dial click series", {"1": "DIAL_CLICK_RAW", "2": "DIAL_CLICK"})
+    flow(r, "R57", "10k dial click pull-up to +1V8", {"1": "+1V8", "2": "DIAL_CLICK"})
+    flow(c, "C62", "100n dial click debounce", {"1": "DIAL_CLICK", "2": "GND"})
+    flow(bav99, "D7", "BAV99-Q dial click clamp (AEC-Q101)",
+         {"A1": "GND", "K2": "+1V8", "CA": "DIAL_CLICK"})
 
     # RTC backup. The datasheet is explicit that a current-limiting
     # resistor of at least 47k must sit between the cell and VCC_BACKUP -

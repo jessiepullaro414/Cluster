@@ -342,6 +342,7 @@ FOOTPRINTS = {
     "L_10U": "Inductor_SMD:L_Coilcraft_XAL4040-XXX",
     "SCHOTTKY_SOD123W": "Diode_SMD:Nexperia_CFP3_SOD-123W",
     "D_BAV99": "Package_TO_SOT_SMD:SOT-23",
+    "CONN_DIAL": "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical",
     "C_0805": "Capacitor_SMD:C_0805_2012Metric",
     # Power-stage packages (2026-10-02 audit): XEL5030 shares the XAL5030
     # land pattern (pads 1.18 x 4.70 mm, both datasheets), 2 mohm sense

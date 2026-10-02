@@ -110,6 +110,7 @@ BOARD_SIDE_CONNECTORS = {
     "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/'s J7 uses. This is the display<->gauges<->ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail", "-"),
     "J8": ("TSW-108-07-G-S", "Samtec", "1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness", "-"),
     "J9": ("TSW-104-07-G-S", "Samtec", "1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness", "-"),
+    "J11": ("22-27-2041", "Molex", "4-circuit KK 254 (2.54mm) vertical header for the rotary dial: pot supply (+1.8V), wiper, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J10": ("1058", "Keystone Electronics", "20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments", "-"),
     # Real SoM SKU chosen 2026-09-28 - see build_x1_symbol()'s own
     # comment in build_schematic.py for the real reasoning (Hexa/8GB
@@ -322,6 +323,15 @@ def build():
                   "with contact fingers matching J4 (Hirose FH26 is bottom-contact) and ask "
                   "the questions in docs/rfq-drafts.md first",
                   "FPC module", 1, "plugs into J4", "-"))
+    lines.append(("Companion parts (ordered separately)",
+                  "(360-degree potentiometer with push switch - part not chosen yet)",
+                  "(not yet specified)",
+                  "The rotary dial itself, wired to J11 (user's design: a 360-degree pot with a click). "
+                  "Needs: 10 kohm (5-20 kohm works) linear pot, powered from 1.8 V so the wiper stays under the ADC's "
+                  "2.1 V maximum; a normally-open push switch to ground; a mating Molex KK 254 4-circuit housing "
+                  "and crimps. Note a true endless pot has a dead band where the wiper jumps between ends, which "
+                  "software must unwrap - a contactless Hall angle sensor avoids that",
+                  "dial (companion)", 1, "wired to J11", "TBD"))
 
     # --- remaining non-passives with NO real MPN at all: real, honest --
     # "needs real part selection" lines - grouped by their own real

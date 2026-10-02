@@ -126,6 +126,10 @@ X1_NETS = {
     # 1.8 V rail), the click on GPIO_1 (X1 pin 206, 1.8 V logic).
     "ADC_1": "DIAL_ADC",
     "GPIO_1": "DIAL_CLICK",
+    # CTRL_SLEEP_MOCI# (X1 pin 256) is the module's "enable for carrier
+    # peripherals that must be turned off during sleep" (datasheet), 1.8 V.
+    # It switches the dial sensor's 5 V supply.
+    "CTRL_SLEEP_MOCI#": "SLEEP_MOCI",
     # Ignition wake (rev B): Verdin datasheet Table 9/30 - pin 252 is the
     # default, only guaranteed-compatible wake-up pin, 1.8 V, "wake-capable
     # pin that allows the system to resume from sleep mode", also a regular
@@ -157,7 +161,6 @@ X1_NC = {
     "DSI_1_D3_P", "DSI_1_D3_N",  # panel has 3 lanes, not 4
     "I2C_2_DSI_SDA", "I2C_2_DSI_SCL",  # bridge-config bus; no bridge on this board
     "CTRL_FORCE_OFF_MOCI#",  # datasheet: "can be left floating"
-    "CTRL_SLEEP_MOCI#",      # no carrier rail is sequenced off in sleep
     "TAMPER0", "TAMPER1",    # SoC tamper detect, unused here
     "PWR_1V8_MOCI",          # the carrier makes its own 1.8 V
     "PMIC_PGOOD",            # module-side power good, not used by us
@@ -1250,29 +1253,50 @@ def build_control(x0, y0, usable_h):
     flow(r, "R53", "10k wake pull-up to +1V8", {"1": "+1V8", "2": "IGN_WAKE_N"})
 
     # --- Rotary dial input (J11), 2026-10-02 -----------------------------
-    # J11 pins: 1 = pot supply (+1V8 through a 100R / 100nF filter, so a
-    # shorted cable cannot pull the 1.8 V rail down), 2 = pot wiper, 3 =
-    # ground, 4 = push switch (normally open to ground). The pot should be a
-    # 10 kohm part (5-20 kohm works): its wiper then sees at most about 2.5
-    # kohm of source impedance, which the SoC ADC can read through the 1k /
-    # 100nF filter. Both external lines get a BAV99-Q clamp to ground and
-    # +1V8. KNOWN LIMIT: the clamp turns on near 2.5 V, a little above the
-    # ADC pin's 2.1 V absolute maximum, so the 1k series resistor (not the
-    # clamp alone) limits a fault current; fine for a short in-cabin cable,
-    # revisit for a long harness. A "360 degree" pot has a dead band where
-    # the wiper jumps between ends; software must unwrap the angle.
+    # Dial: Amphenol Piher PSC-360 (user's choice, 2026-10-02), a contactless
+    # Hall-effect end-of-shaft angle sensor: endless rotation with NO dead
+    # band, 12-bit, 50 million cycles, -40..+125 C (Piher PSC-360 datasheet).
+    # Analog (ratiometric) output option, 5 V +/-10 % supply, about 8.5 mA
+    # for the single-output version. Its "switch output" is a programmable
+    # ANGLE-threshold output, NOT a push button: the click is a separate
+    # normally-open switch wired to J11 pin 4.
+    #   J11: 1 = sensor 5 V (switched), 2 = sensor signal, 3 = ground (sensor
+    #   and switch return), 4 = click switch to ground.
+    # The sensor's 5 V comes through U8, a TPS22918-Q1 load switch, so it is
+    # OFF during suspend (8.5 mA would otherwise be a constant drain); U8's
+    # ON pin is the Verdin's CTRL_SLEEP_MOCI# (1.8 V, above the 1.0 V VIH).
+    # The output is ratiometric to the 5 V supply (up to about 5.5 V), but the
+    # Verdin ADC pin tolerates 2.1 V, so R54/R58 divide by 0.316 (22.1k /
+    # 10.2k: 5.5 V -> 1.74 V, 5.0 V -> 1.58 V), then 1k / 100nF filter into
+    # ADC_1. Divider impedance 32 kohm; the 100 nF filter capacitor supplies
+    # the ADC's sampling charge. Ratiometric means the supply tolerance moves
+    # the absolute reading by a couple of percent: harmless for relative
+    # rotation, and software can calibrate the wrap point. BAV99-Q clamps on
+    # both external lines. KNOWN LIMIT: the clamp turns on near 2.5 V, a
+    # little above the ADC's 2.1 V absolute maximum; the divider and 1k
+    # resistor limit fault current, fine for a short in-cabin cable.
+    # The sensor comes with fly leads (brown supply, blue ground, black
+    # signal); connector assembly is on request from Piher or crimp a KK 254
+    # housing yourself. Verdin wake: none from the dial.
     conn_dial = build_generic_symbol(
         f"{LIB}:CONN_DIAL", "J", "Molex KK-254 22-27-2041 rotary dial",
-        [(1, "REF", "passive"), (2, "WIPER", "passive"),
+        [(1, "DIAL_5V", "passive"), (2, "SIG", "passive"),
          (3, "GND", "passive"), (4, "CLICK", "passive")])
-    flow(conn_dial, "J11", "Molex KK-254 22-27-2041, rotary dial (pot + click)",
-         {"REF": "DIAL_REF", "WIPER": "DIAL_WIPER", "GND": "GND",
+    u_dsw = build_generic_symbol(f"{LIB}:TPS22918-Q1", "U", "TPS22918-Q1",
+                                 parts.TPS22918_Q1)
+    flow(conn_dial, "J11", "Molex KK-254 22-27-2041, rotary dial (PSC-360 + click)",
+         {"DIAL_5V": "DIAL_5V", "SIG": "DIAL_SIG_RAW", "GND": "GND",
           "CLICK": "DIAL_CLICK_RAW"})
-    flow(r, "R54", "100R dial supply series", {"1": "+1V8", "2": "DIAL_REF"})
-    flow(c, "C60", "100n dial supply filter", {"1": "DIAL_REF", "2": "GND"})
-    flow(r, "R55", "1k dial wiper series", {"1": "DIAL_WIPER", "2": "DIAL_ADC"})
-    flow(c, "C61", "100n dial wiper filter", {"1": "DIAL_ADC", "2": "GND"})
-    flow(bav99, "D6", "BAV99-Q dial wiper clamp (AEC-Q101)",
+    flow(u_dsw, "U8", "TPS22918-Q1 (AEC-Q100 G2) dial 5V switch", {
+        "VIN": "+5V", "GND": "GND", "ON": "SLEEP_MOCI",
+        "CT": None, "QOD": None, "VOUT": "DIAL_5V"})
+    flow(c, "C60", "1u dial switch CIN", {"1": "+5V", "2": "GND"})
+    flow(c, "C63", "1u dial 5V filter", {"1": "DIAL_5V", "2": "GND"})
+    flow(r, "R54", "22.1k dial signal divider top", {"1": "DIAL_SIG_RAW", "2": "DIAL_DIV"})
+    flow(r, "R58", "10.2k dial signal divider bottom", {"1": "DIAL_DIV", "2": "GND"})
+    flow(r, "R55", "1k dial signal series", {"1": "DIAL_DIV", "2": "DIAL_ADC"})
+    flow(c, "C61", "100n dial signal filter", {"1": "DIAL_ADC", "2": "GND"})
+    flow(bav99, "D6", "BAV99-Q dial signal clamp (AEC-Q101)",
          {"A1": "GND", "K2": "+1V8", "CA": "DIAL_ADC"})
     flow(r, "R56", "1k dial click series", {"1": "DIAL_CLICK_RAW", "2": "DIAL_CLICK"})
     flow(r, "R57", "10k dial click pull-up to +1V8", {"1": "+1V8", "2": "DIAL_CLICK"})

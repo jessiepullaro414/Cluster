@@ -82,6 +82,7 @@ MPN = {
     # Panel rails/backlight for the TSD TST040HDBC-42 (2026-09-30) - see
     # build_schematic.py's build_panel_bias()/build_panel_backlight().
     "TPS65131-Q1":  ("TPS65131TRGERQ1", "TI", "Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE with wettable flanks (datasheet SLVSBB2F); TI lists it Active", "AEC-Q100 Grade 2"),
+    "TPS22918-Q1":  ("TPS22918TDBVRQ1", "TI", "Automotive 1-5.5V 2A load switch, SOT-23-6, switches the rotary dial sensor's 5V off in sleep (ON driven by the Verdin's CTRL_SLEEP_MOCI#; datasheet SLVSCZ8B); TI lists it Active", "AEC-Q100 Grade 2"),
     "TPS61165-Q1":  ("TPS61165TDBVRQ1", "TI", "Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 DBV (datasheet SLVSB73B); TI lists the family Active. Orderable suffix taken from a TI E2E thread and a datasheet listing - confirm on TI's store", "AEC-Q100"),
     "XEL5030-102ME": ("XEL5030-102MEC", "Coilcraft", "1uH shielded molded power inductor for the LM61460-Q1 5V buck at 2.1MHz: Isat 16.9A vs the 11.5A max high-side current limit, DCR 7mR typ, 5.5x5.3x3.1mm, AEC-Q200; the part the LM61460-Q1 datasheet's Table 10-5 used for 5V/2.1MHz (Coilcraft Document 1412-2; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "XAL4030-472ME": ("XAL4030-472MEC", "Coilcraft", "4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
@@ -110,7 +111,7 @@ BOARD_SIDE_CONNECTORS = {
     "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/'s J7 uses. This is the display<->gauges<->ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail", "-"),
     "J8": ("TSW-108-07-G-S", "Samtec", "1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness", "-"),
     "J9": ("TSW-104-07-G-S", "Samtec", "1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness", "-"),
-    "J11": ("22-27-2041", "Molex", "4-circuit KK 254 (2.54mm) vertical header for the rotary dial: pot supply (+1.8V), wiper, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts", "-"),
+    "J11": ("22-27-2041", "Molex", "4-circuit KK 254 (2.54mm) vertical header for the rotary dial: sensor 5V (switched), sensor signal, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J10": ("1058", "Keystone Electronics", "20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments", "-"),
     # Real SoM SKU chosen 2026-09-28 - see build_x1_symbol()'s own
     # comment in build_schematic.py for the real reasoning (Hexa/8GB
@@ -324,14 +325,22 @@ def build():
                   "the questions in docs/rfq-drafts.md first",
                   "FPC module", 1, "plugs into J4", "-"))
     lines.append(("Companion parts (ordered separately)",
-                  "(360-degree potentiometer with push switch - part not chosen yet)",
-                  "(not yet specified)",
-                  "The rotary dial itself, wired to J11 (user's design: a 360-degree pot with a click). "
-                  "Needs: 10 kohm (5-20 kohm works) linear pot, powered from 1.8 V so the wiper stays under the ADC's "
-                  "2.1 V maximum; a normally-open push switch to ground; a mating Molex KK 254 4-circuit housing "
-                  "and crimps. Note a true endless pot has a dead band where the wiper jumps between ends, which "
-                  "software must unwrap - a contactless Hall angle sensor avoids that",
-                  "dial (companion)", 1, "wired to J11", "TBD"))
+                  "PSC360G2-F1A-C0000-ERA360-05K", "Amphenol Piher",
+                  "Contactless Hall-effect end-of-shaft rotary position sensor, endless 360-degree rotation with no dead "
+                  "band, 12-bit, 5V +/-10% supply, ratiometric ANALOG output (not PWM/CAN/SPI), 50 million cycles, "
+                  "-40..+125C, fly leads (brown 5V, blue ground, black signal). Use the panel-mount PSC-360U version "
+                  "(3/8\"-32 thread, 6.35mm shaft) for a dash hole. Configure: single output, analog, 5V supply, "
+                  "electrical angle 360 degrees, -40..125C. NOTE its 'switch output' is an angle threshold, not a click. "
+                  "This stocked part number (Newark/DigiKey list it) is the flange-mount G2 version: single analog "
+                  "output, 360-degree range, 5V, -40..125C - good for the prototype. A panel-mount PSC-360U "
+                  "ordering code is not confirmed; ask Piher. Piher's web page may describe push-button versions: "
+                  "the datasheet only shows an angle-threshold switch output, so ask Piher before relying on one",
+                  "dial (companion)", 1, "wired to J11 pins 1-3", "TBD"))
+    lines.append(("Companion parts (ordered separately)",
+                  "(momentary push switch - part not chosen yet)", "(not yet specified)",
+                  "The dial's click: a normally-open momentary switch wired to J11 pins 3 and 4 (the PSC-360 has no "
+                  "push action). Any panel-mount automotive switch works; contact current is microamps",
+                  "click switch (companion)", 1, "wired to J11 pins 3-4", "TBD"))
 
     # --- remaining non-passives with NO real MPN at all: real, honest --
     # "needs real part selection" lines - grouped by their own real

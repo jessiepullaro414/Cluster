@@ -230,6 +230,23 @@ TPS61165_Q1 = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# TPS22918-Q1 - AEC-Q100 Grade 2 load switch, 1-5.5 V, 2 A, 52 mohm. Source:
+# TI SLVSCZ8B, DBV (SOT-23-6) pin table. ON is active high with VIH 1.0 V min
+# and VIL 0.5 V max, so the Verdin's 1.8 V CTRL_SLEEP_MOCI# drives it
+# directly; CIN must be at least 1 uF. Switches the rotary dial's 5 V supply
+# off in sleep.
+# ---------------------------------------------------------------------------
+TPS22918_Q1 = [
+    (1, "VIN",  "power_in"),
+    (2, "GND",  "power_in"),
+    (3, "ON",   "input"),        # active high, do not float
+    (4, "CT",   "passive"),      # slew control, may float
+    (5, "QOD",  "passive"),      # quick output discharge, left open
+    (6, "VOUT", "power_out"),
+]
+
+
 # NOTE: this file previously carried SN65DSI85-Q1 (DSI-to-LVDS bridge),
 # removed 2026-09-25 when the board's target panel changed to a real
 # native-MIPI-DSI round panel (DisplayModule DM-TFTR50-413) - see
@@ -245,7 +262,8 @@ def verify():
                        ("LM61460_Q1", LM61460_Q1),
                        ("TLV767_Q1", TLV767_Q1),
                        ("TPS65131_Q1", TPS65131_Q1),
-                       ("TPS61165_Q1", TPS61165_Q1)):
+                       ("TPS61165_Q1", TPS61165_Q1),
+                       ("TPS22918_Q1", TPS22918_Q1)):
         numbers = [p[0] for p in pins]
         if numbers != list(range(1, len(pins) + 1)):
             problems.append(f"{name}: pin numbers are not 1..{len(pins)} "
@@ -267,6 +285,8 @@ def verify():
         problems.append(f"TLV767_Q1 should have 9 pins (8 + EP), has {len(TLV767_Q1)}")
     if len(TPS65131_Q1) != 25:
         problems.append(f"TPS65131_Q1 should have 25 pins (24 + thermal pad), has {len(TPS65131_Q1)}")
+    if len(TPS22918_Q1) != 6:
+        problems.append(f"TPS22918_Q1 should have 6 pins, has {len(TPS22918_Q1)}")
     if len(TPS61165_Q1) != 6:
         problems.append(f"TPS61165_Q1 should have 6 pins, has {len(TPS61165_Q1)}")
     return problems
@@ -335,6 +355,7 @@ FOOTPRINTS = {
     # land pattern example.
     "TPS65131-Q1": "Package_DFN_QFN:HVQFN-24-1EP_4x4mm_P0.5mm_EP2.5x2.5mm",
     "TPS61165-Q1": "Package_TO_SOT_SMD:SOT-23-6",
+    "TPS22918-Q1": "Package_TO_SOT_SMD:SOT-23-6",
     # Coilcraft XAL, AEC-Q200 125C shielded molded inductors (datasheet
     # Document 806-1): XAL4030-472ME 4.7 uH / Isat 4.6 A / 40 mOhm typ and
     # XAL4040-103ME 10 uH / Isat 3.0 A / 84 mOhm typ.

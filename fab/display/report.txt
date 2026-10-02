@@ -1,4 +1,4 @@
 display fab package
   DRC: unconnected 0, accepted findings {'solder_mask_bridge(JP1/JP2 open jumpers, intended)': 10, 'lib_footprint_mismatch': 9, 'silk_overlap': 3}
-  parts 110, BOM lines 59, lines needing part selection 1
+  parts 113, BOM lines 63, lines needing part selection 2
   gerbers: ['ClusterDisplay-B_Cu.gbl', 'ClusterDisplay-B_Mask.gbs', 'ClusterDisplay-B_Paste.gbp', 'ClusterDisplay-B_Silkscreen.gbo', 'ClusterDisplay-Edge_Cuts.gm1', 'ClusterDisplay-F_Cu.gtl', 'ClusterDisplay-F_Mask.gts', 'ClusterDisplay-F_Paste.gtp', 'ClusterDisplay-F_Silkscreen.gto', 'ClusterDisplay-In1_Cu.g1', 'ClusterDisplay-In2_Cu.g2', 'ClusterDisplay-NPTH-drl_map.gbr', 'ClusterDisplay-NPTH.drl', 'ClusterDisplay-PTH-drl_map.gbr', 'ClusterDisplay-PTH.drl', 'ClusterDisplay-job.gbrjob']

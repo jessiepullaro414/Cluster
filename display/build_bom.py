@@ -317,7 +317,11 @@ def build():
 
     # --- panel note (referenced via J4, not a placed component) --------
     mpn, mfr, desc = PANEL_NOTE
-    lines.append(("Displays (reference only)", mpn, mfr, desc, "n/a - see J4", 0, "(via J4)", "-"))
+    lines.append(("Companion parts (ordered separately)", mpn, mfr,
+                  desc + ". ORDER FROM TSD (not a stocked distributor part): request the FPC "
+                  "with contact fingers matching J4 (Hirose FH26 is bottom-contact) and ask "
+                  "the questions in docs/rfq-drafts.md first",
+                  "FPC module", 1, "plugs into J4", "-"))
 
     # --- remaining non-passives with NO real MPN at all: real, honest --
     # "needs real part selection" lines - grouped by their own real
@@ -384,7 +388,7 @@ def build():
                       collapse_refs(refs), "AEC-Q200"))
 
     order = {"Semiconductors": 0, "Electromechanical": 1, "Connectors": 2,
-             "Displays (reference only)": 3, "Passives": 4, "Needs real part selection": 5}
+             "Companion parts (ordered separately)": 3, "Passives": 4, "Needs real part selection": 5}
     lines.sort(key=lambda r: (order[r[0]], -r[5], r[1]))
     return parts, lines
 
@@ -393,7 +397,7 @@ def main():
     parts, lines = build()
     # PANEL_NOTE's own qty is 0 (reference-only, not a placement) -
     # excluded from the coverage arithmetic by construction.
-    placements = sum(r[5] for r in lines)
+    placements = sum(r[5] for r in lines if r[0] != "Companion parts (ordered separately)")
     print(f"BOM: {len(lines)} orderable line items covering {placements} placements "
           f"(schematic has {len(parts)} real parts)")
     by_cat = defaultdict(int)

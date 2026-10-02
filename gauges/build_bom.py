@@ -68,9 +68,15 @@ MPN = {
     "LM74700-Q1":  ("LM74700QDBVRQ1",  "TI", "Ideal-diode controller (reverse-battery protection)", "AEC-Q100 G1"),
     "TLV733P-Q1":  ("TLV73333PQDBVRQ1","TI", "300mA LDO, +3.3V rail", "AEC-Q100 G1"),
     "TJA1043T":    ("TJA1043T/1J", "NXP", "High-speed CAN transceiver with wake, real wiring reused verbatim from ecu-pcb", "AEC-Q100"),
-    "RFA401280B-AYW-DNF1": ("RFA401280B-AYW-DNF1", "Raystar Optronics",
-                             "1.28in 240x240 round GC9A01 TFT display module (PCAP touch unused), "
-                             "real 18-pin FPC connector Amphenol F32Q-1A7x1-11018", "-"),
+    # U6-U9 are the board-side FPC CONNECTORS the GC9A01 modules plug into
+    # (the module itself is a companion part, appended below). Part number
+    # follows Amphenol's F32Q-1A7H1-110NN scheme (NN = contacts): the 11008,
+    # 11012, 11020, 11022 and 11050 variants were verified on DigiKey, 11018
+    # is the 18-contact member (PATTERN: confirm in the cart). 0.5 mm pitch,
+    # right-angle ZIF, BOTTOM contact - order the module's FPC accordingly.
+    "RFA401280B-AYW-DNF1": ("F32Q-1A7H1-11018", "Amphenol FCI",
+                             "18-position 0.5mm FPC connector, right-angle ZIF, bottom contact, one per GC9A01 "
+                             "module [PATTERN: confirm this exact part number in the distributor cart]", "-"),
 
     "PMV37ENEA":  ("PMV37ENEA", "Nexperia", "N-MOSFET, 12V-rail reverse-protection gate switch / shared backlight low-side switch", "AEC-Q101"),
     "SMCJ33A":    ("SMCJ33A (multi-source)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
@@ -286,6 +292,15 @@ def build():
               "Semiconductors"
         lines.append((cat, mpn, mfr, desc, package, len(refs), collapse_refs(refs), qual))
 
+    # --- the four GC9A01 screens themselves (companion parts: they plug into
+    # U6-U9's connectors, so they are not their own board placement) -------
+    lines.append(("Displays", "RFA401280B-AYW-DNF1", "Raystar Optronics",
+                  "1.28in 240x240 round GC9A01 TFT module, SPI, with PCAP touch (touch unused), 18-pin 0.5mm FPC "
+                  "tail, active area 32.4mm. ORDER DIRECT FROM RAYSTAR (salescontact@raystar-optronics.com): the "
+                  "product page lists no price or stock. Ask for the FPC contact fingers on the side that suits the "
+                  "bottom-contact Amphenol connector",
+                  "FPC module (companion, not a board placement)", 4, "U6-U9 (plug into the connectors)", "-"))
+
     # --- fuse element (separate real orderable line from the holder
     # above, which was already matched by Value-token like every other
     # non-passive) - a real, separately-purchased item but NOT its own
@@ -371,7 +386,8 @@ def build():
 
 def main():
     parts, lines = build()
-    NON_PLACEMENT_PACKAGES = {"Mini blade (element)", "Harness pigtail (not a board placement)"}
+    NON_PLACEMENT_PACKAGES = {"Mini blade (element)", "Harness pigtail (not a board placement)",
+                              "FPC module (companion, not a board placement)"}
     placements = sum(r[5] for r in lines if r[4] not in NON_PLACEMENT_PACKAGES)
     print(f"BOM: {len(lines)} orderable line items covering {placements} placements "
           f"(schematic has {len(parts)} real parts)")

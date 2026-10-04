@@ -1,4 +1,4 @@
 gauges fab package
   DRC: unconnected 0, accepted findings {'silk_edge_clearance': 4, 'lib_footprint_mismatch': 8, 'silk_overlap': 1, 'silk_over_copper': 1}
-  parts 133, BOM lines 57, lines needing part selection 0
+  parts 137, BOM lines 59, lines needing part selection 0
   gerbers: ['ClusterGauges-B_Cu.gbl', 'ClusterGauges-B_Mask.gbs', 'ClusterGauges-B_Paste.gbp', 'ClusterGauges-B_Silkscreen.gbo', 'ClusterGauges-Edge_Cuts.gm1', 'ClusterGauges-F_Cu.gtl', 'ClusterGauges-F_Mask.gts', 'ClusterGauges-F_Paste.gtp', 'ClusterGauges-F_Silkscreen.gto', 'ClusterGauges-In1_Cu.g1', 'ClusterGauges-In2_Cu.g2', 'ClusterGauges-NPTH-drl_map.gbr', 'ClusterGauges-NPTH.drl', 'ClusterGauges-PTH-drl_map.gbr', 'ClusterGauges-PTH.drl', 'ClusterGauges-job.gbrjob']

@@ -575,7 +575,9 @@ MCU_RIGHT = [P(6, "CAN0_RX", "input"), P(5, "CAN0_TX", "output"),
              P(57, "TACH_IN", "input"),
              P(35, "LAMP_TURN_L", "input"), P(36, "LAMP_TURN_R", "input"),
              P(37, "LAMP_HIGH_BEAM", "input"), P(38, "LAMP_BRAKE", "input"),
-             P(43, "LAMP_ALT", "input"), P(44, "LAMP_OIL", "input")]
+             P(43, "LAMP_ALT", "input"), P(44, "LAMP_OIL", "input"),
+             # Dash dimmer: instrument-lamp feed through a divider, ADC0_SE7.
+             P(31, "DIM_ADC", "input")]
 MCU_BOTTOM_EXTRA = [P(30, "LPSPI2_CS", "output"), P(42, "AUX_RST", "output"),
                     P(39, "BL_EN", "output"),
                     P(18, "CAN0_EN", "output"), P(19, "CAN0_STB_N", "output")]
@@ -661,12 +663,12 @@ register_symbol(f"{LIB}:CONN_LINK", "J", "Molex KK-254 22-27-2031 (private link 
                 {'L': [P(1, "CAN1_H", "passive"), P(2, "CAN1_L", "passive"),
                        P(3, "GND", "passive")]},
                 hide_pin_names=True)
-register_symbol(f"{LIB}:CONN_LAMPS", "J", "Molex KK-254 22-27-2071 (indicator lamp inputs)",
-                "Connector_Molex:Molex_KK-254_AE-6410-07A_1x07_P2.54mm_Vertical",
+register_symbol(f"{LIB}:CONN_LAMPS", "J", "Molex KK-254 22-27-2081 (indicator lamp + dimmer inputs)",
+                "Connector_Molex:Molex_KK-254_AE-6410-08A_1x08_P2.54mm_Vertical",
                 {'L': [P(1, "LAMP_TURN_L", "passive"), P(2, "LAMP_TURN_R", "passive"),
                        P(3, "LAMP_HIGH_BEAM", "passive"), P(4, "LAMP_BRAKE", "passive"),
                        P(5, "LAMP_ALT", "passive"), P(6, "LAMP_OIL", "passive"),
-                       P(7, "GND", "passive")]},
+                       P(7, "GND", "passive"), P(8, "DIM_RAW", "passive")]},
                 hide_pin_names=True)
 register_symbol(f"{LIB}:CONN_TACH", "J", "Molex KK-254 22-27-2021 (tach input)",
                 "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
@@ -1033,7 +1035,8 @@ LAMPS = [("LAMP_TURN_L", "Left turn"), ("LAMP_TURN_R", "Right turn"),
          ("LAMP_ALT", "Alternator / charge"), ("LAMP_OIL", "Oil pressure")]
 _lamp_conn = {str(i + 1): ('label', LAMPS[i][0] + "_RAW") for i in range(6)}
 _lamp_conn['7'] = ('pwr', 'GND', 7.62)
-place(f"{LIB}:CONN_LAMPS", "J10", "KK-254 22-27-2071, indicator lamp inputs (6 x 12 V-active + ground)", 1000, 400,
+_lamp_conn['8'] = ('label', 'DIM_RAW')
+place(f"{LIB}:CONN_LAMPS", "J10", "KK-254 22-27-2081, indicator lamp inputs (6 x 12 V-active + ground) and dash-dimmer feed", 1000, 400,
       conn=_lamp_conn)
 for i, (net, what) in enumerate(LAMPS):
     x = 1060 + i * 55
@@ -1047,6 +1050,23 @@ for i, (net, what) in enumerate(LAMPS):
           conn={'1': ('label', net), '2': ('pwr', 'GND')})
     place(f"{LIB}:D_BAV99", f"D{16 + i}", f"BAV99-Q input clamp, {what} (AEC-Q101)", x + 25, 365,
           conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', net)})
+
+# Dash dimmer (J10 pin 8): the 1966 Mustang headlight switch dims the
+# instrument lamps by feeding them through a rheostat, so the feed wire reads
+# 0 V with the lights off and roughly 4 to 12 V as the knob is turned (loaded
+# by the lamp bulbs). The input measures that feed: 22k/6.8k divider (0.236):
+# 14 V -> 3.3 V, 12 V -> 2.8 V, and a BAV99-Q clamp for spikes; 100 nF
+# filters PWM-type dimmers to their average; the 5.2 kohm source impedance is
+# fine with the filter capacitor feeding the ADC. Firmware: below about 1.5 V
+# on the pin = lights off (day), otherwise brightness follows the voltage.
+place(f"{LIB}:R_V", "R80", "22k divider top, dash dimmer (AEC-Q200)", 1060, 580,
+      conn={'1': ('label', 'DIM_RAW'), '2': ('label', 'DIM_ADC')})
+place(f"{LIB}:R_V", "R81", "6.8k divider bottom, dash dimmer (AEC-Q200)", 1100, 600,
+      conn={'1': ('label', 'DIM_ADC'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C57", "100nF input filter, dash dimmer (AEC-Q200)", 1140, 600,
+      conn={'1': ('label', 'DIM_ADC'), '2': ('pwr', 'GND')})
+place(f"{LIB}:D_BAV99", "D23", "BAV99-Q input clamp, dash dimmer (AEC-Q101)", 1180, 585,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'DIM_ADC')})
 
 # Tach input. Two sources are possible: an ECU / coil-driver tach output (clean
 # 12 V pulses, the normal case) or the coil negative terminal of a points

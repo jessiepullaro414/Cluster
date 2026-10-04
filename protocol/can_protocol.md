@@ -63,6 +63,8 @@ Indicator-lamp states from the six 12 V lamp inputs on gauges/ (1 = lamp on afte
 | BrakeWarning | 3 | 1 | 1 | 0 | 0..1 |  |
 | AlternatorWarning | 4 | 1 | 1 | 0 | 0..1 |  |
 | OilWarning | 5 | 1 | 1 | 0 | 0..1 |  |
+| DashLightsOn | 6 | 1 | 1 | 0 | 0..1 |  |
+| DashDimmerPct | 8 | 8 | 1 | 0 | 0..100 | % |
 | Counter | 52 | 4 | 1 | 0 | 0..15 |  |
 | Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
 

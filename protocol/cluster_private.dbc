@@ -34,6 +34,8 @@ BO_ 771 Indicators: 8 GAUGES
  SG_ BrakeWarning : 3|1@1+ (1,0) [0|1] "" DISPLAY
  SG_ AlternatorWarning : 4|1@1+ (1,0) [0|1] "" DISPLAY
  SG_ OilWarning : 5|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ DashLightsOn : 6|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ DashDimmerPct : 8|8@1+ (1,0) [0|100] "%" DISPLAY
  SG_ Counter : 52|4@1+ (1,0) [0|15] "" DISPLAY
  SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" DISPLAY
 

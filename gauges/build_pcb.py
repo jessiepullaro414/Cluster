@@ -400,8 +400,8 @@ CORE_ZONES = [
                "R50", "R51", "R52", "R53", "R54", "C47", "C48", "C49"]),
     ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2"]),
     # Rev C (2026-10-04): six 12 V-active indicator-lamp inputs and the tach input.
-    ("LAMPS+TACH", ["J10", "J11"] + [f"R{n}" for n in range(58, 80)] +
-                   [f"C{n}" for n in range(50, 57)] + [f"D{n}" for n in range(16, 23)]),
+    ("LAMPS+TACH", ["J10", "J11"] + [f"R{n}" for n in range(58, 82)] +
+                   [f"C{n}" for n in range(50, 58)] + [f"D{n}" for n in range(16, 24)]),
     # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
     # ignition sense - see build_schematic.py's rev B comments.
     ("SPEED+IGN", ["J9", "R43", "R44", "R45", "C43", "D10",

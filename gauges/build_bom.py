@@ -121,7 +121,7 @@ BOARD_SIDE_CONNECTORS = {
     "J1": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm screw terminal block, board side of the 12V input + ignition pigtail (rev B: was 2-position)", "-"),
     "J7": ("22-27-2051", "Molex", "5-position KK 254 (2.54mm) header, board side of the CAN0+sender pigtail", "-"),
     "J8": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, private CAN1 link to display/ (CAN1_H / CAN1_L / GND); mating housing and crimps are separate Molex KK 254 parts", "-"),
-    "J10": ("22-27-2071", "Molex", "7-circuit KK 254 (2.54mm) vertical header, six 12 V-active indicator-lamp inputs (left turn, right turn, high beam, brake, alternator, oil) plus ground; mating housing and crimps are separate Molex KK 254 parts", "-"),
+    "J10": ("22-27-2081", "Molex", "8-circuit KK 254 (2.54mm) vertical header: six 12 V-active indicator-lamp inputs (left turn, right turn, high beam, brake, alternator, oil), ground, and the dash-dimmer feed (instrument-lamp rheostat output); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J11": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, tach input (signal + ground), ECU/coil-driver tach output; coil-negative use on a points ignition is not validated", "-"),
     "J9": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, Hall speed sender input (signal + ground); the sender is powered from the car harness, not from this board", "-"),
 }

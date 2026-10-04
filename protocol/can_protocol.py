@@ -90,6 +90,11 @@ PRIVATE = [
              S("BrakeWarning", 1, 0, 0, 1, "", 3, 1, rx=D),
              S("AlternatorWarning", 1, 0, 0, 1, "", 4, 1, rx=D),
              S("OilWarning", 1, 0, 0, 1, "", 5, 1, rx=D),
+             S("DashLightsOn", 1, 0, 0, 1, "", 6, 1, rx=D,
+               doc="1 = the dash-dimmer feed is live (headlight switch on)"),
+             S("DashDimmerPct", 1, 0, 0, 100, "%", 8, 8, rx=D,
+               doc="instrument-lamp feed voltage as a percentage of full "
+                   "brightness; display/ scales its backlight with it"),
          ] + e2e(D)),
     dict(id=0x301, name="GaugesStatus", sender="GAUGES", period=1000, dlc=8,
          doc="Health, identity and where each value currently comes from.",

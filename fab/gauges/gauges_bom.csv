@@ -1,9 +1,10 @@
 Manufacturer Part Number,Manufacturer,Quantity,Designators,Package,Category,Description,Status
-BAV99-Q (confirm reel suffix at order time),Nexperia,2,"D10, D11",SOT-23,Semiconductors,"Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8)",ok
-PMV37ENEA,Nexperia,2,"Q1, Q2",SOT-23,Semiconductors,"N-MOSFET, 12V-rail reverse-protection gate switch / shared backlight low-side switch",ok
-LM74700QDBVRQ1,TI,1,U3,SOT-23-6,Semiconductors,Ideal-diode controller (reverse-battery protection),ok
+BAV99-Q (confirm reel suffix at order time),Nexperia,6,D10-D15,SOT-23,Semiconductors,"Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8)",ok
+PMV55ENEAR,Nexperia,2,"Q1, Q3",SOT-23,Semiconductors,"60V N-ch MOSFET, VGS +-20V, SOT-23: LM74930 pass and ideal-diode FET pair (orderable suffix R = reel)",ok
+FS32K144HAT0MLHT,NXP,1,U1,LQFP-64_10x10mm_P0.5mm,Semiconductors,"S32K144 Arm Cortex-M4F, 80 MHz (112 MHz HSRUN), 512 KB flash, CAN FD, LQFP-64 (suffix MLH = 64-LQFP; MLL would be the 100-pin part), -40..125 C, tape and reel; pin-mux verified against NXP's S32K1xx Reference Manual. Orderable part number as listed by Newark, Mouser and TrustedParts (checked 2026-10-04); confirm the suffix on the NXP part page when ordering",ok
+LM74930QRGERQ1,TI,1,U3,Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm,Semiconductors,"Automotive ideal-diode surge stopper with OV clamp and circuit breaker, VQFN-24 RGE; TI lists it Active/Production (same part as display/)",ok
 LMR33630BRNXRQ1,TI,1,U2,TI_RNX0012C_VQFN-HR-12_2x3mm_P0.5mm,Semiconductors,"3A synchronous buck regulator, +5V rail",ok
-S32K144 (LQFP-64),NXP,1,U1,LQFP-64_10x10mm_P0.5mm,Semiconductors,"32-bit Arm Cortex-M4F automotive MCU, real pin-mux verified against NXP's own S32K1xx Reference Manual - exact memory-size/temp-grade order suffix not yet pinned, see file header",ok
+PMV37ENEA,Nexperia,1,Q2,SOT-23,Semiconductors,"N-MOSFET, 12V-rail reverse-protection gate switch / shared backlight low-side switch",ok
 SMCJ33A (multi-source),Littelfuse / onsemi / Vishay (industry-standard P/N),1,D1,D_SMC,Semiconductors,"SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number",ok
 TCAN1044VDRQ1,TI,1,U10,SOIC-8_3.9x4.9mm_P1.27mm,Semiconductors,"Automotive CAN FD transceiver w/ VIO pin, SOIC-8 - private CAN1 link to display/ (same part as display/'s transceiver; datasheet SLLSF17D)",ok
 TJA1043T/1J,NXP,1,U5,SOIC-14_3.9x8.7mm_P1.27mm,Semiconductors,"High-speed CAN transceiver with wake, real wiring reused verbatim from ecu-pcb",ok
@@ -20,26 +21,33 @@ DTM06-3S,TE Connectivity (Deutsch DTM series),1,J1,Harness pigtail (not a board 
 DTM06-5S,TE Connectivity (Deutsch DTM series),1,J7,Harness pigtail (not a board placement),Connectors,5-position sealed harness pigtail connector: CAN0_H/L + 3x sender input - mates with J7's own board-side header,ok
 "MKDS 1,5/ 3-5,08 (1715734)",Phoenix Contact,1,J1,"TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal",Connectors,"3-position 5.08mm screw terminal block, board side of the 12V input + ignition pigtail (rev B: was 2-position)",ok
 TC2030-IDC-NL,Tag-Connect,1,J2,Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical,Connectors,"SWD programming/debug connector, 2x3 1.27mm, no-legs cable version",ok
-GCM188R71H104KA57D,Murata,17,"C6, C7, C10, C11, C13-C15, C17-C20, C28-C31, C40, C41",C_0603_1608Metric,Passives,"Capacitor, 100 nF X7R 50 V, AEC-Q200",ok
+GCM188R71H104KA57D,Murata,19,"C6, C7, C11, C13-C15, C17-C20, C28-C31, C40, C41, C47-C49",C_0603_1608Metric,Passives,"Capacitor, 100 nF X7R 50 V, AEC-Q200",ok
+AC0603FR-071KL,Yageo,6,"R16-R18, R55-R57",R_0603_1608Metric,Passives,"Resistor 1k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0710KL,Yageo,5,"R1, R2, R11, R20, R40",R_0603_1608Metric,Passives,"Resistor 10k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07120RL,Yageo,4,R6-R9,R_0603_1608Metric,Passives,"Resistor 120R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-0760RL,Yageo,4,"R4, R5, R41, R42",R_0603_1608Metric,Passives,"Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 GCM188R71C105KA64D,Murata,3,"C3, C8, C12",C_0603_1608Metric,Passives,"Capacitor, 1 uF X7R 16 V, AEC-Q200",ok
-AC0603FR-07100RL,Yageo,2,"R10, R18",R_0603_1608Metric,Passives,"Resistor 100R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-0747RL,Yageo,2,"R16, R17",R_0603_1608Metric,Passives,"Resistor 47R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-07100KL,Yageo,2,"R51, R53",R_0603_1608Metric,Passives,"Resistor 100k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0760RL,Yageo,2,"R41, R42",R_0603_1608Metric,Passives,"Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0760RL,Yageo,2,"R4, R5",R_0603_1608Metric,Passives,"Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart] [DNP: do not populate. CAN0 split termination, fitted only if this board is a bus end-node; the pads stay on the board]",DNP: do not populate
 GCM1885C1H180JA16D,Murata,2,"C4, C5",C_0603_1608Metric,Passives,"Capacitor, 18 pF C0G 50 V, AEC-Q200",ok
 GCM188R71H472KA37D,Murata,2,"C16, C42",C_0603_1608Metric,Passives,"Capacitor, 4.7 nF X7R 50 V, AEC-Q200",ok
 GCM31CR71A226KE02L,Murata,2,"C2, C45",C_1206_3216Metric,Passives,"Capacitor, 22 uF X7R 10 V, AEC-Q200",ok
 ABM8AIG-8.000MHZ-12-2Z-T3,Abracon,1,Y1,Crystal_SMD_3225-4Pin_3.2x2.5mm,Passives,"8 MHz 12 pF crystal 3.2 x 2.5 mm, +/-20 ppm, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-07100RL,Yageo,1,R10,R_0603_1608Metric,Passives,"Resistor 100R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0711K5L,Yageo,1,R54,R_0603_1608Metric,Passives,"Resistor 11k5 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0715KL,Yageo,1,R45,R_0603_1608Metric,Passives,"Resistor 15k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0727KL,Yageo,1,R47,R_0603_1608Metric,Passives,"Resistor 27k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-072K05L,Yageo,1,R52,R_0603_1608Metric,Passives,"Resistor 2k05 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-072K49L,Yageo,1,R3,R_0603_1608Metric,Passives,"Resistor 2k49 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0733KL,Yageo,1,R44,R_0603_1608Metric,Passives,"Resistor 33k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749K9L,Yageo,1,R19,R_0603_1608Metric,Passives,"Resistor 49k9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0749R9L,Yageo,1,R48,R_0603_1608Metric,Passives,"Resistor 49R9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-074K7L,Yageo,1,R43,R_0603_1608Metric,Passives,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0756KL,Yageo,1,R46,R_0603_1608Metric,Passives,"Resistor 56k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0780K6L,Yageo,1,R50,R_0603_1608Metric,Passives,"Resistor 80k6 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 BLM18PG221SH1D,Murata,1,L2,L_0603_1608Metric,Passives,"220 ohm @100 MHz ferrite bead, 1.4 A, AEC-Q200",ok
 GCM188R71H102KA37D,Murata,1,C43,C_0603_1608Metric,Passives,"Capacitor, 1 nF X7R 50 V, AEC-Q200",ok
 GCM188R71H103KA37D,Murata,1,C44,C_0603_1608Metric,Passives,"Capacitor, 10 nF X7R 50 V, AEC-Q200",ok
 GCM188R71H224KA64D,Murata,1,C46,C_0603_1608Metric,Passives,"Capacitor, 220 nF X7R 50 V, AEC-Q200",ok
 GCM32EC71H106KA03L,Murata,1,C1,C_1210_3225Metric,Passives,"Capacitor, 10 uF X7S 50 V, AEC-Q200",ok
+KRL3216E-M-R005-F-T5,Susumu,1,R49,R_1206_3216Metric,Passives,"5 mohm 1% 1206 current sense, AEC-Q200 (seen on a distributor listing; confirm series suffix against Susumu's datasheet at order time) [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart

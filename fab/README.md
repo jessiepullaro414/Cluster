@@ -20,13 +20,13 @@ Checked against JLCPCB's published 4-layer capabilities (min trace/space 0.09 mm
 - Layers: 4. Thickness: 1.6 mm. Outer copper 1 oz, inner copper 0.5 oz.
 - Surface finish: **ENIG**. The panel connector is 0.3 mm pitch and the MCU, buck and QFN parts are 0.5 mm pitch; HASL is not recommended.
 - Solder mask and silkscreen: your choice (the layout is drawn for dark mask with white silk). Black mask with white silk suits the dash.
-- Impedance control: not requested. The MIPI DSI pairs on display/ are 108-121 mm long with up to about 13 mm skew inside a pair (about 90 ps). At this panel's roughly 300 Mbit/s per lane (3.3 ns bit time) that is far below the MIPI skew limit, so uncontrolled impedance is acceptable for a prototype; the long run is a layout consequence of the larger power parts and is worth shortening in a later spin.
+- Impedance control: **request it for display/ if the fab offers it, with the DSI pairs as the controlled pairs.** The four DSI pairs are 0.25 mm tracks with a 0.25 to 0.5 mm gap on F.Cu over the In1 ground plane, about 10.6 to 11.2 mm per leg, with at most 0.6 mm (about 4 ps) skew inside a pair. By the IPC-2141 approximation that is about 100 ohm differential for a 0.21 mm prepreg; that is an estimate, so use the fab's own calculator and stackup and adjust width and gap if it disagrees. The P leg of each pair hops to B.Cu for about 3 mm to swap polarity order between the connectors (two 0.6/0.3 mm vias), where the reference is In2 rather than ground. (An earlier version of this page called uncontrolled impedance acceptable; the corrected layout is short enough that it matters less, but it is still a high-speed pair.)
 - Quantity: 5 of each is the usual minimum.
 
 ## Board sizes
 
-- display/: about 121 x 106 mm.
-- gauges/: 447 x 43 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
+- display/: about 152 x 102 mm.
+- gauges/: 447 x 56 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
 
 ## What is still unconfirmed (could force a respin of display/)
 

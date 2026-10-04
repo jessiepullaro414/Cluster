@@ -438,12 +438,34 @@ register_symbol(f"{LIB}:XTAL", "Y", "8MHz", "Crystal:Crystal_SMD_3225-4Pin_3.2x2
 register_symbol(f"{LIB}:MOSFET_N", "Q", "PMV37ENEA automotive (AEC-Q101)", "Package_TO_SOT_SMD:SOT-23",
                 {'L': [P(2, "S", "passive")], 'R': [P(3, "D", "passive")],
                  'B': [P(1, "G", "input")]})
-register_symbol(f"{LIB}:IC_IdealDiode", "U", "LM74700-Q1", "Package_TO_SOT_SMD:SOT-23-6",
-                {'L': [P(1, "VCAP", "passive"), P(2, "GND", "power_in"),
-                       P(3, "EN", "input")],
-                 'R': [P(4, "CATHODE", "input"), P(5, "GATE", "output"),
-                       P(6, "ANODE", "input")]},
-                datasheet="https://www.ti.com/lit/ds/symlink/lm74700-q1.pdf")
+# --- Input protection (2026-10-03 review fix): LM74930-Q1, same verified
+# front end as display/. The old LM74700-Q1 ideal diode only blocked reverse
+# battery; the LMR33630-Q1 buck behind it has a 38 V absolute maximum while an
+# SMCJ33A clamps well above that during a load dump. The LM74930-Q1 with
+# OVCLAMP tied to OV regulates the output to its OV threshold (29.9 V with the
+# 100k / 2.05k divider), inside the buck's 36 V operating limit, and adds a
+# current limit. Pin table and every component value are the ones calculated
+# for display/ (see its build_power_tree docstring); only the sense resistor
+# differs because this board draws ~0.3 A, not 2-3 A.
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location("display_parts", os.path.join(os.path.dirname(__file__), "..", "display", "parts.py"))
+_dp = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_dp)
+_pins = _dp.LM74930_Q1
+_half = -(-len(_pins) // 2)
+register_symbol(f"{LIB}:LM74930", "U", "LM74930-Q1", "Package_DFN_QFN:Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm",
+                # VS is fed through the fuse (a passive part ERC cannot trace
+                # power through), so it is typed passive here, the same
+                # accepted tool limitation the baseline already carries.
+                {'L': [P(n, nm, "passive" if nm == "VS" else et) for n, nm, et in _pins[:_half]],
+                 'R': [P(n, nm, "passive" if nm == "VS" else et) for n, nm, et in _pins[_half:]]},
+                datasheet="https://www.ti.com/lit/ds/symlink/lm74930-q1.pdf")
+register_symbol(f"{LIB}:MOSFET_N55", "Q", "PMV55ENEA (60V, VGS +-20V, AEC-Q101)", "Package_TO_SOT_SMD:SOT-23",
+                {'L': [P(2, "S", "passive")], 'R': [P(3, "D", "passive")],
+                 'B': [P(1, "G", "input")]})
+register_symbol(f"{LIB}:R_1206", "R", "5m", "Resistor_SMD:R_1206_3216Metric",
+                {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
+                hide_pin_names=True)
 register_symbol(f"{LIB}:IC_Buck", "U", "LMR33630-Q1", "TI_RNX0012C_VQFN-HR:TI_RNX0012C_VQFN-HR-12_2x3mm_P0.5mm",
                 {'L': [P(2, "VIN", "power_in"), P(10, "VIN", "power_in"),
                        P(1, "PGND", "power_in"), P(11, "PGND", "power_in")],
@@ -734,19 +756,9 @@ place(f"{LIB}:CONN_PWR", "J1", "DTM06-3S nickel, 12V input + ignition (sealed)",
       conn={'1': ('pwr', 'VIN', 5.08), '2': ('pwr', 'GND', 7.62),
             '3': ('label', 'IGN_RAW', 12.7)})
 place(f"{LIB}:Fuse", "F1", "Mini blade holder, 2A Littelfuse 297 fuse (SAE J2077/ISO 8820-3)", 50, RAIL,
-      conn={'1': ('pwr', 'VIN'), '2': ('wire',)})
-place(f"{LIB}:MOSFET_N", "Q1", "PMV37ENEA automotive (AEC-Q101)", 85, RAIL,
-      conn={'2': ('wire',), '3': ('wire',),
-            '1': ('label', 'GATE_DRV', 7.62)})
-place(f"{LIB}:IC_IdealDiode", "U3", "LM74700-Q1 (AEC-Q100 G1)", 85, 85,
-      conn={'6': ('label', 'VIN_FUSED', 5.08),
-            '2': ('pwr', 'GND', 7.62),
-            '5': ('label', 'GATE_DRV', 5.08), '4': ('label', 'VIN_PROT', 5.08),
-            '3': ('label', 'VIN_FUSED', 5.08), '1': ('label', 'VCAP', 5.08)})
-place(f"{LIB}:C_V", "C10", "100nF charge-pump cap (AEC-Q200)", 60, 100,
-      conn={'1': ('label', 'VCAP'), '2': ('label', 'VIN_FUSED')})
-place(f"{LIB}:TVS_V", "D1", "SMCJ33A automotive (AEC-Q101)", 113, 70,
-      conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
+      conn={'1': ('pwr', 'VIN'), '2': ('label', 'VIN_FUSED')})
+place(f"{LIB}:TVS_V", "D1", "SMCJ33A automotive (AEC-Q101) on the fused input, ahead of the LM74930", 113, 70,
+      conn={'1': ('label', 'VIN_FUSED'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_1210", "C1", "10uF 50V X7R CIN (AEC-Q200)", 150, 70,
       conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
 
@@ -759,7 +771,7 @@ add_wire(gnd_x, snap(gnd_y + 10), gnd_x, gnd_y)
 
 y_u2 = RAIL - off(f"{LIB}:IC_Buck", 2)[1]
 place(f"{LIB}:IC_Buck", "U2", "LMR33630-Q1 (AEC-Q100 G1)", 170, y_u2,
-      conn={'2': ('wire',), '10': ('label', 'VIN_PROT', 5.08),
+      conn={'2': ('label', 'VIN_PROT', 5.08), '10': ('label', 'VIN_PROT', 5.08),
             '1': ('pwr', 'GND', 5.08), '11': ('pwr', 'GND', 5.08),
             '12': ('wire',), '4': ('label', 'BOOT_CAP'),
             '7': ('label', 'FB'), '9': ('label', 'VIN_PROT', 5.08),
@@ -793,9 +805,50 @@ place(f"{LIB}:IC_LDO33", "U4", "TLV733P-Q1 (AEC-Q100 G1)", 275, RAIL,
 place(f"{LIB}:C_V", "C3", "1uF X7R (AEC-Q200)", 305, 70,
       conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
 
-wire_pins("F1", 2, "Q1", 2, label="VIN_FUSED")
-wire_pins("Q1", 3, "U2", 2, label="VIN_PROT")
 wire_pins("U2", 12, "L1", 1, label="SW")
+
+# --- LM74930-Q1 front end (placed in its own band, nets joined by label) ---
+section_text("INPUT PROTECTION: LM74930-Q1 IDEAL DIODE + OV CLAMP + CURRENT LIMIT (review fix 2026-10-03)", 650, 520)
+place(f"{LIB}:LM74930", "U3", "LM74930-Q1 (AEC-Q100 G1)", 760, 600,
+      conn={'1': ('label', 'DGATE'), '2': ('label', 'COMMON'), '3': ('label', 'SW_SENSE'),
+            '4': ('label', 'UVLO_DIV'), '5': ('label', 'OV_DIV'), '6': ('label', 'VIN_FUSED'),
+            '7': ('label', 'VIN_FUSED'), '8': ('nc',), '9': ('label', 'TMR'),
+            '10': ('nc',), '11': ('label', 'ILIM'), '12': ('nc',),
+            '13': ('pwr', 'GND'), '14': ('label', 'HGATE'), '15': ('label', 'COMMON'),
+            '16': ('label', 'OV_DIV'), '17': ('nc',), '18': ('label', 'VIN_PROT'),
+            '19': ('label', 'SENSE_OUT'), '20': ('label', 'CS_PLUS'), '21': ('nc',),
+            '22': ('label', 'VIN_FUSED'), '23': ('label', 'CAP_CP'), '24': ('label', 'VIN_PROT'),
+            '25': ('nc',)})
+# Q3 = high-side load-switch FET, Q1 = ideal-diode FET, common source (TI
+# reference topology, same as display/ Q2/Q1). PMV55ENEA: pin 2 = source,
+# pin 3 = drain (Nexperia datasheet Table 2).
+place(f"{LIB}:MOSFET_N55", "Q3", "PMV55ENEA pass (HGATE)", 860, 600,
+      conn={'3': ('label', 'SENSE_OUT'), '2': ('label', 'COMMON'), '1': ('label', 'HGATE', 5.08)})
+place(f"{LIB}:MOSFET_N55", "Q1", "PMV55ENEA ideal diode (DGATE)", 900, 600,
+      conn={'2': ('label', 'COMMON'), '3': ('label', 'VIN_PROT'), '1': ('label', 'DGATE', 5.08)})
+# RSENSE: 5 mohm, so the default 20 mV short-circuit threshold is 4 A (above
+# the 2 A fuse), and RILIM (Eq. 15) = 12 x RSET / (ILIM x RSENSE) = 12 x 49.9 /
+# (1.5 A x 5 mohm) = 80 kohm -> 80.6 kohm for a 1.5 A circuit breaker.
+place(f"{LIB}:R_1206", "R49", "5m 1% sense (Susumu KRL3216E-M-R005-F-T5)", 940, 570,
+      conn={'1': ('label', 'VIN_FUSED'), '2': ('label', 'SENSE_OUT')})
+place(f"{LIB}:R_V", "R48", "49.9R 1% RSET", 960, 600,
+      conn={'1': ('label', 'VIN_FUSED'), '2': ('label', 'CS_PLUS')})
+place(f"{LIB}:R_V", "R50", "80.6k 1% RILIM (1.5A breaker)", 990, 600,
+      conn={'1': ('label', 'ILIM'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R51", "100k OV top", 1020, 600,
+      conn={'1': ('label', 'SW_SENSE'), '2': ('label', 'OV_DIV')})
+place(f"{LIB}:R_V", "R52", "2.05k OV bot (clamp 29.9V)", 1050, 600,
+      conn={'1': ('label', 'OV_DIV'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R53", "100k UV top", 1080, 600,
+      conn={'1': ('label', 'SW_SENSE'), '2': ('label', 'UVLO_DIV')})
+place(f"{LIB}:R_V", "R54", "11.5k UV bot (cut-off 5.5V)", 1110, 600,
+      conn={'1': ('label', 'UVLO_DIV'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C47", "100nF CVS (50V)", 940, 650,
+      conn={'1': ('label', 'VIN_FUSED'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C48", "100nF CCAP (50V)", 970, 650,
+      conn={'1': ('label', 'CAP_CP'), '2': ('label', 'VIN_FUSED')})
+place(f"{LIB}:C_V", "C49", "100nF CTMR", 1000, 650,
+      conn={'1': ('label', 'TMR'), '2': ('pwr', 'GND')})
 
 # --- MCU core (fixed pins only) ---
 place(f"{LIB}:MCU_STM32", "U1", "NXP S32K144 automotive (AEC-Q100)", 110, 250,
@@ -993,7 +1046,10 @@ for i, (u_ref, cs_label, dc_label, role) in enumerate(AUX_GAUGES):
 # this part's real multi-amp rating.
 place(f"{LIB}:MOSFET_N", "Q2", "PMV37ENEA automotive (AEC-Q101) - shared aux-gauge backlight switch",
       450, 460,
-      conn={'2': ('label', 'AUX_VLED_RTN'), '3': ('pwr', 'GND'),
+      # PMV37ENEA: pin 2 = SOURCE, pin 3 = DRAIN (Nexperia datasheet). The LED
+      # return must go to the DRAIN and ground to the SOURCE, or the body
+      # diode conducts the LED current with the gate low (review fix).
+      conn={'3': ('label', 'AUX_VLED_RTN'), '2': ('pwr', 'GND'),
             '1': ('label', 'BL_GATE', 5.08)})
 place(f"{LIB}:R_V", "R10", "100R BL_EN gate resistor (AEC-Q200)", 450, 430,
       conn={'1': ('label', 'BL_EN'), '2': ('label', 'BL_GATE')})
@@ -1027,14 +1083,33 @@ section_text("SENSOR ADC FRONT END: FUEL / OIL / TEMP / BATTERY (PLAN STEP 5)", 
 # ~1.4V swing comfortably inside the ADC's 0-3.3V input range, same
 # "center resolution on the real operating band" discipline thermo-pcb's
 # own R12 calculation already established for its own resistive sender.
-place(f"{LIB}:R_V", "R16", "47R fuel pull-up, self-calculated for the sender's 10-73R range (AEC-Q200)",
+# REVIEW FIX 2026-10-03: the original 47 R / 100 R pull-ups dissipated
+# 158 mW with a 10 R sender (232 mW into a grounded wire) against a 100 mW
+# 0603 rating, and the harness wires went straight to the MCU. Every sender
+# input is now: sender node --- 1k pull-up to +3V3 (about 11 mW at 10 R, 3 mW
+# with the wire grounded) and --- 1k series resistor --- ADC pin, with a
+# BAV99-Q clamp to +3V3/GND and the 100 nF filter at the ADC pin. A short to
+# battery now pushes (12 - 3.3) / 1k = 8.7 mA back through the pull-up (the
+# 3V3 rail carries more than that) and is limited to a few mA into the clamp
+# by the series resistor. Resolution is lower than before but still
+# 3-4 counts per ohm at the low end; the ADC reference is the same 3V3 rail so
+# the reading stays ratiometric.
+place(f"{LIB}:R_V", "R16", "1k fuel pull-up to +3V3 (11mW at a 10R sender) (AEC-Q200)",
       30, 590,
-      conn={'1': ('pwr', '+3V3'), '2': ('label', 'ADC_FUEL')})
+      conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_FUEL')})
+place(f"{LIB}:R_V", "R55", "1k fuel ADC series (AEC-Q200)", 30, 620,
+      conn={'1': ('label', 'SENDER_FUEL'), '2': ('label', 'ADC_FUEL')})
+place(f"{LIB}:D_BAV99", "D12", "BAV99-Q fuel input clamp (AEC-Q101)", 70, 625,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'ADC_FUEL')})
 place(f"{LIB}:C_V", "C28", "100nF ADC_FUEL smoothing (AEC-Q200)", 60, 590,
       conn={'1': ('label', 'ADC_FUEL'), '2': ('pwr', 'GND')})
-place(f"{LIB}:R_V", "R17", "47R oil pressure pull-up, self-calculated for the sender's 10-70R range (AEC-Q200)",
+place(f"{LIB}:R_V", "R17", "1k oil pull-up to +3V3 (AEC-Q200)",
       110, 590,
-      conn={'1': ('pwr', '+3V3'), '2': ('label', 'ADC_OIL')})
+      conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_OIL')})
+place(f"{LIB}:R_V", "R56", "1k oil ADC series (AEC-Q200)", 110, 620,
+      conn={'1': ('label', 'SENDER_OIL'), '2': ('label', 'ADC_OIL')})
+place(f"{LIB}:D_BAV99", "D13", "BAV99-Q oil input clamp (AEC-Q101)", 150, 625,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'ADC_OIL')})
 place(f"{LIB}:C_V", "C29", "100nF ADC_OIL smoothing (AEC-Q200)", 140, 590,
       conn={'1': ('label', 'ADC_OIL'), '2': ('pwr', 'GND')})
 # Coolant temp sender's real range is much wider (~10-300R, per README.md
@@ -1043,9 +1118,13 @@ place(f"{LIB}:C_V", "C29", "100nF ADC_OIL smoothing (AEC-Q200)", 140, 590,
 # hot) up to Vout=2.48V at 300R (70F, cold) - a real, wide, usable swing
 # across the sender's genuine full range, not reused from the fuel/oil
 # value just because it's convenient.
-place(f"{LIB}:R_V", "R18", "100R coolant temp pull-up, self-calculated for the sender's 10-300R range (AEC-Q200)",
+place(f"{LIB}:R_V", "R18", "1k coolant temp pull-up to +3V3 (AEC-Q200)",
       190, 590,
-      conn={'1': ('pwr', '+3V3'), '2': ('label', 'ADC_TEMP')})
+      conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_TEMP')})
+place(f"{LIB}:R_V", "R57", "1k temp ADC series (AEC-Q200)", 190, 620,
+      conn={'1': ('label', 'SENDER_TEMP'), '2': ('label', 'ADC_TEMP')})
+place(f"{LIB}:D_BAV99", "D14", "BAV99-Q temp input clamp (AEC-Q101)", 230, 625,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'ADC_TEMP')})
 place(f"{LIB}:C_V", "C30", "100nF ADC_TEMP smoothing (AEC-Q200)", 220, 590,
       conn={'1': ('label', 'ADC_TEMP'), '2': ('pwr', 'GND')})
 # Battery/alternator voltage divider - real automotive range 9-16V
@@ -1063,6 +1142,11 @@ place(f"{LIB}:R_V", "R20", "10k battery divider bottom, self-calculated for 9-16
       conn={'1': ('label', 'ADC_BATT'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_V", "C31", "100nF ADC_BATT smoothing (AEC-Q200)", 300, 590,
       conn={'1': ('label', 'ADC_BATT'), '2': ('pwr', 'GND')})
+# The LM74930 now caps VIN_PROT at about 29.9 V, which would put 5 V on this
+# divider's output; the clamp holds the pin to the rails (injection current is
+# only tens of microamps through 49.9k).
+place(f"{LIB}:D_BAV99", "D15", "BAV99-Q battery divider clamp (AEC-Q101)", 340, 595,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'ADC_BATT')})
 # Battery divider reads VIN_PROT (the shared reverse-battery/transient-
 # protected rail every other 12V-side circuit on this board already
 # uses), not a fresh unprotected tap - same real protection every other
@@ -1082,8 +1166,8 @@ place(f"{LIB}:C_V", "C31", "100nF ADC_BATT smoothing (AEC-Q200)", 300, 590,
 
 place(f"{LIB}:CONN_HARNESS", "J7", "DTM06-5S nickel, CAN0 + 3x sender input (sealed)", 400, 600,
       conn={'1': ('label', 'CAN0_H'), '2': ('label', 'CAN0_L'),
-            '3': ('label', 'ADC_FUEL'), '4': ('label', 'ADC_OIL'),
-            '5': ('label', 'ADC_TEMP')})
+            '3': ('label', 'SENDER_FUEL'), '4': ('label', 'SENDER_OIL'),
+            '5': ('label', 'SENDER_TEMP')})
 # Connects to U5 (CAN0_H/CAN0_L) and R16/R17/R18's own sender nodes
 # (ADC_FUEL/ADC_OIL/ADC_TEMP) purely by matching net NAME, same trick
 # used throughout this file. This closes out plan Step 6 and, with it,

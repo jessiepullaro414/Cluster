@@ -110,6 +110,8 @@ BOARD_SIDE_CONNECTORS = {
     "J2": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end: sealed Deutsch DTM06-3S (TE) pigtail, as on gauges/", "-"),
     "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/'s J7 uses. This is the display<->gauges<->ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail", "-"),
     "J8": ("TSW-108-07-G-S", "Samtec", "1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness", "-"),
+    "J12": ("TSW-103-07-G-S", "Samtec", "1x3 0.100in gold-finish pin header, A55 console UART_3 (1.8 V logic: use a 1.8 V USB-serial adapter or a level shifter) - bench and service use only", "-"),
+    "J13": ("TSW-105-07-G-S", "Samtec", "1x5 0.100in gold-finish pin header, USB_1 (VBUS, D-, D+, ID, GND) for flashing/adb bring-up - bench use only, keep the cable short (USB 2.0 high speed over an uncontrolled header)", "-"),
     "J9": ("TSW-104-07-G-S", "Samtec", "1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness", "-"),
     "J11": ("22-27-2041", "Molex", "4-circuit KK 254 (2.54mm) vertical header for the rotary dial: sensor 5V (switched), sensor signal, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J10": ("1058", "Keystone Electronics", "20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments", "-"),
@@ -118,24 +120,18 @@ BOARD_SIDE_CONNECTORS = {
     # for real AAOS headroom, IT for automotive temp range). Toradex's
     # own internal ordering code wasn't independently confirmed - real
     # product name is, verify the exact code at purchase time.
-    "J1": ("2309409-2 socket + Verdin iMX95 Hexa 8GB WB IT (Toradex PN 0089)",
-           "TE Connectivity + Toradex",
-           "TWO purchases on this one line: the 260-position DDR4 SODIMM socket (TE "
-           "2309409-2, 5.2mm stack - the socket Toradex recommends in datasheet section "
-           "6.5.1, matching this board's SODIMM-260_DDR4_H4.0-5.2 footprint) and the SoM "
-           "that plugs into it (docs.toradex.com/200007-verdin_imx95_datasheet.pdf). "
-           "Toradex product no. 0089 per developer.toradex.com "
-           "(checked 2026-09-30): V1.0A is end-of-life, V1.0B moved to B0 silicon, "
-           "V1.1A fixed errata HAR-12581, and V1.1B (Q3 2026) moved to mass-production "
-           "SoC and PMIC - order the latest revision. Also listed on Mouser", "-"),
+    "J1": ("2309409-2", "TE Connectivity",
+           "260-position DDR4 SODIMM socket, 5.2mm stack - the socket Toradex recommends in "
+           "datasheet section 6.5.1 (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), matching "
+           "this board's SODIMM-260_DDR4_H4.0-5.2 footprint. The Verdin SoM that plugs into it is "
+           "its own line under Companion parts (review 2026-10-03: the two were one line)", "-"),
     # Real part chosen 2026-09-28 - see build_schematic.py's own comment
     # on F1 for why MF-RG300 (the footprint this board shipped with
     # until now) was both the wrong footprint AND the wrong real part.
-    "F1": ("MF-RG500", "Bourns",
-           "PTC resettable fuse, 5.0A hold / 8.5A trip / 16V max, AEC-Q200 - "
-           "real part matching the circuit's own target rating, not the "
-           "3.0A-hold MF-RG300 this board's footprint previously (wrongly) cited",
-           "AEC-Q200"),
+    "F1": ("3568", "Keystone Electronics",
+           "Mini blade fuse holder, PCB mount - same real holder gauges/ uses. REVIEW FIX 2026-10-03: "
+           "replaces the Bourns MF-RG500 PTC (16V max, -40..+85C, not rated for jump start or load "
+           "dump). The 5A fuse element is the next line", "-"),
 }
 
 # Real display panel this board is designed for - referenced via J4
@@ -298,6 +294,11 @@ def build():
             pkg = next(p["package"] for p in parts if p["ref"] == ref)
             cat = "Electromechanical" if ref == "F1" else "Connectors"
             lines.append((cat, mpn, mfr, desc, pkg, 1, ref, qual))
+            if ref == "F1":
+                lines.append(("Electromechanical", "0297005.WXNV", "Littelfuse",
+                              "5A MINI blade fuse element, 32V, 1kA interrupt rating at 32V, -40..+125C "
+                              "(one per board; plugs into the F1 holder)",
+                              "Mini blade (element)", 1, "F1 (fuse element)", "AEC-Q200"))
 
     # --- non-passives matched by real MPN token -------------------------
     groups = defaultdict(list)
@@ -336,6 +337,13 @@ def build():
                   "ordering code is not confirmed; ask Piher. Piher's web page may describe push-button versions: "
                   "the datasheet only shows an angle-threshold switch output, so ask Piher before relying on one",
                   "dial (companion)", 1, "wired to J11 pins 1-3", "TBD"))
+    lines.append(("Companion parts (ordered separately)",
+                  "Verdin iMX95 Hexa 8GB WB IT (Toradex product no. 0089)", "Toradex",
+                  "The SoM that plugs into J1 (docs.toradex.com/200007-verdin_imx95_datasheet.pdf). "
+                  "Toradex product no. 0089 per developer.toradex.com (checked 2026-09-30): V1.0A is "
+                  "end-of-life, V1.0B moved to B0 silicon, V1.1A fixed errata HAR-12581, and V1.1B "
+                  "(Q3 2026) moved to mass-production SoC and PMIC - order the latest revision. "
+                  "Also listed on Mouser", "SoM (companion)", 1, "plugs into J1", "-"))
     lines.append(("Companion parts (ordered separately)",
                   "(momentary push switch - part not chosen yet)", "(not yet specified)",
                   "The dial's click: a normally-open momentary switch wired to J11 pins 3 and 4 (the PSC-360 has no "
@@ -416,7 +424,7 @@ def main():
     parts, lines = build()
     # PANEL_NOTE's own qty is 0 (reference-only, not a placement) -
     # excluded from the coverage arithmetic by construction.
-    placements = sum(r[5] for r in lines if r[0] != "Companion parts (ordered separately)")
+    placements = sum(r[5] for r in lines if r[0] != "Companion parts (ordered separately)" and r[4] != "Mini blade (element)")
     print(f"BOM: {len(lines)} orderable line items covering {placements} placements "
           f"(schematic has {len(parts)} real parts)")
     by_cat = defaultdict(int)

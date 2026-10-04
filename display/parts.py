@@ -347,7 +347,7 @@ FOOTPRINTS = {
     # was the wrong footprint AND the wrong real part - Bourns' MF-RG
     # family's numeric suffix is the hold current, and each member has
     # its own real, different physical package size, not a shared one.
-    "FUSE": "Fuse:Fuse_Bourns_MF-RG500",
+    "FUSE": "Fuse:Fuseholder_Blade_Mini_Keystone_3568",
     "NFET": "Package_TO_SOT_SMD:SOT-23",
     # RGE0024B: 4x4 mm, 24 pins at 0.5 mm, thermal pad 2.45 mm per TI's own
     # package drawing. KiCad's stock HVQFN-24 4x4/0.5mm footprint carries a
@@ -389,5 +389,7 @@ FOOTPRINTS = {
     "CONN_PANEL": "Connector_FFC-FPC:Hirose_FH26-39S-0.3SHW_2Rows-39Pins-1MP_P0.60mm_Horizontal",
     "CONN_JTAG":  "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical",
     "CONN_BTN":   "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+    "CONN_UART":  "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+    "CONN_USB":   "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical",
     "CONN_CELL":  "Battery:BatteryHolder_Keystone_1058_1x2032",
 }

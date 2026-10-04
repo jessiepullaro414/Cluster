@@ -59,13 +59,16 @@ PCB = os.path.join(HERE, "ClusterGauges.kicad_pcb")
 # failing loudly rather than reporting a stale part.
 #   token -> (MPN, manufacturer, description, qualification)
 MPN = {
-    "S32K144":    ("S32K144 (LQFP-64)", "NXP",
-                   "32-bit Arm Cortex-M4F automotive MCU, real pin-mux verified "
-                   "against NXP's own S32K1xx Reference Manual - exact memory-size/"
-                   "temp-grade order suffix not yet pinned, see file header",
-                   "AEC-Q100"),
+    "S32K144":    ("FS32K144HAT0MLHT", "NXP",
+                   "S32K144 Arm Cortex-M4F, 80 MHz (112 MHz HSRUN), 512 KB flash, CAN FD, "
+                   "LQFP-64 (suffix MLH = 64-LQFP; MLL would be the 100-pin part), -40..125 C, "
+                   "tape and reel; pin-mux verified against NXP's S32K1xx Reference Manual. Orderable "
+                   "part number as listed by Newark, Mouser and TrustedParts (checked 2026-10-04); "
+                   "confirm the suffix on the NXP part page when ordering",
+                   "AEC-Q100 Grade 1"),
     "LMR33630-Q1": ("LMR33630BRNXRQ1", "TI", "3A synchronous buck regulator, +5V rail", "AEC-Q100 G1"),
-    "LM74700-Q1":  ("LM74700QDBVRQ1",  "TI", "Ideal-diode controller (reverse-battery protection)", "AEC-Q100 G1"),
+    "LM74930-Q1":  ("LM74930QRGERQ1", "TI", "Automotive ideal-diode surge stopper with OV clamp and circuit breaker, VQFN-24 RGE; TI lists it Active/Production (same part as display/)", "AEC-Q100 Grade 1"),
+    "PMV55ENEA":   ("PMV55ENEAR", "Nexperia", "60V N-ch MOSFET, VGS +-20V, SOT-23: LM74930 pass and ideal-diode FET pair (orderable suffix R = reel)", "AEC-Q101"),
     "TLV733P-Q1":  ("TLV73333PQDBVRQ1","TI", "300mA LDO, +3.3V rail", "AEC-Q100 G1"),
     "TJA1043T":    ("TJA1043T/1J", "NXP", "High-speed CAN transceiver with wake, real wiring reused verbatim from ecu-pcb", "AEC-Q100"),
     # U6-U9 are the board-side FPC CONNECTORS the GC9A01 modules plug into
@@ -344,8 +347,10 @@ def build():
             continue
         if prefix not in PASSIVE_PREFIXES:
             continue
+        # DNP parts (value text says "DNP") get their own order line: a part that
+        # is not fitted must not be counted into the quantity of the fitted ones.
         pgroups[(prefix, value_token(p["value"]), tolerance_token(p["value"]),
-                 p["package"])].append(p["ref"])
+                 p["package"], "DNP" in p["value"])].append(p["ref"])
 
     kind = {"R": ("Resistor", "thick film, AEC-Q200"),
             "C": ("Capacitor", "X7R/X5R ceramic, AEC-Q200"),
@@ -356,13 +361,15 @@ def build():
     # replaced by real part numbers (two spellings of one value would
     # otherwise become two order lines).
     spell_lines = []
-    for (prefix, val, tol, package), refs in pgroups.items():
+    for (prefix, val, tol, package, _dnp), refs in pgroups.items():
         name, _ = kind.get(prefix, ("Part", ""))
         label = f"{val} {tol} {name}" if tol else f"{val} {name}"
+        if _dnp:
+            label += " (DNP)"
         spell_lines.append(("Passives", label, "", "", package, len(refs), "", ""))
     check_value_spellings(spell_lines)
 
-    for (prefix, val, tol, package), refs in pgroups.items():
+    for (prefix, val, tol, package, dnp), refs in pgroups.items():
         name, note = kind.get(prefix, ("Part", ""))
         hit = passive_catalog.lookup(prefix, val, package)
         if hit is None:
@@ -375,6 +382,9 @@ def build():
         mpn, mfr, desc, status = hit
         if status != "verified":
             desc += " [PATTERN: confirm this exact part number in the distributor cart]"
+        if dnp:
+            desc += (" [DNP: do not populate. CAN0 split termination, fitted only if this board "
+                     "is a bus end-node; the pads stay on the board]")
         lines.append(("Passives", mpn, mfr, desc, package, len(refs),
                       collapse_refs(refs), "AEC-Q200"))
 

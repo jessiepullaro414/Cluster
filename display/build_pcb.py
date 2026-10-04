@@ -88,6 +88,8 @@ from kiutils.items.common import Net, Position, Effects, Font, Justify
 from kiutils.items.brditems import LayerToken
 from kiutils.items.gritems import GrLine, GrCircle, GrArc, GrText
 
+from fpgeom import load_footprint, footprint_bbox, load_schematic
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCH = os.path.join(HERE, "ClusterDisplay.kicad_sch")
 PCB = os.path.join(HERE, "ClusterDisplay.kicad_pcb")
@@ -117,81 +119,10 @@ if not KICAD_CLI:
 # 1. Ground truth: real ref/footprint list from the schematic, real net
 #    assignments from kicad-cli's own netlist export.
 # ---------------------------------------------------------------------------
-from kiutils.schematic import Schematic
-from kiutils.utils import sexpr
-
-sch = Schematic.from_sexpr(sexpr.parse_sexp(open(SCH, encoding="utf-8").read()))
-parts = {}  # ref -> {"footprint": "lib:name", "value": str, "uuid": str}
-for inst in sch.schematicSymbols:
-    ref = next(p.value for p in inst.properties if p.key == "Reference")
-    if ref.startswith("#"):
-        continue  # power-flag symbols aren't physical parts
-    if ref in parts:
-        continue  # multi-unit symbol (e.g. J1, the Verdin X1 connector) - one footprint instance covers all units
-    fp = next((p.value for p in inst.properties if p.key == "Footprint"), "")
-    val = next((p.value for p in inst.properties if p.key == "Value"), "")
-    parts[ref] = {"footprint": fp, "value": val, "uuid": inst.uuid}
-
 NETLIST_PATH = os.path.join(os.environ.get("TEMP", HERE), "clusterdisplay_netlist_for_pcb.net")
-result = subprocess.run([KICAD_CLI, "sch", "export", "netlist", "--format", "kicadsexpr",
-                         "--output", NETLIST_PATH, SCH], capture_output=True, text=True)
-if result.returncode != 0:
-    raise SystemExit(f"netlist export failed: {result.stderr}")
-
-netlist_txt = open(NETLIST_PATH, encoding="utf-8").read()
-pad_net = {}  # (ref, pin) -> net_name
-net_names = []
-for block in re.split(r"\(net\s", netlist_txt)[1:]:
-    name = re.search(r'\(name "([^"]+)"\)', block).group(1).lstrip("/")
-    nodes = re.findall(r'\(ref "([^"]+)"\)\s*\(pin "([^"]+)"\)', block)
-    if len(nodes) < 2:
-        continue
-    net_names.append(name)
-    for ref, pin in nodes:
-        pad_net[(ref, pin)] = name
+parts, pad_net, net_names = load_schematic(SCH, KICAD_CLI, NETLIST_PATH)
 
 print(f"Loaded {len(parts)} real parts and {len(net_names)} nets from the schematic/netlist.")
-
-# ---------------------------------------------------------------------------
-# 2. Footprint loading
-# ---------------------------------------------------------------------------
-def load_footprint(lib_colon_name):
-    lib, _, name = lib_colon_name.partition(":")
-    project_path = os.path.join(PROJECT_FOOTPRINTS, f"{lib}.pretty", f"{name}.kicad_mod")
-    if os.path.isfile(project_path):
-        path = project_path
-    else:
-        path = os.path.join(KICAD_FOOTPRINTS, f"{lib}.pretty", f"{name}.kicad_mod")
-    if not os.path.isfile(path):
-        raise FileNotFoundError(f"footprint file not found: {path}")
-    fp = Footprint.from_file(path)
-    fp.libId = lib_colon_name
-    return fp
-
-
-def footprint_bbox(fp):
-    """Bounding box from this footprint's pads AND silkscreen/courtyard
-    graphics, in its own local (unplaced) coordinate frame."""
-    xs, ys = [], []
-    for pad in fp.pads:
-        hw, hh = pad.size.X / 2, pad.size.Y / 2
-        xs += [pad.position.X - hw, pad.position.X + hw]
-        ys += [pad.position.Y - hh, pad.position.Y + hh]
-    for item in fp.graphicItems:
-        if hasattr(item, "start") and hasattr(item, "end"):
-            xs += [item.start.X, item.end.X]
-            ys += [item.start.Y, item.end.Y]
-        elif hasattr(item, "coordinates"):
-            xs += [p.X for p in item.coordinates]
-            ys += [p.Y for p in item.coordinates]
-        elif hasattr(item, "center"):
-            r = ((item.end.X - item.center.X) ** 2 + (item.end.Y - item.center.Y) ** 2) ** 0.5
-            xs += [item.center.X - r, item.center.X + r]
-            ys += [item.center.Y - r, item.center.Y + r]
-    if not xs:
-        return (-2, -2, 2, 2)
-    return (min(xs), min(ys), max(xs), max(ys))
-
 
 # ---------------------------------------------------------------------------
 # 3. Board scaffold
@@ -313,7 +244,7 @@ def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None, optimize=
 # MOUNTING_HOLE_INSET (7mm) plus their own real keepout (~3.2mm hole +
 # annular ring) - a real M3-vs-U4 corner collision at BOARD_MARGIN=3.0
 # is what caught this before it became a first-run fluke.
-BOARD_MARGIN = 12.0
+BOARD_MARGIN = 8.0
 
 # --- Real dash-opening hard limit (same real user-supplied dimension
 # every sibling board checks against) - a sanity ceiling here, not a
@@ -361,134 +292,47 @@ MODULE_KEEPOUT_H = 82.0   # 79.0mm real connector housing length (longer
 # zone. ---
 placed_rel = {}
 
-# --- Everything else: 5 real functional zones, same "keep a real
-# relationship short" reasoning as gauges/'s own CORE_ZONES. J4 (the
-# panel connector) is folded into CONTROL rather than pulled out into
-# its own reserved block - it's an external connector just like
-# J8/J9/J10 already in that zone, so packing it there gives it a real,
-# sensible neighbor instead of leaving it to float alone with nothing
-# around it (a real problem the previous rigid 2-column grid attempt
-# then "fixed" by forcing every zone into aligned columns - which
-# traded that problem for a worse one: large dead rectangles, per the
-# user's own direct correction: "parts do not need to be in line"). ---
-CORE_ZONES = [
-    ("POWER", ["J2", "F1", "D1", "C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8",
-               "L1", "Q1", "Q2", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8",
-               "R9", "R10", "R11", "R12", "R13", "R14", "R15", "R16", "U1", "U2",
-               "C54", "C55", "C56", "C57", "C58", "C59"]),
-    ("CAN0_1V8", ["C9", "C10", "C11", "C12", "C13", "J3", "R17", "R18", "R19",
-                  "R20", "R21", "U3", "U4"]),
-    ("PANEL_BIAS", ["C40", "C41", "C42", "C43", "C44", "C45", "C46", "C47",
-                    "C48", "C49", "D2", "D3", "L2", "L3", "R37", "R38", "R39",
-                    "R40", "R41", "U6"]),
-    ("PANEL_BACKLIGHT", ["C50", "C51", "C52", "D4", "L4", "R42", "U7"]),
-    ("CONTROL", ["C39", "J4", "J8", "J9", "J10", "JP1", "JP2", "R43", "R44",
-                 "R45", "R46", "R47", "R48", "R49", "R50", "R51", "R52", "R53",
-                 "C53", "D5", "Q3", "J11", "R54", "R55", "R56", "R57", "C60",
-                 "C61", "C62", "C63", "D6", "D7", "U8", "R58"]),
-]
+# --- Everything else: functional CELLS (cells.py), floorplanned around the
+# module keepout (floorplan.py). REVIEW FIX 2026-10-04: the previous layout
+# packed every individual part into one flat skyline for maximum density,
+# which scattered each converter's parts across the board (the LM61460's
+# input capacitor 57 mm from its VIN pin, boost switch nodes 75 mm long). A
+# switching converter has to be a tight cell, so each circuit is now placed
+# around its IC by cellplace.py (input capacitor at VIN/PGND, inductor at SW,
+# boot capacitor at CBOOT/SW, feedback divider at FB) and only then are the
+# finished cells arranged. The Verdin socket J1 is rotated 90 degrees so the
+# panel/power pins face the bottom strip and the control pins the top strip. ---
+import cells as _cells
+import floorplan as _floorplan
 
-_accounted = set(CONNECTOR_REFS)
-for _, refs in CORE_ZONES:
-    _accounted.update(refs)
-_missing = set(parts.keys()) - _accounted
-_extra = _accounted - set(parts.keys())
-assert not _missing, f"parts in the schematic but not assigned to any zone: {sorted(_missing)}"
-assert not _extra, f"zone refs that don't exist in the schematic: {sorted(_extra)}"
+_cell_info = {r: v for r, v in parts.items() if r != "J1"}
+_cell_parts = _cells.make_parts(_cell_info, pad_net, load_footprint, footprint_bbox)
+_cell_res, _cell_used = _cells.plan_cells(_cell_parts)
+_unplaced = set(_cell_info) - _cell_used
+assert not _unplaced, f"parts in the schematic but not in any cell: {sorted(_unplaced)}"
+for _cname, (_cpl, _cbb) in _cell_res.items():
+    print(f"  cell {_cname}: {len(_cpl)} parts, {_cbb[2] - _cbb[0]:.1f}x{_cbb[3] - _cbb[1]:.1f}mm")
 
-rotated_refs = set()
+_j1_dsi_y = [p.position.Y for p in _conn_fp["J1"].pads
+             if (pad_net.get(("J1", str(p.number))) or "").startswith(("DSI_D", "DSI_CLK"))]
+_DSI_J4_PADS = ["24", "26", "28", "30", "32", "34", "36", "38"]
+# The module's long axis runs left-right now, so the keepout is 82 wide x 38 tall.
+_fplan = _floorplan.floorplan(_cell_parts, _cell_res, _conn_bbox["J1"], _j1_dsi_y,
+                              keep_w=MODULE_KEEPOUT_H, keep_h=MODULE_KEEPOUT_W,
+                              margin=BOARD_MARGIN, j4_dsi_pads=_DSI_J4_PADS,
+                              j4_first_pad="1")
+placed_rel.update({ref: (x, y) for ref, (x, y, a) in _fplan["placed"].items()})
+part_rot = {ref: a for ref, (x, y, a) in _fplan["placed"].items()}
+board_width = round(_fplan["width"], 2)
+board_height = round(_fplan["height"], 2)
+KEEP = _fplan["keepout"]   # (x0, y0, x1, y1), board coordinates before BOARD_OFFSET
+print(f"Board {board_width:.1f} x {board_height:.1f}mm; J4 cell rotated {_fplan['j4_rot']} deg; "
+      f"module keepout {KEEP[2] - KEEP[0]:.0f}x{KEEP[3] - KEEP[1]:.0f}mm at "
+      f"({KEEP[0]:.1f},{KEEP[1]:.1f})")
 
-# --- ONE flat, transposed pack of every individual part, not zone-by-
-# zone: real, direct user tradeoff ("break zone grouping for max
-# density") after the previous zone-block approach hit a real floor -
-# board width couldn't shrink below the single widest zone's own
-# packed width (POWER, 85.4mm) no matter how the zones were arranged
-# relative to each other, because each zone was pre-shaped into one
-# rigid rectangle before ever being placed. Individual components have
-# far more real opportunities to nest into each other's gaps than whole
-# zones do; CORE_ZONES above still documents the real functional
-# grouping (kept for the "every part is accounted for" check and as
-# real design documentation), but placement itself no longer respects
-# zone boundaries - components from different zones will end up
-# interleaved on the board. That's a genuine tradeoff against real
-# trace-length/routing locality between a part and the rest of its own
-# circuit, made deliberately, not accidentally.
-#
-# Same transpose reasoning as the zone-block version this replaces:
-# bound the pack at the module's own real 82mm height (a genuine fixed
-# constraint) and let width grow only as much as actually needed,
-# rather than the reverse.
-_conn_x0, _conn_y0, _conn_x1, _conn_y1 = _conn_bbox["J1"]
-
-ZONE_GAP = 8.0
-_all_refs = [ref for _, refs in CORE_ZONES for ref in refs]
-_fp_bbox = {}
-_flat_blocks = []
-for ref in _all_refs:
-    fp = load_footprint(parts[ref]["footprint"])
-    x0, y0, x1, y1 = footprint_bbox(fp)
-    _fp_bbox[ref] = (x0, y0, x1, y1)
-    _flat_blocks.append((ref, x1 - x0, y1 - y0))
-
-_flat_blocks_t = [(ref, h, w) for ref, w, h in _flat_blocks]
-_flat_placed_t, _used_h_axis, _used_w_axis = pack_sized_blocks(
-    _flat_blocks_t, max_width=MODULE_KEEPOUT_H, margin=MARGIN)
-
-RIGHT_X0 = MODULE_KEEPOUT_W + ZONE_GAP
-_targets = {ref: (ty + RIGHT_X0, tx) for ref, (tx, ty) in _flat_placed_t.items()}
-packed_w = RIGHT_X0 + _used_w_axis
-packed_h = _used_h_axis
-
-# Same real "the module's height is a fixed cost, use it instead of
-# leaving it blank" fix as before, now operating on individual real
-# component target positions rather than whole zone blocks.
-if 0 < packed_h < MODULE_KEEPOUT_H:
-    _y_scale = MODULE_KEEPOUT_H / packed_h
-    _tight_h = packed_h
-    _targets = {ref: (x, y * _y_scale) for ref, (x, y) in _targets.items()}
-    packed_h = MODULE_KEEPOUT_H
-    print(f"Stretched component spacing to fill the module's real "
-          f"{MODULE_KEEPOUT_H:.0f}mm height (was {_tight_h:.1f}mm tight-packed).")
-
-# Convert each part's real target (bbox top-left corner) into its real
-# footprint origin (subtract the footprint's own local bbox-min corner
-# so that corner, not the footprint's local (0,0), lands on the real
-# target position) - this pass doesn't rotate parts, so no rotation
-# correction is needed here.
-for ref in _all_refs:
-    x0, y0, x1, y1 = _fp_bbox[ref]
-    tx, ty = _targets[ref]
-    placed_rel[ref] = (tx + BOARD_MARGIN - x0, ty + BOARD_MARGIN - y0)
-
-# packed_w already has the module column (RIGHT_X0) baked in, and
-# packed_h is already exactly the module's own real height (either from
-# the transposed pack's own real cap, or stretched up to it above) -
-# both already reflect the real minimum, no separate max() needed.
-board_width = packed_w + 2 * BOARD_MARGIN
-board_height = packed_h + 2 * BOARD_MARGIN
-
-print(f"Real minimal board size: {board_width:.1f} x {board_height:.1f}mm "
-      f"(module keepout {MODULE_KEEPOUT_W:.0f}x{MODULE_KEEPOUT_H:.0f}mm is a "
-      f"real fixed obstacle, the 5 zones packed tightly around it - not "
-      f"forced into aligned rows/columns, per the user's own correction)")
-
-assert board_height <= DASH_OPENING_H * 1.5, (
-    f"board_height {board_height:.1f}mm is implausibly large even against "
-    f"1.5x the real dash-opening hard limit ({DASH_OPENING_H:.1f}mm) - "
-    f"something in the zone packing has gone wrong, not just \"needs a "
-    f"bigger board\"")
-# NOTE: board_height is NOT asserted against the bare DASH_OPENING_H the
-# way gauges/'s own board is - this board's real installation depth in
-# the dash (in front of/behind/beside gauges/) isn't resolved yet (see
-# README's own note on the stacked/side-by-side/gap-based options all
-# being viable), so a hard fail here would be asserting a constraint
-# that isn't actually confirmed yet, not a real one.
-
-# Place U1 (module keepout) at top-left - the fixed obstacle everything
-# else was packed around.
-_mod_cx = BOARD_MARGIN + MODULE_KEEPOUT_W / 2
-_mod_cy = BOARD_MARGIN + MODULE_KEEPOUT_H / 2
-placed_rel["J1"] = (_mod_cx - (_conn_x0 + _conn_x1) / 2, _mod_cy - (_conn_y0 + _conn_y1) / 2)
+assert board_height <= DASH_OPENING_H, (
+    f"board_height {board_height:.1f}mm exceeds the dash-opening hard limit "
+    f"({DASH_OPENING_H:.1f}mm)")
 
 PAGE_W, PAGE_H = 420.0, 297.0  # A3 landscape - this board is much
                                  # smaller than gauges/, no A2 needed
@@ -501,6 +345,25 @@ BOARD_OFFSET_Y = round((PAGE_H - board_height) / 2, 2)
 placed = {ref: (round(x + BOARD_OFFSET_X, 2), round(y + BOARD_OFFSET_Y, 2))
           for ref, (x, y) in placed_rel.items()}
 
+def _rot_xy(x, y, a):
+    """KiCad file rotation (positive = counter-clockwise on screen, y down)."""
+    a %= 360
+    if a == 0:
+        return x, y
+    if a == 90:
+        return y, -x
+    if a == 180:
+        return -x, -y
+    return -y, x
+
+
+def _rot_bbox(bb, a):
+    x0, y0, x1, y1 = bb
+    pts = [_rot_xy(x, y, a) for x, y in ((x0, y0), (x1, y0), (x0, y1), (x1, y1))]
+    return (min(p[0] for p in pts), min(p[1] for p in pts),
+            max(p[0] for p in pts), max(p[1] for p in pts))
+
+
 # ---------------------------------------------------------------------------
 # 5. Build footprint instances: real part, real pads, real nets, real position
 # ---------------------------------------------------------------------------
@@ -508,17 +371,19 @@ ref_label_pos = {}
 for ref, info in parts.items():
     fp = load_footprint(info["footprint"])
     x, y = placed[ref]
-    angle = 90 if ref in rotated_refs else 0
+    angle = part_rot.get(ref, 0)
     fp.position = Position(round(x, 3), round(y, 3), angle)
     fp.path = f"/{info['uuid']}"
     if angle:
         for pad in fp.pads:
-            pad.position.angle = angle
+            pad.position.angle = ((pad.position.angle or 0) + angle) % 360
     lx0, ly0, lx1, ly1 = footprint_bbox(fp)
-    if angle == 90:
-        ref_label_pos[ref] = (round(lx1 + 0.5, 2), 0.0)
-    else:
-        ref_label_pos[ref] = (0.0, round(ly0 - 0.5, 2))
+    # Reference label: put it just above the part as seen on the board. The
+    # property offset is stored in the footprint's own (rotated) frame, so
+    # convert "just above the rotated bbox" back through the inverse rotation.
+    _, _ry0, _, _ = _rot_bbox((lx0, ly0, lx1, ly1), angle)
+    _lx, _ly = _rot_xy(0.0, _ry0 - 0.5, (-angle) % 360)
+    ref_label_pos[ref] = (round(_lx, 2), round(_ly, 2))
     for item in fp.graphicItems:
         if getattr(item, "type", None) == "reference":
             item.text = ref
@@ -547,7 +412,7 @@ for ref, info in parts.items():
 #     enough, no extra holes needed.
 # ---------------------------------------------------------------------------
 MOUNTING_HOLE_FP = "MountingHole:MountingHole_3.2mm_M3"
-MOUNTING_HOLE_INSET = 7.0
+MOUNTING_HOLE_INSET = 5.0
 _mh_positions = [
     ("MH1", BOARD_OFFSET_X + MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
     ("MH2", BOARD_OFFSET_X + board_width - MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
@@ -563,6 +428,73 @@ for mh_ref, mh_x, mh_y in _mh_positions:
     board.footprints.append(mh_fp)
 print(f"Added {len(_mh_positions)} M3 mounting holes (4 corners - this "
       f"board is compact, not long/thin like gauges/)")
+
+# ---------------------------------------------------------------------------
+# 5b2. DSI lanes (REVIEW FIX 2026-10-04). The autorouter left the pairs 10-30 mm
+#      apart in length (D1_P 25.3 mm vs D1_N 11.2 mm) and on different layers.
+#      J1 lists each pair N then P, J4 lists it P then N, so every pair has to
+#      swap once between the connectors; dsi_route.py plans that crossing with
+#      matched lengths. The copper is added by route_board.py AFTER the
+#      autorouter (FreeRouting hangs when the board already carries wiring), with
+#      the corridor fenced off from the autorouter so nothing else lands in it.
+#      Here the plan is only computed, to report lengths and write the corridor.
+# ---------------------------------------------------------------------------
+import dsi_route as _dsi_route
+
+
+def _pad_center(ref, net):
+    fp = next(f for f in board.footprints if f.properties.get("Reference") == ref)
+    hits = [p for p in fp.pads if p.net and p.net.name == net]
+    assert len(hits) == 1, (ref, net, len(hits))
+    p = hits[0]
+    rx, ry = _rot_xy(p.position.X, p.position.Y, fp.position.angle or 0)
+    # absolute pad half-height (the pad angle in the file already includes the
+    # footprint rotation)
+    a = (p.position.angle or 0) % 180
+    hh = (p.size.Y if a == 0 else p.size.X) / 2
+    return fp.position.X + rx, fp.position.Y + ry, hh
+
+
+_dsi_items, _dsi_report, _dsi_corridor = _dsi_route.plan(_pad_center)
+for _lane, (_ln, _lp) in _dsi_report.items():
+    print(f"  DSI {_lane}: N {_ln:.2f} mm (F.Cu), P {_lp:.2f} mm (F.Cu+B.Cu, 2 vias), "
+          f"skew {abs(_ln - _lp):.2f} mm")
+
+# ---------------------------------------------------------------------------
+# 5c. Regions where In1.Cu must stay solid GND (read by route_board.py, which
+#     turns them into Specctra wire keepouts so the autorouter keeps signal
+#     traces out of them; GND vias can still land). REVIEW FIX 2026-10-04:
+#     the plane has to be a real reference/return path under the switching
+#     converters and the panel's DSI lanes, not Swiss cheese. Elsewhere a few
+#     slow signals may still cross In1 (forcing the whole layer solid left 34
+#     connections unroutable on this board).
+# ---------------------------------------------------------------------------
+def _fp_by_ref(r):
+    return next(f for f in board.footprints if f.properties.get("Reference") == r)
+
+
+def _cell_rect(cell_name, pad=1.5):
+    xs0, ys0, xs1, ys1 = [], [], [], []
+    for r in [_cells.CELLS[cell_name]["anchor"]] + _cells.CELLS[cell_name]["order"]:
+        fp = _fp_by_ref(r)
+        bx0, by0, bx1, by1 = _rot_bbox(footprint_bbox(fp), fp.position.angle or 0)
+        xs0.append(fp.position.X + bx0)
+        ys0.append(fp.position.Y + by0)
+        xs1.append(fp.position.X + bx1)
+        ys1.append(fp.position.Y + by1)
+    return [min(xs0) - pad, min(ys0) - pad, max(xs1) + pad, max(ys1) + pad]
+
+
+# The DSI corridor is the one region enforced as solid GND on In1 (and kept
+# clear of all other copper): forcing In1 solid under the converter cells as
+# well left 1-10 connections unroutable around the 0.5 mm-pitch TPS65131 /
+# LM61460 pins (their GND and feedback escapes need the layer). The converter
+# cells are reported instead (route_board.py prints how much In1 wiring ends up
+# inside each one) so the compromise is measured, not assumed.
+_report_rects = {name: _cell_rect(name) for name in ("BUCK", "BIAS", "BACKLIGHT")}
+json.dump({"dsi_corridor_rect_mm": list(_dsi_corridor), "in1_report_rects_mm": _report_rects},
+          open(os.path.join(HERE, "plane_keepouts.json"), "w"), indent=1)
+print("DSI corridor (mm):", [round(v, 2) for v in _dsi_corridor])
 
 print(f"Board outline: {board_width:.1f} x {board_height:.1f} mm, "
       f"{len(board.footprints)} footprints, {len(net_registry)} nets")
@@ -584,10 +516,10 @@ for p1, p2 in [((ox, oy), (ex, oy)), ((ex, oy), (ex, ey)),
 #     this real estate is reserved for the Verdin module, not empty
 #     board area a future edit might accidentally fill.
 # ---------------------------------------------------------------------------
-_kx0 = BOARD_OFFSET_X + BOARD_MARGIN
-_ky0 = BOARD_OFFSET_Y + BOARD_MARGIN
-_kx1 = _kx0 + MODULE_KEEPOUT_W
-_ky1 = _ky0 + MODULE_KEEPOUT_H
+_kx0 = BOARD_OFFSET_X + KEEP[0]
+_ky0 = BOARD_OFFSET_Y + KEEP[1]
+_kx1 = BOARD_OFFSET_X + KEEP[2]
+_ky1 = BOARD_OFFSET_Y + KEEP[3]
 for p1, p2 in [((_kx0, _ky0), (_kx1, _ky0)), ((_kx1, _ky0), (_kx1, _ky1)),
                ((_kx1, _ky1), (_kx0, _ky1)), ((_kx0, _ky1), (_kx0, _ky0))]:
     board.graphicItems.append(GrLine(
@@ -663,11 +595,10 @@ for _fp in board.footprints:
             continue
         _lx, _ly = _pad.position.X, _pad.position.Y
         _hw, _hh = _pad.size.X / 2, _pad.size.Y / 2
-        if _fangle == 90:
-            _ax, _ay = _fx + _ly, _fy - _lx
+        _rx, _ry = _rot_xy(_lx, _ly, _fangle)
+        _ax, _ay = _fx + _rx, _fy + _ry
+        if _fangle % 180 == 90:
             _hw, _hh = _hh, _hw
-        else:
-            _ax, _ay = _fx + _lx, _fy + _ly
         thru_hole_boxes.append((_ax - _hw - PAD_CLEARANCE_MM, _ay - _hh - PAD_CLEARANCE_MM,
                                  _ax + _hw + PAD_CLEARANCE_MM, _ay + _hh + PAD_CLEARANCE_MM))
 
@@ -854,8 +785,8 @@ assert len(board.footprints) == len(parts) + MECHANICAL_FOOTPRINT_COUNT, \
 boxes = []
 for fp in board.footprints:
     x0, y0, x1, y1 = footprint_bbox(fp)
-    if fp.position.angle == 90:
-        x0, y0, x1, y1 = y0, -x1, y1, -x0
+    if fp.position.angle:
+        x0, y0, x1, y1 = _rot_bbox((x0, y0, x1, y1), fp.position.angle)
     boxes.append((fp.properties.get("Reference", fp.path), fp.position.X + x0, fp.position.Y + y0,
                  fp.position.X + x1, fp.position.Y + y1))
 overlaps = []
@@ -914,7 +845,10 @@ print(f"Net check OK: all {len(sch_net_pins)} nets have matching pin "
 #   0.60mm -> ~2.24A   0.50mm -> ~1.96A   0.40mm -> ~1.67A  0.30mm -> ~1.33A
 assert "+12V_PROT" in pcb_net_pins, "+12V_PROT is not a real net on this board"
 TRUNK_WIDTH_LADDER = [1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
-TRUNK_NETS = ["+12V_PROT"]
+# The converter switch nodes carry the inductor's full peak current in short
+# hot loops, so they are widened too (the autorouter routes everything at
+# 0.2 mm and widen_trunks() fattens what has room). REVIEW FIX 2026-10-04.
+TRUNK_NETS = ["+12V_PROT", "SW_5V", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW"]
 
 board.to_file(PCB)
 print("Wrote", PCB)
@@ -922,7 +856,12 @@ print("Wrote", PCB)
 text = open(PCB, encoding="utf-8").read()
 for ref, (dx, dy) in ref_label_pos.items():
     old = f'(property "Reference" "{ref}")'
-    new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "F.SilkS") '
+    # Tight converter cells leave no room for 1.0 mm reference text beside every
+    # 0603: only ICs, connectors, the fuse holder and jumpers keep silkscreen
+    # labels; passives and small transistors carry theirs on F.Fab (still in
+    # the assembly drawing and the BOM, just not printed on the board).
+    label_layer = "F.SilkS" if ref[0] in "UJF" else "F.Fab"
+    new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "{label_layer}") '
            f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)
     assert count == 1, f"expected exactly 1 bare Reference property for {ref}, found {count}"

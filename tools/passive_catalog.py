@@ -38,6 +38,7 @@ CAP_MFR = {"EEH-ZA1V101P": "Panasonic"}
 
 SENSE = {
     (2e-3, "1206"): ("KRL3216E-C-R002-G-T5", "Susumu", "2 mohm 2% 1206 current sense, AEC-Q200", "verified"),
+    (5e-3, "1206"): ("KRL3216E-M-R005-F-T5", "Susumu", "5 mohm 1% 1206 current sense, AEC-Q200 (seen on a distributor listing; confirm series suffix against Susumu's datasheet at order time)", "pattern"),
 }
 
 OTHER = {

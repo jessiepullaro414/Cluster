@@ -135,10 +135,59 @@ def export_dsn():
     # contain sequences like "\Users" that a plain (non-raw) generated string
     # literal misreads as a unicode escape (\U...); repr() escapes correctly
     # no matter where the path lands in the generated script text.
+    # REVIEW FIX 2026-10-04: In1.Cu is a GND plane, not a fourth routing
+    # layer. FreeRouting used to route thousands of mm of signals on the inner
+    # layers, and the GND/power pours added afterwards then cut those routes up
+    # (the 2026-10-03 external review). A GND zone on In1.Cu is added to the
+    # IN-MEMORY board only, long enough to export the DSN: the exporter turns it
+    # into a "plane" so FreeRouting treats In1.Cu as pre-claimed and uses it only
+    # for GND vias. The routed board file itself never gets this zone; the real
+    # filled one is added by add_and_fill_zones() after routing, as before.
     run_kicad_python("DSN export", f'''
 import pcbnew
 board = pcbnew.LoadBoard({PCB!r})
+bbox = board.GetBoardEdgesBoundingBox()
+inset = pcbnew.FromMM({ZONE_INSET_MM})
+x0, y0 = bbox.GetLeft() + inset, bbox.GetTop() + inset
+x1, y1 = bbox.GetRight() - inset, bbox.GetBottom() - inset
+zone = pcbnew.ZONE(board)
+zone.SetLayer(pcbnew.In1_Cu)
+zone.SetNet(board.FindNet("GND"))
+zone.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+outline = pcbnew.SHAPE_POLY_SET()
+outline.NewOutline()
+for x, y in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]:
+    outline.Append(pcbnew.VECTOR2I(int(x), int(y)))
+zone.SetOutline(outline)
+board.Add(zone)
 ok = pcbnew.ExportSpecctraDSN(board, {DSN!r})
+if ok:
+    import json
+    cfg = json.load(open({KEEPOUTS!r}))
+    cx0, cy0, cx1, cy1 = cfg["dsi_corridor_rect_mm"]
+    txt = open({DSN!r}, encoding="utf-8").read()
+    # 1. The DSI pairs are routed by dsi_route.py after the autorouter, so drop
+    #    their far-end pins from the DSN: the autorouter then has nothing to
+    #    connect (the pads stay in as obstacles).
+    for net in ["DSI_D2_N", "DSI_D2_P", "DSI_CLK_N", "DSI_CLK_P", "DSI_D1_N", "DSI_D1_P", "DSI_D0_N", "DSI_D0_P"]:
+        i = txt.index("(net " + net + chr(10))
+        j = txt.index("(pins ", i)
+        k = txt.index(")", j)
+        pins = txt[j + 6:k].split()
+        txt = txt[:j] + "(pins " + pins[0] + txt[k:]
+    # 2. Fence the corridor: no other net's wires or vias on F.Cu / In1.Cu / B.Cu
+    #    inside it, so In1 stays an unbroken GND plane under the lanes and the
+    #    pair routes always fit.
+    i = txt.index("(plane GND (polygon In1.Cu")
+    j = txt.index("))", i)
+    pts = [(cx0, cy0), (cx1, cy0), (cx1, cy1), (cx0, cy1)]
+    poly = " ".join(str(int(round(x * 1000))) + " " + str(int(round(-y * 1000))) for x, y in pts)
+    extra = " (keepout dsi_corridor"
+    for layer in ("F.Cu", "In1.Cu", "B.Cu"):
+        extra += " (polygon " + layer + " 0 " + poly + ")"
+    extra += ")"
+    txt = txt[:j + 2] + extra + txt[j + 2:]
+    open({DSN!r}, "w", encoding="utf-8").write(txt)
 print("DSN export:", "OK" if ok else "FAILED", "->", {DSN!r})
 if not ok:
     raise SystemExit(1)
@@ -223,7 +272,59 @@ print("Saved routed board to", {PCB!r})
 ''')
 
 
+def add_dsi():
+    """Add the DSI pair routes planned by dsi_route.py (see its docstring)."""
+    run_kicad_python("DSI routes", f'''
+import sys
+sys.path.insert(0, {HERE!r})
+import pcbnew
+import dsi_route
+board = pcbnew.LoadBoard({PCB!r})
+mm = pcbnew.FromMM
+
+
+def pad(ref, net):
+    fp = board.FindFootprintByReference(ref)
+    hits = [p for p in fp.Pads() if p.GetNetname() == net]
+    assert len(hits) == 1, (ref, net, len(hits))
+    bb = hits[0].GetBoundingBox()
+    c = hits[0].GetPosition()
+    return pcbnew.ToMM(c.x), pcbnew.ToMM(c.y), pcbnew.ToMM(bb.GetHeight()) / 2
+
+
+items, report, corridor = dsi_route.plan(pad)
+layers = {{"F.Cu": pcbnew.F_Cu, "B.Cu": pcbnew.B_Cu}}
+for it in items:
+    if it[0] == "seg":
+        _, layer, net, pts = it
+        for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+            if abs(x0 - x1) < 1e-6 and abs(y0 - y1) < 1e-6:
+                continue
+            t = pcbnew.PCB_TRACK(board)
+            t.SetStart(pcbnew.VECTOR2I(mm(x0), mm(y0)))
+            t.SetEnd(pcbnew.VECTOR2I(mm(x1), mm(y1)))
+            t.SetWidth(mm(dsi_route.W))
+            t.SetLayer(layers[layer])
+            t.SetNet(board.FindNet(net))
+            board.Add(t)
+    else:
+        _, net, x, y = it
+        v = pcbnew.PCB_VIA(board)
+        v.SetPosition(pcbnew.VECTOR2I(mm(x), mm(y)))
+        v.SetViaType(pcbnew.VIATYPE_THROUGH)
+        v.SetWidth(mm(dsi_route.VIA_DIA))
+        v.SetDrill(mm(dsi_route.VIA_DRILL))
+        v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
+        v.SetNet(board.FindNet(net))
+        board.Add(v)
+board.Save({PCB!r})
+for lane, (ln, lp) in report.items():
+    print("DSI", lane, "N", ln, "mm, P", lp, "mm, skew", round(abs(ln - lp), 2), "mm")
+''')
+
+
 ZONE_INSET_MM = 0.5   # clearance from Edge.Cuts
+KEEPOUTS = os.path.join(HERE, "plane_keepouts.json")
 
 
 def add_and_fill_zones():
@@ -511,6 +612,7 @@ if __name__ == "__main__":
         export_dsn()
         route_until_clean()
         import_ses()
+        add_dsi()
         widen_trunks()
         add_and_fill_zones()
         real_unconnected = real_unconnected_count()

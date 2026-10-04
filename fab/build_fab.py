@@ -110,16 +110,21 @@ def build_board(board):
     run([KICAD_CLI, "pcb", "export", "pos", "--format", "csv", "--units", "mm",
          "--side", "both", "--smd-only", "--output", pos_raw, pcb])
     pos = os.path.join(out, f"{board}_pos.csv")
+    parts, lines = load_bom(board)
+    # Parts whose schematic value says DNP stay on the board but are left out
+    # of the placement file (the assembler must not place them).
+    dnp_refs = {p["ref"] for p in parts if "DNP" in p["value"]}
     with open(pos_raw, encoding="utf-8") as fi, open(pos, "w", newline="", encoding="utf-8") as fo:
         rd = csv.DictReader(fi)
         wr = csv.writer(fo)
         wr.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
         for r in rd:
+            if r["Ref"] in dnp_refs:
+                continue
             wr.writerow([r["Ref"], f'{float(r["PosX"]):.4f}mm', f'{float(r["PosY"]):.4f}mm',
                          "Top" if r["Side"] == "top" else "Bottom", r["Rot"]])
     os.remove(pos_raw)
 
-    parts, lines = load_bom(board)
     fp_by_ref = {p["ref"]: p["package"] for p in parts}
     bompath = os.path.join(out, f"{board}_bom.csv")
     n_tbd = 0
@@ -131,6 +136,7 @@ def build_board(board):
             if qty == 0:
                 continue
             status = "NEEDS PART SELECTION" if qual == "TBD" else (
+                "DNP: do not populate" if "[DNP" in desc else
                 "PATTERN: confirm in cart" if "[PATTERN" in desc else "ok")
             n_tbd += qual == "TBD"
             wr.writerow([mpn, mfr, qty, refs, package, cat, desc, status])

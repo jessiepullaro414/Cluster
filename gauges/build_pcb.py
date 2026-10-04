@@ -179,6 +179,27 @@ def net_number(name):
 # 4. Placement
 # ---------------------------------------------------------------------------
 MARGIN = 2.0
+VIRTUAL = {}   # name -> local bbox of a pre-placed power cell, filled below
+
+
+def _rot_xy(x, y, a):
+    """KiCad file rotation (positive = counter-clockwise on screen, y down)."""
+    a %= 360
+    if a == 0:
+        return x, y
+    if a == 90:
+        return y, -x
+    if a == 180:
+        return -x, -y
+    return -y, x
+
+
+def _rot_bbox(bb, a):
+    x0, y0, x1, y1 = bb
+    pts = [_rot_xy(x, y, a) for x, y in ((x0, y0), (x1, y0), (x0, y1), (x1, y1))]
+    return (min(p[0] for p in pts), min(p[1] for p in pts),
+            max(p[0] for p in pts), max(p[1] for p in pts))
+
 
 def skyline_pack(refs, max_width, margin, sort_key=None, initial_skyline=None):
     """Same real algorithm as every sibling project's build_pcb.py - see
@@ -186,8 +207,11 @@ def skyline_pack(refs, max_width, margin, sort_key=None, initial_skyline=None):
     rotated_set, used_width, used_height)."""
     sized = []
     for ref in refs:
-        fp = load_footprint(parts[ref]["footprint"])
-        x0, y0, x1, y1 = footprint_bbox(fp)
+        if ref in VIRTUAL:      # a pre-placed cell packed as one rigid block
+            x0, y0, x1, y1 = VIRTUAL[ref]
+        else:
+            fp = load_footprint(parts[ref]["footprint"])
+            x0, y0, x1, y1 = footprint_bbox(fp)
         sized.append((ref, x1 - x0, y1 - y0, x0, y0, x1, y1))
     sized.sort(key=sort_key or (lambda t: t[1] * t[2]), reverse=True)
 
@@ -368,11 +392,12 @@ LOCAL_CLUSTERS = {
     # J3 (speedo) and its whole BT817AQ local cluster are gone - that
     # subsystem lives on display/ now, not this board.
     "U8": ["R8", "C19"],                                            # coolant temp backlight
-    "U9": ["R9", "C20", "R19", "R20", "C31"],                       # battery gauge backlight + divider
+    "U9": ["R9", "C20", "R19", "R20", "C31", "D15"],                       # battery gauge backlight + divider
 }
 CORE_ZONES = [
     ("POWER", ["J1", "F1", "Q1", "U2", "U3", "U4", "D1", "C1", "C2",
-               "C3", "C10", "C11", "C12", "L1", "R2", "R3", "C45", "C46"]),
+               "C3", "C11", "C12", "L1", "R2", "R3", "C45", "C46", "Q3", "R48", "R49",
+               "R50", "R51", "R52", "R53", "R54", "C47", "C48", "C49"]),
     ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2"]),
     # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
     # ignition sense - see build_schematic.py's rev B comments.
@@ -381,7 +406,8 @@ CORE_ZONES = [
     ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8"]),
     ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "J7"]),
     ("AUX BL SWITCH", ["Q2", "R10", "R11"]),
-    ("SENSORS", ["R16", "R17", "R18", "C28", "C29", "C30"]),
+    ("SENSORS", ["R16", "R17", "R18", "C28", "C29", "C30", "R55", "R56", "R57",
+                 "D12", "D13", "D14"]),
 ]
 
 _accounted = set(DISPLAY_REFS)
@@ -395,6 +421,23 @@ assert not _missing, f"parts in the schematic but not assigned to any zone: {sor
 assert not _extra, f"zone refs that don't exist in the schematic: {sorted(_extra)}"
 
 rotated_refs = set()
+part_rot = {}   # per-part angle for cell members (cells carry their own rotations)
+
+# --- Power cells (cells.py): placed around their ICs first, then packed into
+# the POWER zone as rigid blocks. REVIEW FIX 2026-10-04 (switch node 26.8 mm
+# long, input capacitor far from the buck, surge front end scattered). ---
+import cells as _cells
+from cellplace import make_parts as _make_parts
+
+_cell_info = {r: parts[r] for c in _cells.CELLS.values() for r in [c["anchor"]] + c["order"]}
+_cell_parts = _make_parts(_cell_info, pad_net, load_footprint, footprint_bbox)
+_cell_res, _cell_used = _cells.plan_cells(_cell_parts)
+CELL_OF = {}
+for _cname, (_cpl, _cbb) in _cell_res.items():
+    VIRTUAL["@" + _cname] = _cbb
+    for _r in _cpl:
+        CELL_OF[_r] = "@" + _cname
+    print(f"  power cell {_cname}: {len(_cpl)} parts, {_cbb[2] - _cbb[0]:.1f}x{_cbb[3] - _cbb[1]:.1f}mm")
 
 # Real question asked (2026-09-23): "no reason to make it so big right?"
 # - correct. The board's WIDTH genuinely can't shrink below TARGET_W (the
@@ -425,7 +468,21 @@ for disp_ref, cluster_refs in LOCAL_CLUSTERS.items():
 # 2. Core zones: same, pack first, place later once board_height is real.
 zone_packed = []
 for name, refs in CORE_ZONES:
-    z_placed, z_rot, z_w, z_h = best_skyline_pack(refs, max_width=90.0, margin=MARGIN)
+    pack_refs = [r for r in refs if r not in CELL_OF] + sorted({CELL_OF[r] for r in refs if r in CELL_OF})
+    z_placed, z_rot, z_w, z_h = best_skyline_pack(pack_refs, max_width=60.0, margin=MARGIN)
+    for vname in [r for r in pack_refs if r in VIRTUAL]:
+        vx, vy = z_placed.pop(vname)
+        cell_placed = _cell_res[vname[1:]][0]
+        rotated = vname in z_rot
+        z_rot.discard(vname)
+        for member, (mx, my, ma) in cell_placed.items():
+            if rotated:
+                rx, ry = _rot_xy(mx, my, 90)
+                part_rot[member] = (ma + 90) % 360
+            else:
+                rx, ry = mx, my
+                part_rot[member] = ma % 360
+            z_placed[member] = (vx + rx, vy + ry)
     rotated_refs |= z_rot
     zone_packed.append((name, refs, z_placed, z_w, z_h))
     print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
@@ -532,17 +589,18 @@ ref_label_pos = {}
 for ref, info in parts.items():
     fp = load_footprint(info["footprint"])
     x, y = placed[ref]
-    angle = 90 if ref in rotated_refs else 0
+    angle = part_rot.get(ref, 90 if ref in rotated_refs else 0)
     fp.position = Position(round(x, 3), round(y, 3), angle)
     fp.path = f"/{info['uuid']}"
     if angle:
         for pad in fp.pads:
-            pad.position.angle = angle
+            pad.position.angle = ((pad.position.angle or 0) + angle) % 360
     lx0, ly0, lx1, ly1 = footprint_bbox(fp)
-    if angle == 90:
-        ref_label_pos[ref] = (round(lx1 + 0.5, 2), 0.0)
-    else:
-        ref_label_pos[ref] = (0.0, round(ly0 - 0.5, 2))
+    # Reference label just above the part as seen on the board; the property
+    # offset is in the footprint's own rotated frame.
+    _, _ry0, _, _ = _rot_bbox((lx0, ly0, lx1, ly1), angle)
+    _lx, _ly = _rot_xy(0.0, _ry0 - 0.5, (-angle) % 360)
+    ref_label_pos[ref] = (round(_lx, 2), round(_ly, 2))
     for item in fp.graphicItems:
         if getattr(item, "type", None) == "reference":
             item.text = ref
@@ -686,11 +744,10 @@ for _fp in board.footprints:
             continue
         _lx, _ly = _pad.position.X, _pad.position.Y
         _hw, _hh = _pad.size.X / 2, _pad.size.Y / 2
-        if _fangle == 90:
-            _ax, _ay = _fx + _ly, _fy - _lx
+        _rx, _ry = _rot_xy(_lx, _ly, _fangle)
+        _ax, _ay = _fx + _rx, _fy + _ry
+        if _fangle % 180 == 90:
             _hw, _hh = _hh, _hw
-        else:
-            _ax, _ay = _fx + _lx, _fy + _ly
         thru_hole_boxes.append((_ax - _hw - PAD_CLEARANCE_MM, _ay - _hh - PAD_CLEARANCE_MM,
                                  _ax + _hw + PAD_CLEARANCE_MM, _ay + _hh + PAD_CLEARANCE_MM))
 
@@ -868,8 +925,8 @@ assert len(board.footprints) == len(parts) + MECHANICAL_FOOTPRINT_COUNT, \
 boxes = []
 for fp in board.footprints:
     x0, y0, x1, y1 = footprint_bbox(fp)
-    if fp.position.angle == 90:
-        x0, y0, x1, y1 = y0, -x1, y1, -x0
+    if fp.position.angle:
+        x0, y0, x1, y1 = _rot_bbox((x0, y0, x1, y1), fp.position.angle)
     boxes.append((fp.properties.get("Reference", fp.path), fp.position.X + x0, fp.position.Y + y0,
                  fp.position.X + x1, fp.position.Y + y1))
 overlaps = []
@@ -938,7 +995,11 @@ print("Wrote", PCB)
 text = open(PCB, encoding="utf-8").read()
 for ref, (dx, dy) in ref_label_pos.items():
     old = f'(property "Reference" "{ref}")'
-    new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "F.SilkS") '
+    # Tight cells leave no room for 1.0 mm reference text beside every 0603:
+    # only ICs, connectors, fuse holders and jumpers keep silkscreen labels;
+    # passives and small transistors carry theirs on F.Fab.
+    label_layer = "F.SilkS" if ref[0] in "UJFM" else "F.Fab"
+    new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "{label_layer}") '
            f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)
     assert count == 1, f"expected exactly 1 bare Reference property for {ref}, found {count}"

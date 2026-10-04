@@ -151,6 +151,13 @@ X1_NETS = {
     "JTAG_1_TRST#": "JTAG_TRST",
     "JTAG_1_VREF":  "JTAG_VREF",
     "VCC_BACKUP":   "VBACKUP",
+    # Bring-up access (review fix 2026-10-04): the A55 console UART and the
+    # USB 2.0 OTG port, on bench-only headers (J12, J13). UART_3 is the Verdin
+    # standard "main OS terminal" (datasheet), 1.8 V logic. USB_1_VBUS is a
+    # 5 V input (abs max 5.5 V) that only detects VBUS.
+    "UART_3_RXD": "UART_RXD", "UART_3_TXD": "UART_TXD",
+    "USB_1_D_P": "USB_DP", "USB_1_D_N": "USB_DN",
+    "USB_1_VBUS": "USB_VBUS", "USB_1_ID": "USB_ID",
 }
 
 # X1 pins this board deliberately does not use, outside the unused bank.
@@ -471,7 +478,12 @@ def build_generic_symbol(lib_id, ref_prefix, value, pins, footprint=None):
 
 # Two-terminal parts all share one shape; three-terminal N-FET its own.
 PASSIVE_PINS = [(1, "1", "passive"), (2, "2", "passive")]
-NFET_PINS = [(1, "G", "input"), (2, "D", "passive"), (3, "S", "passive")]
+# PMV55ENEA / PMV37ENEA SOT-23 pinout (Nexperia datasheets, Table 2): pin 1 =
+# gate, pin 2 = SOURCE, pin 3 = DRAIN. This table had pin 2 = drain and
+# pin 3 = source until the 2026-10-03 external review caught it; that
+# reversed the LM74930 ideal-diode/pass pair (Q1/Q2) and the ignition-wake
+# transistor (Q3).
+NFET_PINS = [(1, "G", "input"), (2, "S", "passive"), (3, "D", "passive")]
 
 rail_syms = {}     # net -> power symbol lib_id
 
@@ -661,7 +673,14 @@ def build_power_tree(x0, y0, usable_h):
     # with its own real (different) physical package size, not a shared
     # footprint - MF-RG500 needed its own real footprint swap in
     # parts.py, not just a Value/comment fix.
-    flow(fuse, "F1", "MF-RG500 (Bourns, 5.0A hold/8.5A trip, AEC-Q200)",
+    # REVIEW FIX 2026-10-03: MF-RG500 is a 16 V maximum PTC (Bourns
+    # datasheet: Vmax 16 V, operating -40..+85 C) sitting ahead of the
+    # protection circuit, so it is not rated for a 24 V jump start or a load
+    # dump, and its hold current drops sharply when hot. Replaced with the
+    # automotive MINI blade fuse + Keystone 3568 holder the gauges board
+    # already uses: Littelfuse 0297005.WXNV, 5 A, 32 V rated, 1 kA interrupt
+    # rating at 32 V, -40..+125 C.
+    flow(fuse, "F1", "Keystone 3568 holder, 5A Littelfuse 0297005.WXNV MINI blade fuse (32V, 1kA)",
          {"1": "VBAT_IN", "2": "VBAT_F"})
     # Real part (2026-09-28): same SMCJ33A gauges/ already uses for the
     # identical real role (12V-rail input surge clamp ahead of an ideal-
@@ -1185,6 +1204,16 @@ def build_control(x0, y0, usable_h):
                                      (2, "RECOVERY", "passive"),
                                      (3, "RESET", "passive"),
                                      (4, "GND", "passive")])
+    conn_uart = build_generic_symbol(f"{LIB}:CONN_UART", "J", "UART console",
+                                     [(1, "TXD", "passive"),
+                                      (2, "RXD", "passive"),
+                                      (3, "GND", "passive")])
+    conn_usb = build_generic_symbol(f"{LIB}:CONN_USB", "J", "USB OTG",
+                                    [(1, "VBUS", "passive"),
+                                     (2, "D_N", "passive"),
+                                     (3, "D_P", "passive"),
+                                     (4, "ID", "passive"),
+                                     (5, "GND", "passive")])
     conn_cell = build_generic_symbol(f"{LIB}:CONN_CELL", "J", "RTC cell",
                                      [(1, "VBAT", "passive"),
                                       (2, "GND", "passive")])
@@ -1210,6 +1239,16 @@ def build_control(x0, y0, usable_h):
     flow(conn_btn, "J9", "Samtec TSW-104-07-G-S buttons (bench only)", {
         "PWR_BTN": "PWR_BTN", "RECOVERY": "RECOVERY",
         "RESET": "RESET_MICO", "GND": "GND",
+    })
+    # Bring-up access: without these the first board has no console and no way
+    # to flash or debug over USB. Pin 1 is the module's TXD (the console
+    # adapter's RX goes there).
+    flow(conn_uart, "J12", "Samtec TSW-103-07-G-S A55 console UART_3 1.8V (bench only)", {
+        "TXD": "UART_TXD", "RXD": "UART_RXD", "GND": "GND",
+    })
+    flow(conn_usb, "J13", "Samtec TSW-105-07-G-S USB_1 OTG (bench only)", {
+        "VBUS": "USB_VBUS", "D_N": "USB_DN", "D_P": "USB_DP", "ID": "USB_ID",
+        "GND": "GND",
     })
     # These are active-low inputs to the module and are asserted by
     # shorting to ground, so each needs a pull-up to idle high. RECOVERY

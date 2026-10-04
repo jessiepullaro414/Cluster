@@ -27,6 +27,16 @@ BO_ 770 VehicleFluids: 8 GAUGES
  SG_ Counter : 52|4@1+ (1,0) [0|15] "" DISPLAY
  SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" DISPLAY
 
+BO_ 771 Indicators: 8 GAUGES
+ SG_ TurnLeft : 0|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ TurnRight : 1|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ HighBeam : 2|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ BrakeWarning : 3|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ AlternatorWarning : 4|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ OilWarning : 5|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ Counter : 52|4@1+ (1,0) [0|15] "" DISPLAY
+ SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" DISPLAY
+
 BO_ 769 GaugesStatus: 8 GAUGES
  SG_ FwMajor : 0|8@1+ (1,0) [0|255] "" DISPLAY
  SG_ FwMinor : 8|8@1+ (1,0) [0|255] "" DISPLAY
@@ -40,6 +50,7 @@ BO_ 769 GaugesStatus: 8 GAUGES
  SG_ BatteryFromCar : 23|1@1+ (1,0) [0|1] "" DISPLAY
  SG_ ActiveProfile : 24|8@1+ (1,0) [0|255] "" DISPLAY
  SG_ DisplayOffline : 32|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ RpmFromTach : 33|1@1+ (1,0) [0|1] "" DISPLAY
 
 BO_ 784 PowerState: 8 GAUGES
  SG_ IgnitionOn : 0|1@1+ (1,0) [0|1] "" DISPLAY
@@ -63,6 +74,13 @@ BO_ 1040 SpeedCalibration: 8 DISPLAY
  SG_ Counter : 52|4@1+ (1,0) [0|15] "" GAUGES
  SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" GAUGES
 
+BO_ 1056 InputConfig: 8 DISPLAY
+ SG_ LampInvertMask : 0|8@1+ (1,0) [0|63] "" GAUGES
+ SG_ TachEnabled : 8|1@1+ (1,0) [0|1] "" GAUGES
+ SG_ TachPulsesPerRev : 16|8@1+ (1,0) [1|16] "" GAUGES
+ SG_ Counter : 52|4@1+ (1,0) [0|15] "" GAUGES
+ SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" GAUGES
+
 BO_ 1264 DisplayHeartbeat: 8 DISPLAY
  SG_ State : 0|2@1+ (1,0) [0|3] "" GAUGES
  SG_ Counter : 52|4@1+ (1,0) [0|15] "" GAUGES
@@ -70,18 +88,22 @@ BO_ 1264 DisplayHeartbeat: 8 DISPLAY
 
 CM_ BO_ 768 "Consolidated motion data, chosen by gauges/ from the Hall input and the car bus.";
 CM_ BO_ 770 "Consolidated fluid data: ECU value if fresh, else local sender.";
+CM_ BO_ 771 "Indicator-lamp states from the six 12 V lamp inputs on gauges/ (1 = lamp on after the per-channel polarity setting), sent every 100 ms and on every change.";
 CM_ BO_ 769 "Health, identity and where each value currently comes from.";
 CM_ BO_ 784 "Ignition and sleep coordination; also sent on every change.";
 CM_ BO_ 1024 "Persistent settings owned by Android; sent on change and every second. gauges/ keeps the last copy in flash.";
 CM_ BO_ 1040 "Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile = 16000).";
+CM_ BO_ 1056 "Per-input options for the lamp and tach inputs on gauges/. A lamp wired ground-switched (the DNP pull-up fitted) idles high, so its bit here is set to invert it.";
 CM_ BO_ 1264 "Liveness plus coarse state; gauges/ marks the display offline if this stops.";
 
 BA_DEF_ BO_ "GenMsgCycleTime" INT 0 65535;
 BA_DEF_DEF_ "GenMsgCycleTime" 0;
 BA_ "GenMsgCycleTime" BO_ 768 50;
 BA_ "GenMsgCycleTime" BO_ 770 100;
+BA_ "GenMsgCycleTime" BO_ 771 100;
 BA_ "GenMsgCycleTime" BO_ 769 1000;
 BA_ "GenMsgCycleTime" BO_ 784 500;
 BA_ "GenMsgCycleTime" BO_ 1024 1000;
 BA_ "GenMsgCycleTime" BO_ 1040 1000;
+BA_ "GenMsgCycleTime" BO_ 1056 1000;
 BA_ "GenMsgCycleTime" BO_ 1264 1000;

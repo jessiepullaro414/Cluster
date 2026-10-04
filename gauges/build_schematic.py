@@ -570,7 +570,12 @@ MCU_RIGHT = [P(6, "CAN0_RX", "input"), P(5, "CAN0_TX", "output"),
              # Rev B (2026-09-30) - see the "REV B PIN CLAIMS" comment above.
              P(52, "CAN1_RX", "input"), P(51, "CAN1_TX", "output"),
              P(58, "SPEED_IN", "input"), P(59, "IGN_SENSE", "input"),
-             P(60, "CAN1_STB", "output")]
+             P(60, "CAN1_STB", "output"),
+             # Rev C (2026-10-04): tach input and the six indicator-lamp inputs.
+             P(57, "TACH_IN", "input"),
+             P(35, "LAMP_TURN_L", "input"), P(36, "LAMP_TURN_R", "input"),
+             P(37, "LAMP_HIGH_BEAM", "input"), P(38, "LAMP_BRAKE", "input"),
+             P(43, "LAMP_ALT", "input"), P(44, "LAMP_OIL", "input")]
 MCU_BOTTOM_EXTRA = [P(30, "LPSPI2_CS", "output"), P(42, "AUX_RST", "output"),
                     P(39, "BL_EN", "output"),
                     P(18, "CAN0_EN", "output"), P(19, "CAN0_STB_N", "output")]
@@ -655,6 +660,17 @@ register_symbol(f"{LIB}:CONN_LINK", "J", "Molex KK-254 22-27-2031 (private link 
                 "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical",
                 {'L': [P(1, "CAN1_H", "passive"), P(2, "CAN1_L", "passive"),
                        P(3, "GND", "passive")]},
+                hide_pin_names=True)
+register_symbol(f"{LIB}:CONN_LAMPS", "J", "Molex KK-254 22-27-2071 (indicator lamp inputs)",
+                "Connector_Molex:Molex_KK-254_AE-6410-07A_1x07_P2.54mm_Vertical",
+                {'L': [P(1, "LAMP_TURN_L", "passive"), P(2, "LAMP_TURN_R", "passive"),
+                       P(3, "LAMP_HIGH_BEAM", "passive"), P(4, "LAMP_BRAKE", "passive"),
+                       P(5, "LAMP_ALT", "passive"), P(6, "LAMP_OIL", "passive"),
+                       P(7, "GND", "passive")]},
+                hide_pin_names=True)
+register_symbol(f"{LIB}:CONN_TACH", "J", "Molex KK-254 22-27-2021 (tach input)",
+                "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
+                {'L': [P(1, "TACH_SIG", "passive"), P(2, "GND", "passive")]},
                 hide_pin_names=True)
 register_symbol(f"{LIB}:CONN_SPEED", "J", "Molex KK-254 22-27-2021 (Hall speed sender input)",
                 "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
@@ -1001,6 +1017,60 @@ place(f"{LIB}:C_V", "C44", "10nF input filter (AEC-Q200)", 820, 500,
 place(f"{LIB}:D_BAV99", "D11", "BAV99-Q input clamp (AEC-Q101)", 860, 485,
       conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'),
             '3': ('label', 'IGN_SENSE')})
+
+section_text("REV C: INDICATOR LAMPS (6 x 12 V-ACTIVE) AND TACH INPUT", 1000, 330)
+# 1966 Mustang: the lamps are 12 V-active (the lamp wire is driven to battery
+# when the light should be on; the bulb's other side is ground). Each input:
+# 33k series + 15k to ground = divider 0.31: 9 V -> 2.8 V (above the S32K144's
+# ~2.3 V input-high at 3.3 V), 0 V when the wire is open or low (the 15k pull-
+# down defines it). A BAV99-Q clamp holds the pin to the rails and 10 nF gives
+# ~0.5 ms of filtering (turn-signal flashing is ~1.5 Hz; firmware debounces).
+# GROUND-SWITCHED lamps (a sender or switch that pulls the wire low when
+# active): fit the DNP 4.7k pull-up from the lamp pin to VIN_PROT; the input
+# then idles high and reads low when active (firmware inverts that channel).
+LAMPS = [("LAMP_TURN_L", "Left turn"), ("LAMP_TURN_R", "Right turn"),
+         ("LAMP_HIGH_BEAM", "High beam"), ("LAMP_BRAKE", "Brake / parking brake"),
+         ("LAMP_ALT", "Alternator / charge"), ("LAMP_OIL", "Oil pressure")]
+_lamp_conn = {str(i + 1): ('label', LAMPS[i][0] + "_RAW") for i in range(6)}
+_lamp_conn['7'] = ('pwr', 'GND', 7.62)
+place(f"{LIB}:CONN_LAMPS", "J10", "KK-254 22-27-2071, indicator lamp inputs (6 x 12 V-active + ground)", 1000, 400,
+      conn=_lamp_conn)
+for i, (net, what) in enumerate(LAMPS):
+    x = 1060 + i * 55
+    place(f"{LIB}:R_V", f"R{58 + 3 * i}", f"33k series, {what} (AEC-Q200)", x, 360,
+          conn={'1': ('label', net + "_RAW"), '2': ('label', net)})
+    place(f"{LIB}:R_V", f"R{59 + 3 * i}", f"15k divider bottom, {what} (AEC-Q200)", x, 395,
+          conn={'1': ('label', net), '2': ('pwr', 'GND')})
+    place(f"{LIB}:R_V", f"R{60 + 3 * i}", f"4.7k pull-up to VIN_PROT, DNP: fit only if the {what} lamp is ground-switched (AEC-Q200)", x, 430,
+          conn={'1': ('label', 'VIN_PROT'), '2': ('label', net + "_RAW")})
+    place(f"{LIB}:C_V", f"C{50 + i}", f"10nF input filter, {what} (AEC-Q200)", x + 20, 395,
+          conn={'1': ('label', net), '2': ('pwr', 'GND')})
+    place(f"{LIB}:D_BAV99", f"D{16 + i}", f"BAV99-Q input clamp, {what} (AEC-Q101)", x + 25, 365,
+          conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', net)})
+
+# Tach input. Two sources are possible: an ECU / coil-driver tach output (clean
+# 12 V pulses, the normal case) or the coil negative terminal of a points
+# ignition, which rings to several hundred volts. Two 18k 1206 resistors in
+# series (200 V each) plus 15k to ground: 12 V -> 3.5 V, 8 V -> 2.35 V, and a
+# 300 V spike puts 150 V across each resistor and about 8 mA into the clamp for
+# microseconds. 2.2 nF filters the ringing (corner ~5 kHz, an 8-cylinder engine
+# at 6000 rpm is 400 Hz). A DNP 4.7k pull-up serves open-collector tach outputs.
+# Coil-negative operation on a points system is NOT validated; prefer the ECU's
+# tach output or a proper coil-driver tach signal.
+place(f"{LIB}:CONN_TACH", "J11", "KK-254 22-27-2021, tach input (signal + ground)", 1000, 500,
+      conn={'1': ('label', 'TACH_RAW'), '2': ('pwr', 'GND', 7.62)})
+place(f"{LIB}:R_1206", "R76", "18k series, tach, 200V (AEC-Q200)", 1060, 500,
+      conn={'1': ('label', 'TACH_RAW'), '2': ('label', 'TACH_MID')})
+place(f"{LIB}:R_1206", "R77", "18k series, tach, 200V (AEC-Q200)", 1100, 500,
+      conn={'1': ('label', 'TACH_MID'), '2': ('label', 'TACH_IN')})
+place(f"{LIB}:R_V", "R78", "15k divider bottom, tach (AEC-Q200)", 1140, 520,
+      conn={'1': ('label', 'TACH_IN'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R79", "4.7k pull-up to VIN_PROT, DNP: fit only for an open-collector tach output (AEC-Q200)", 1060, 540,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('label', 'TACH_RAW')})
+place(f"{LIB}:C_V", "C56", "2.2nF input filter, tach (AEC-Q200)", 1170, 520,
+      conn={'1': ('label', 'TACH_IN'), '2': ('pwr', 'GND')})
+place(f"{LIB}:D_BAV99", "D22", "BAV99-Q input clamp, tach (AEC-Q101)", 1200, 505,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'TACH_IN')})
 
 # --- 4x GC9A01 aux gauges (plan Step 3) ---
 section_text("4x GC9A01 AUX GAUGES: FUEL / OIL / COOLANT TEMP / BATTERY (PLAN STEP 3)", 30, 430)

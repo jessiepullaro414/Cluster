@@ -4,10 +4,11 @@ Manufacturer Part Number,Manufacturer,Qty display (per board),Qty gauges (per bo
 0297002,Littelfuse,0,1,2A MINI blade fuse element (main 12V input) - same real element ecu-pcb's own BOM already cites,ok
 0297005.WXNV,Littelfuse,1,0,"5A MINI blade fuse element, 32V, 1kA interrupt rating at 32V, -40..+125C (one per board; plugs into the F1 holder)",ok
 1058,Keystone Electronics,1,0,"20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments",ok
-22-27-2021,Molex,0,1,"2-circuit KK 254 (2.54mm) vertical header, Hall speed sender input (signal + ground); the sender is powered from the car harness, not from this board",ok
+22-27-2021,Molex,0,2,"2-circuit KK 254 (2.54mm) vertical header, tach input (signal + ground), ECU/coil-driver tach output; coil-negative use on a points ignition is not validated",ok
 22-27-2031,Molex,1,1,"3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/'s J7 uses. This is the display<->gauges<->ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail",ok
 22-27-2041,Molex,1,0,"4-circuit KK 254 (2.54mm) vertical header for the rotary dial: sensor 5V (switched), sensor signal, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts",ok
 22-27-2051,Molex,0,1,"5-position KK 254 (2.54mm) header, board side of the CAN0+sender pigtail",ok
+22-27-2071,Molex,0,1,"7-circuit KK 254 (2.54mm) vertical header, six 12 V-active indicator-lamp inputs (left turn, right turn, high beam, brake, alternator, oil) plus ground; mating housing and crimps are separate Molex KK 254 parts",ok
 2309409-2,TE Connectivity,1,0,"260-position DDR4 SODIMM socket, 5.2mm stack - the socket Toradex recommends in datasheet section 6.5.1 (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), matching this board's SODIMM-260_DDR4_H4.0-5.2 footprint. The Verdin SoM that plugs into it is its own line under Companion parts (review 2026-10-03: the two were one line)",ok
 3568,Keystone Electronics,1,1,"Mini blade fuse holder, PCB mount - same real holder gauges/ uses. REVIEW FIX 2026-10-03: replaces the Bourns MF-RG500 PTC (16V max, -40..+85C, not rated for jump start or load dump). The 5A fuse element is the next line",ok
 ABM8AIG-8.000MHZ-12-2Z-T3,Abracon,0,1,"8 MHz 12 pF crystal 3.2 x 2.5 mm, +/-20 ppm, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -19,7 +20,7 @@ AC0603FR-0711K5L,Yageo,1,1,"Resistor 11k5 1% 0603 thick film, AEC-Q200 [PATTERN:
 AC0603FR-07120RL,Yageo,0,4,"Resistor 120R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07124KL,Yageo,1,0,"Resistor 124k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07130KL,Yageo,1,0,"Resistor 130k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-0715KL,Yageo,0,1,"Resistor 15k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0715KL,Yageo,0,8,"Resistor 15k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-071KL,Yageo,2,6,"Resistor 1k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-071R1L,Yageo,1,0,"Resistor 1R1 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0722K1L,Yageo,1,0,"Resistor 22k1 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -27,11 +28,11 @@ AC0603FR-0724K9L,Yageo,2,0,"Resistor 24k9 1% 0603 thick film, AEC-Q200 [PATTERN:
 AC0603FR-0727KL,Yageo,0,1,"Resistor 27k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-072K05L,Yageo,1,1,"Resistor 2k05 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-072K49L,Yageo,0,1,"Resistor 2k49 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-0733KL,Yageo,1,1,"Resistor 33k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0733KL,Yageo,1,7,"Resistor 33k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0747KL,Yageo,1,0,"Resistor 47k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749K9L,Yageo,0,1,"Resistor 49k9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749R9L,Yageo,1,1,"Resistor 49R9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-074K7L,Yageo,0,1,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-074K7L,Yageo,0,8,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart] [DNP: not fitted by default; the pads stay on the board for the option named in the schematic value (CAN0 end-node termination, ground-switched lamp pull-up, open-collector tach pull-up)]",DNP: do not populate
 AC0603FR-07536KL,Yageo,1,0,"Resistor 536k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07562KL,Yageo,1,0,"Resistor 562k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0756KL,Yageo,1,1,"Resistor 56k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -40,7 +41,8 @@ AC0603FR-0760RL,Yageo,2,4,"Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: c
 AC0603FR-076K04L,Yageo,1,0,"Resistor 6k04 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0780K6L,Yageo,0,1,"Resistor 80k6 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603JR-070RL,Yageo,1,0,"0 ohm jumper 0603, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-BAV99-Q (confirm reel suffix at order time),Nexperia,3,6,"Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)",ok
+AC1206FR-0718KL,Yageo,0,2,"Resistor 18k 1% 1206 thick film, 200 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+BAV99-Q (confirm reel suffix at order time),Nexperia,3,13,"Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)",ok
 BLM18PG221SH1D,Murata,0,1,"220 ohm @100 MHz ferrite bead, 1.4 A, AEC-Q200",ok
 DTM06-3S,TE Connectivity (Deutsch DTM series),0,1,"3-position sealed harness pigtail connector, 12V input + GND + ignition - mates with J1's own board-side terminal block (rev B: was 2-position before the ignition wire was added)",ok
 DTM06-5S,TE Connectivity (Deutsch DTM series),0,1,5-position sealed harness pigtail connector: CAN0_H/L + 3x sender input - mates with J7's own board-side header,ok
@@ -55,8 +57,9 @@ GCM1885C1H180JA16D,Murata,0,2,"Capacitor, 18 pF C0G 50 V, AEC-Q200",ok
 GCM1885C1H220JA16D,Murata,1,0,"Capacitor, 22 pF C0G 50 V (Murata marks it NRND; still orderable, swap if unavailable), AEC-Q200",ok
 GCM188R71C105KA64D,Murata,3,3,"Capacitor, 1 uF X7R 16 V, AEC-Q200",ok
 GCM188R71H102KA37D,Murata,0,1,"Capacitor, 1 nF X7R 50 V, AEC-Q200",ok
-GCM188R71H103KA37D,Murata,2,1,"Capacitor, 10 nF X7R 50 V, AEC-Q200",ok
+GCM188R71H103KA37D,Murata,2,7,"Capacitor, 10 nF X7R 50 V, AEC-Q200",ok
 GCM188R71H104KA57D,Murata,12,19,"Capacitor, 100 nF X7R 50 V, AEC-Q200",ok
+GCM188R71H222KA37D,Murata,0,1,"Capacitor, 2.2 nF X7R 50 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 GCM188R71H224KA64D,Murata,2,1,"Capacitor, 220 nF X7R 50 V, AEC-Q200",ok
 GCM188R71H472KA37D,Murata,2,2,"Capacitor, 4.7 nF X7R 50 V, AEC-Q200",ok
 GCM21BR71A106KE22L,Murata,3,0,"Capacitor, 10 uF X7R 10 V, AEC-Q200",ok

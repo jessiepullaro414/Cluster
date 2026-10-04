@@ -79,6 +79,18 @@ PRIVATE = [
              S("CoolantValid", 1, 0, 0, 1, "", 49, 1, rx=D),
              S("OilValid", 1, 0, 0, 1, "", 50, 1, rx=D),
          ] + e2e(D)),
+    dict(id=0x303, name="Indicators", sender="GAUGES", period=100, dlc=8,
+         doc="Indicator-lamp states from the six 12 V lamp inputs on gauges/ "
+             "(1 = lamp on after the per-channel polarity setting), sent "
+             "every 100 ms and on every change.",
+         signals=[
+             S("TurnLeft", 1, 0, 0, 1, "", 0, 1, rx=D),
+             S("TurnRight", 1, 0, 0, 1, "", 1, 1, rx=D),
+             S("HighBeam", 1, 0, 0, 1, "", 2, 1, rx=D),
+             S("BrakeWarning", 1, 0, 0, 1, "", 3, 1, rx=D),
+             S("AlternatorWarning", 1, 0, 0, 1, "", 4, 1, rx=D),
+             S("OilWarning", 1, 0, 0, 1, "", 5, 1, rx=D),
+         ] + e2e(D)),
     dict(id=0x301, name="GaugesStatus", sender="GAUGES", period=1000, dlc=8,
          doc="Health, identity and where each value currently comes from.",
          signals=[
@@ -97,6 +109,8 @@ PRIVATE = [
                doc="car-bus profile in use: 0 none, 1 Haltech V2"),
              S("DisplayOffline", 1, 0, 0, 1, "", 32, 1, rx=D,
                doc="1 = gauges/ lost the display heartbeat"),
+             S("RpmFromTach", 1, 0, 0, 1, "", 33, 1, rx=D,
+               doc="1 = RPM comes from the tach input, 0 = car bus"),
          ]),
     dict(id=0x310, name="PowerState", sender="GAUGES", period=500, dlc=8,
          doc="Ignition and sleep coordination; also sent on every change.",
@@ -125,6 +139,20 @@ PRIVATE = [
                     "sender at 1000 rev/mile = 16000).",
          signals=[
              S("PulsesPerMile", 1, 0, 100, 200000, "", 0, 32, rx=G),
+         ] + e2e(G)),
+    dict(id=0x420, name="InputConfig", sender="DISPLAY", period=1000,
+         dlc=8, doc="Per-input options for the lamp and tach inputs on "
+                    "gauges/. A lamp wired ground-switched (the DNP pull-up "
+                    "fitted) idles high, so its bit here is set to invert it.",
+         signals=[
+             S("LampInvertMask", 1, 0, 0, 63, "", 0, 8, rx=G,
+               doc="bit 0..5 = turn L, turn R, high beam, brake, alternator, "
+                   "oil; 1 = active-low (ground-switched) lamp"),
+             S("TachEnabled", 1, 0, 0, 1, "", 8, 1, rx=G,
+               doc="0 = take RPM from the car bus only"),
+             S("TachPulsesPerRev", 1, 0, 1, 16, "", 16, 8, rx=G,
+               doc="sparks per crankshaft revolution (cylinders / 2 for a "
+                   "four-stroke wasted-spark or points system)"),
          ] + e2e(G)),
     dict(id=0x4F0, name="DisplayHeartbeat", sender="DISPLAY", period=1000,
          dlc=8, doc="Liveness plus coarse state; gauges/ marks the display "

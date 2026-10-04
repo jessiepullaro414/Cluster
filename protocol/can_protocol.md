@@ -12,10 +12,12 @@ Little-endian, 500 kbit/s (proposed). Messages with `Counter` and `Crc8` end wit
 |---|---|---|---|---|
 | 0x300 | VehicleMotion | GAUGES | 50 ms | 8 |
 | 0x302 | VehicleFluids | GAUGES | 100 ms | 8 |
+| 0x303 | Indicators | GAUGES | 100 ms | 8 |
 | 0x301 | GaugesStatus | GAUGES | 1000 ms | 8 |
 | 0x310 | PowerState | GAUGES | 500 ms | 8 |
 | 0x400 | DisplaySettings | DISPLAY | 1000 ms | 8 |
 | 0x410 | SpeedCalibration | DISPLAY | 1000 ms | 8 |
+| 0x420 | InputConfig | DISPLAY | 1000 ms | 8 |
 | 0x4F0 | DisplayHeartbeat | DISPLAY | 1000 ms | 8 |
 
 ### 0x300 VehicleMotion (GAUGES, 50 ms)
@@ -49,6 +51,21 @@ Consolidated fluid data: ECU value if fresh, else local sender.
 | Counter | 52 | 4 | 1 | 0 | 0..15 |  |
 | Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
 
+### 0x303 Indicators (GAUGES, 100 ms)
+
+Indicator-lamp states from the six 12 V lamp inputs on gauges/ (1 = lamp on after the per-channel polarity setting), sent every 100 ms and on every change.
+
+| Signal | Start bit | Length | Scale | Offset | Range | Unit |
+|---|---|---|---|---|---|---|
+| TurnLeft | 0 | 1 | 1 | 0 | 0..1 |  |
+| TurnRight | 1 | 1 | 1 | 0 | 0..1 |  |
+| HighBeam | 2 | 1 | 1 | 0 | 0..1 |  |
+| BrakeWarning | 3 | 1 | 1 | 0 | 0..1 |  |
+| AlternatorWarning | 4 | 1 | 1 | 0 | 0..1 |  |
+| OilWarning | 5 | 1 | 1 | 0 | 0..1 |  |
+| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
+| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+
 ### 0x301 GaugesStatus (GAUGES, 1000 ms)
 
 Health, identity and where each value currently comes from.
@@ -67,6 +84,7 @@ Health, identity and where each value currently comes from.
 | BatteryFromCar | 23 | 1 | 1 | 0 | 0..1 |  |
 | ActiveProfile | 24 | 8 | 1 | 0 | 0..255 |  |
 | DisplayOffline | 32 | 1 | 1 | 0 | 0..1 |  |
+| RpmFromTach | 33 | 1 | 1 | 0 | 0..1 |  |
 
 ### 0x310 PowerState (GAUGES, 500 ms)
 
@@ -102,6 +120,18 @@ Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
 | PulsesPerMile | 0 | 32 | 1 | 0 | 100..200000 |  |
+| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
+| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+
+### 0x420 InputConfig (DISPLAY, 1000 ms)
+
+Per-input options for the lamp and tach inputs on gauges/. A lamp wired ground-switched (the DNP pull-up fitted) idles high, so its bit here is set to invert it.
+
+| Signal | Start bit | Length | Scale | Offset | Range | Unit |
+|---|---|---|---|---|---|---|
+| LampInvertMask | 0 | 8 | 1 | 0 | 0..63 |  |
+| TachEnabled | 8 | 1 | 1 | 0 | 0..1 |  |
+| TachPulsesPerRev | 16 | 8 | 1 | 0 | 1..16 |  |
 | Counter | 52 | 4 | 1 | 0 | 0..15 |  |
 | Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
 

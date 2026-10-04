@@ -392,13 +392,16 @@ LOCAL_CLUSTERS = {
     # J3 (speedo) and its whole BT817AQ local cluster are gone - that
     # subsystem lives on display/ now, not this board.
     "U8": ["R8", "C19"],                                            # coolant temp backlight
-    "U9": ["R9", "C20", "R19", "R20", "C31", "D15"],                       # battery gauge backlight + divider
+    "U9": ["R9", "C20"],                                            # battery gauge backlight
 }
 CORE_ZONES = [
     ("POWER", ["J1", "F1", "Q1", "U2", "U3", "U4", "D1", "C1", "C2",
                "C3", "C11", "C12", "L1", "R2", "R3", "C45", "C46", "Q3", "R48", "R49",
                "R50", "R51", "R52", "R53", "R54", "C47", "C48", "C49"]),
     ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2"]),
+    # Rev C (2026-10-04): six 12 V-active indicator-lamp inputs and the tach input.
+    ("LAMPS+TACH", ["J10", "J11"] + [f"R{n}" for n in range(58, 80)] +
+                   [f"C{n}" for n in range(50, 57)] + [f"D{n}" for n in range(16, 23)]),
     # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
     # ignition sense - see build_schematic.py's rev B comments.
     ("SPEED+IGN", ["J9", "R43", "R44", "R45", "C43", "D10",
@@ -406,9 +409,19 @@ CORE_ZONES = [
     ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8"]),
     ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "J7"]),
     ("AUX BL SWITCH", ["Q2", "R10", "R11"]),
-    ("SENSORS", ["R16", "R17", "R18", "C28", "C29", "C30", "R55", "R56", "R57",
+    ("SENSORS", ["R19", "R20", "C31", "D15",   # battery-voltage divider: next to the ADC, not out at the battery gauge
+                 "R16", "R17", "R18", "C28", "C29", "C30", "R55", "R56", "R57",
                  "D12", "D13", "D14"]),
 ]
+
+# Left-to-right order of the core zones. The analog sender path runs
+# CAN0/J7 -> SENSORS -> MCU ADC pins and the Hall/ignition/CAN1 inputs also
+# land on the MCU, so those sit next to the MCU; the indicator-lamp and tach
+# inputs (slow, filtered) and the backlight switch go further out.
+_ZONE_ORDER = ["POWER", "CAN1 LINK", "SPEED+IGN", "LAMPS+TACH", "MCU", "SENSORS",
+               "CAN0", "AUX BL SWITCH"]
+assert sorted(_ZONE_ORDER) == sorted(n for n, _ in CORE_ZONES)
+CORE_ZONES.sort(key=lambda z: _ZONE_ORDER.index(z[0]))
 
 _accounted = set(DISPLAY_REFS)
 for refs in LOCAL_CLUSTERS.values():
@@ -469,7 +482,7 @@ for disp_ref, cluster_refs in LOCAL_CLUSTERS.items():
 zone_packed = []
 for name, refs in CORE_ZONES:
     pack_refs = [r for r in refs if r not in CELL_OF] + sorted({CELL_OF[r] for r in refs if r in CELL_OF})
-    z_placed, z_rot, z_w, z_h = best_skyline_pack(pack_refs, max_width=60.0, margin=MARGIN)
+    z_placed, z_rot, z_w, z_h = best_skyline_pack(pack_refs, max_width=46.0, margin=MARGIN)
     for vname in [r for r in pack_refs if r in VIRTUAL]:
         vx, vy = z_placed.pop(vname)
         cell_placed = _cell_res[vname[1:]][0]

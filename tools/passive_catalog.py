@@ -22,6 +22,7 @@ CAPS = {
     (18e-12, "0603"): ("GCM1885C1H180JA16D", "18 pF C0G 50 V", "verified"),
     (22e-12, "0603"): ("GCM1885C1H220JA16D", "22 pF C0G 50 V (Murata marks it NRND; still orderable, swap if unavailable)", "verified"),
     (1e-9, "0603"): ("GCM188R71H102KA37D", "1 nF X7R 50 V", "verified"),
+    (2.2e-9, "0603"): ("GCM188R71H222KA37D", "2.2 nF X7R 50 V", "pattern"),
     (4.7e-9, "0603"): ("GCM188R71H472KA37D", "4.7 nF X7R 50 V", "verified"),
     (10e-9, "0603"): ("GCM188R71H103KA37D", "10 nF X7R 50 V", "verified"),
     (100e-9, "0603"): ("GCM188R71H104KA57D", "100 nF X7R 50 V", "verified"),
@@ -107,6 +108,11 @@ def lookup(prefix, value_token, package):
         for (v, p), (mpn, mfr, desc, status) in SENSE.items():
             if p == pk and abs(v - n) <= 1e-3 * v:
                 return (mpn, mfr, desc, status)
+        if pk == "1206":
+            # Yageo AC1206 AEC-Q200 series, 200 V working voltage: used where a
+            # series resistor must stand off an inductive tach spike.
+            return (f"AC1206FR-07{yageo_code(n)}L", "Yageo",
+                    f"Resistor {yageo_code(n).replace('K', 'k')} 1% 1206 thick film, 200 V, AEC-Q200", "pattern")
         if pk != "0603":
             return None
         if n == 0:

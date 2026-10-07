@@ -18,7 +18,7 @@ The numbers below are **firsthand owner measurements, not Ford specifications**,
 
 Not known yet: outside bezel outline, gauge centre spacing, mounting-hole coordinates, rear housing depth, speedometer cable clearance, lens and curvature.
 
-## What the numbers say about our parts
+## What the numbers say about a STOCK-bezel build (no longer the plan)
 
 | Part | Our size | Opening | Result |
 |---|---|---|---|
@@ -27,15 +27,27 @@ Not known yet: outside bezel outline, gauge centre spacing, mounting-hole coordi
 
 **Correction to earlier claims.** "The TSD's 101.5 mm circle fits the opening uncropped" (README, `display/build_schematic.py` comments, plan) was checked against the 105.54 mm inner HEIGHT of the whole dash opening, not against the stock speedometer hole. That check was wrong for a stock-hole build. It is true only if the faceplate is replaced by a custom one with a hole of about 101.5 mm or more.
 
-## Choices this forces (the user decides)
+## Decision (user, 2026-10-06): custom faceplate
 
-1. **Keep the stock bezel holes.** The center UI must keep everything that matters inside a circle of about 600 px diameter (radius 300 px, a safe margin inside the 608 to 633 px that show). The panel's outer ring is hidden behind the bezel. The small gauges need a faceplate ring that covers the dark gap, or the bezel opening has to be reduced.
-2. **Replace the faceplate** (the project's original idea: a custom reprinted faceplate). Then the opening can be 101.5 mm or more for the center and about 33 to 36 mm for the small gauges. This needs the real bezel outline and the gauge centre spacing, and it conflicts with "round displays in the stock round holes".
-3. **A smaller center panel** that fits 85 to 89 mm: re-opens the panel choice (the 800-nit requirement and the DSI/Verdin plan would have to be re-checked). Not recommended before choice 1 or 2 is ruled out.
+"A custom reprinted faceplate was my plan all along." So the stock hole sizes above are NOT constraints; the faceplate is made to suit our displays, and the stock numbers matter only as a sanity check on the dash opening behind it. The earlier "does not fit uncropped" result applies only to a stock-bezel build.
+
+What the faceplate openings must be (from the datasheets, to be confirmed against a physical panel):
+
+| Opening | Size | Basis |
+|---|---|---|
+| Center panel window | about 102.5 to 104.5 mm diameter (nominal 103.5) | must clear the 101.52 +/- 0.1 mm active circle with placement margin and stay under the 105 mm LCD glass so the glass edge is hidden |
+| Small gauge window | at least 33 to 35 mm diameter | 32.4 mm active circle plus margin; the GC9A01 module outline is not yet recorded |
+
+TSD TST040HDBC-42 outline (datasheet drawing, page 4, general tolerance +/-0.2 mm): the module is a **round body of 110 +/- 0.15 mm diameter (backlight) with a 3.5 mm tab and FPC exit, 113.49 +/- 0.15 mm along the FPC axis, 7.8 mm thick**; LCD glass 105 mm (109.27 mm quoted over the glass at the tab), active area 101.52 mm; three screw bosses around the body; FPC about 69.8 +/- 0.5 mm long. Earlier notes only used the 101.52 mm active diameter.
+
+Checks that pass with the custom faceplate:
+- 113.49 mm over the tab fits the 116.69 mm outer opening height with 3.2 mm to spare if the FPC axis is vertical; it does NOT fit the 105.54 mm inner dimension, so the 110 mm body must sit behind the faceplate, not inside an inner frame.
+- Slot spacing on `gauges/` is 98.5 mm (measured on the routed board: slot centres at 23.7, 122.2, 220.6, 319.0 and 417.5 mm from the board edge, the middle slot being the Android panel). The 110 mm body reaches 55 mm from its centre; a neighbouring small window sits 98.5 mm away, so at least 24 mm remains to the nearest small-gauge window edge even for a 38 mm module.
+- These slot centres can now be treated as the faceplate specification: the faceplate is drawn to match the board, not the other way round.
 
 ## Other checks that need the missing numbers
 
-- Gauge centre spacing: the four small-gauge connectors on `gauges/` sit at an evenly spaced estimate across the original five-slot row; this can only be verified against the real centre positions.
+- Gauge centre spacing: the four small-gauge connectors on `gauges/` sit at an evenly spaced 98.5 mm estimate across the five-slot row (see Decision); with a custom faceplate this becomes the specification, but it must still fit inside the real dash opening.
 - Depth: the small-gauge cup is about 25 mm deep; the display module plus its FPC tail must reach the board. Panel and module thickness are not yet recorded.
 - Mounting: six screw positions are known only by type, not by coordinates; our boards' own M3 holes (display 4 corners, gauges 6) are independent of them.
 - Display carrier (about 152 x 102 mm) and gauges (447.1 x 58.3 mm) sit behind the bezel; whether the 102 mm height clears the opening depends on the dash structure behind it.

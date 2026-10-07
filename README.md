@@ -23,7 +23,7 @@ gauges/ is the gateway. It is the only board that touches the car CAN bus (CAN0,
 - The panel DSI lanes on display/ are routed by `dsi_route.py` (about 10.6 to 11.2 mm per leg, at most 0.6 mm skew inside a pair) with an estimated 100 ohm differential geometry that has not been checked with a field solver.
 - The panel connector, the panel polarity jumpers and the wake-pin polarity are unconfirmed (see `fab/README.md`).
 
-Open items and rationale live in the working plan, not here. Panel: TSD TST040HDBC-42 (4in round, 800 nits, -30..+80C, fits the opening uncropped). Known TBDs: harness connectors J2/J3/J8/J9 on display/, the panel's unresolved +/-6.5V pin polarity (open solder jumpers JP1/JP2), CAN protocol, firmware.
+Open items and rationale live in the working plan, not here. Panel: TSD TST040HDBC-42 (4in round, 800 nits, -30..+80C, 101.52 mm active circle: fits the 105.54 mm dash opening height, but NOT a stock 89.26 mm speedometer hole without cropping, see `docs/mechanical-fit.md`). Known TBDs: harness connectors J2/J3/J8/J9 on display/, the panel's unresolved +/-6.5V pin polarity (open solder jumpers JP1/JP2), CAN protocol, firmware.
 
 ## Workflow
 

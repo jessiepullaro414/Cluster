@@ -13,8 +13,8 @@ shifters) removed, AND fascia's own SN65DSI85-Q1 DSI-to-LVDS bridge
 removed too: this board drives ONE round MIPI-DSI panel behind the
 dash's center opening (real target since 2026-09-30: Team Source
 Display TST040HDBC-42, 4.0", 720x720, native MIPI-DSI, ICNL9707 driver,
-800 nits, -30..+80 C, 101.5 mm active circle that fits the opening
-uncropped - it replaced the 350-nit, 127 mm DisplayModule DM-TFTR50-413,
+800 nits, -30..+80 C, 101.5 mm active circle (fits the 105.54 mm dash
+opening height; a stock 89 mm speedo hole would crop it, see docs/mechanical-fit.md) - it replaced the 350-nit, 127 mm DisplayModule DM-TFTR50-413,
 see build_panel()), and that panel speaks DSI natively, so
 converting to LVDS and back would be pure overhead fascia's own board
 needed (its target panel was LVDS-only) and this one doesn't. Same
@@ -881,7 +881,8 @@ def build_panel(x0, y0, usable_h):
     -20..+60 C operating, and a 127 mm active circle that is taller than
     the dash opening (105.54 mm inner / 116.69 mm outer), so it would
     have been cropped at 12 and 6 o'clock. The TSD's 101.52 mm circle
-    fits the 105.54 mm inner height uncropped.
+    fits the 105.54 mm inner HEIGHT of the dash opening (not a stock 89.26 mm
+    speedometer hole: see docs/mechanical-fit.md).
 
     Real 39-pin FPC table (datasheet section 3): GND 1/6/9/12/15/17/19/
     23/27/31/35/39, LEDA 2-3, LEDK 4-5, "VSP +6.5 V" 7-8, "VSN -6.5 V"

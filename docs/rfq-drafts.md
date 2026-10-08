@@ -37,3 +37,23 @@ We are building a custom carrier for the Verdin iMX95 Hexa 8GB WB IT (0089, V1.1
 
 Thank you,
 (name)
+
+## 3. 5 in round panel at 800 nits or more (drafted 2026-10-08, not sent)
+
+Findings behind this draft (web checks on 2026-10-08): every standard 5 in round MIPI panel listed by [Kingtech PV05003SYS50B](https://www.kingtechdisplay.com/products/ips-5-0-inch-1080-1080-mipi-interface-round-tft-display.html), [Tailor Pixels TTG050BRT-01](https://tailorpixels.com/product/5-inch-ips-tft-round-display-1080-1080/), [DisplayModule DM-TFTR50-413](https://www.displaymodule.com/products/5-0-inch-1080x1080-tft-display-mipi-hx8399-dm-tftr50-413), IFANTEK and YOURITECH (ET050CIR01) appears to be the same panel: 1080x1080, HX8399C, 4-lane MIPI, 50-pin board connector, 136.53 x 132.2 x 1.98 mm, 127.0 mm active circle, **350-400 nits, -20 to +60 C**. None lists 800 nits. The vendors look like resellers of one panel, so the first task is to find who makes it.
+
+To: Kingtech, Tailor Pixels, Panox, IFANTEK, YOURITECH (any that answer), and TSD (maker of the 4 in automotive round panel we already use).
+
+Subject: 5 in round 1080x1080 MIPI panel, 800+ nit, automotive temperature, custom backlight
+
+We are building a classic-car instrument cluster product and need a 5 in round panel (127 mm active circle, 1080x1080, MIPI DSI) that is readable in direct sunlight. The standard HX8399C 5 in round modules we found are 350-400 nits and -20 to +60 C. Could you tell us:
+
+1. Is your panel the HX8399C, 136.53 x 132.2 x 1.98 mm module, and who is the panel maker?
+2. Can you build it with a backlight of at least 800 cd/m2 (1000 preferred), typical, measured at the module? What would change (LED count, current, forward voltage, brightness-enhancement films)?
+3. Can the operating range be -30 to +85 C (storage -40 to +90 C), and what is the backlight life at 800 nits and 85 C?
+4. Optional sunlight options: anti-reflective or anti-glare, optical bonding to a cover glass, PCAP touch (we may not use touch).
+5. The 50-pin board connector: manufacturer part number, mating part, pinout, power-supply voltages and currents, DSI lane count and timing, the initialisation sequence, and whether TE and reset are available.
+6. Quality: automotive grade or IATF 16949 production, PPAP capability, and long-term supply (10 years or more).
+7. Commercial: price at 5, 50 and 500 pieces, NRE for the custom backlight, minimum order quantity, sample lead time and production lead time.
+
+Our own side: the panel will sit in a housing about 140 mm across; we need the connector/FPC tab position drawing (the 136.53 mm dimension is along the tab).

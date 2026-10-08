@@ -88,3 +88,11 @@ Still needed to turn estimates into drawing numbers (calipers, 10 minutes): spee
 Checks against our parts:
 - **Center panel**: the 101.52 mm active circle just fits a 102 mm bore (0.24 mm clearance), but the 105 mm LCD glass and 110 mm module body do not. The panel therefore cannot sit inside the stock speedometer cup; it sits at or behind the cup's mouth, so the cup either is cut back/replaced by a custom housing or the panel is mounted behind it with the active area looking through the 102 mm bore.
 - **Small gauges**: the Raystar RFA401280B-AYW-DNF1 module is **50.20 x 50.20 x 3.99 mm** (touch panel outer diameter 50.20 mm, active area 32.40 mm, tolerance +/-0.3 mm; [Raystar datasheet](https://www.raystar-optronics.com/upload_files/tft-lcd-display-module/1-28-tft/capacitive-touch-screen-display/RFA401280B-AYW-DNF1-datasheet.pdf)). It is larger than the 47 mm stock cup, so it also cannot sit inside the stock cup. Neighbour clearance is fine: small modules 79 mm apart centre to centre (outer to inner), and about 38 mm from the inner module edge to the 110 mm center body.
+
+## Center size limit (user, 2026-10-08): 5 in maximum INCLUDING the bezel
+
+The user is making a totally new housing. The whole center assembly (screen plus bezel) may be at most 5 in (127 mm) across, which is also the size of the stock speedometer ring (about 127 mm outside).
+
+- **TSD TST040HDBC-42 (4.0 in):** module body 110 mm, so 127 - 110 = 17 mm of radial room in total, **8.5 mm per side for the bezel and housing wall**. Fits, with room for a slim bezel and a sealing gasket.
+- **A 5 in round panel (127 mm active, about 132 mm body)** cannot fit: the active circle alone equals the limit, leaving nothing for the bezel. Ruled out by this limit, not only by brightness.
+- A panel between 4 in and 5 in would need a body of about 118 mm or less to keep a 4 mm bezel; none has been identified, and the 800-nit requirement still applies.

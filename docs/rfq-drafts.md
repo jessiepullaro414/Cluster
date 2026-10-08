@@ -57,3 +57,21 @@ We are building a classic-car instrument cluster product and need a 5 in round p
 7. Commercial: price at 5, 50 and 500 pieces, NRE for the custom backlight, minimum order quantity, sample lead time and production lead time.
 
 Our own side: the panel will sit in a housing about 140 mm across; we need the connector/FPC tab position drawing (the 136.53 mm dimension is along the tab).
+
+## 4. Anders: 4.2 in circular high-bright display, part 12575 (drafted 2026-10-08, not sent)
+
+Found on [Anders' product page](https://www.andersdx.com/4.2inch-circular-high-bright-ipstft-display/?tab=specifications) (specification tab, read 2026-10-08): 4.2 in IPS, 720 x 720, active area 105.84 x 105.84 mm, **1300 cd/m2**, contrast 1000, **RGB interface**, module 114.85 x 118.37 x 16.83 mm, **-30 to +85 C**. Not on the page: driver IC, connector and pin count, touch options, backlight current and voltage, timing, storage temperature, lifecycle, MOQ, price. The page offers a datasheet by email form.
+
+To: info@andersdx.com
+
+Subject: Part 12575, 4.2 in circular high-bright display: datasheet, sample, and larger sizes
+
+We are building a classic-car instrument cluster product and are evaluating your 4.2 in circular high-bright display (part 12575). Could you send:
+
+1. The full datasheet and a 2D/3D drawing: connector manufacturer part number and mating part, pinout, driver IC, the SPI/I2C initialisation sequence, RGB timing (pixel clock, porches), supply voltages and currents, backlight LED string (current, forward voltage) and how brightness is dimmed (PWM frequency range).
+2. Storage temperature, expected backlight life at 1300 nits and 85 C, and whether the display is built to an automotive quality standard (IATF 16949 / PPAP).
+3. Is the 16.83 mm module thickness the display plus backlight only, and does it include any bonded cover glass or touch layer? Are optical bonding, anti-glare and PCAP touch available?
+4. Price at 5, 50 and 500 pieces, sample lead time, minimum order quantity, and expected long-term availability.
+5. You list circular displays from 1 to 7 in. Do you have a high-bright circular display larger than 4.2 in (4.5 to 5 in) at 800 nits or more, with RGB, LVDS or MIPI?
+
+Our side: we will drive it from an NXP i.MX 95 module through an LVDS-to-RGB receiver, 720 x 720 at 60 Hz.

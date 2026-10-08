@@ -55,3 +55,23 @@ Checks that pass with the custom faceplate:
 ## Next measurement needed from a physical bezel (any one helps)
 
 Centre-to-centre distances of the five openings; outside width and height of the bezel; depth from the face to the back of the dash opening.
+
+## Photo-derived measurements of the user's own cluster (2026-10-08)
+
+Source: 19 photos of the user's own 1965/66 Mustang five-dial cluster (front, back, side, with a 12 in / 30 cm ruler and a Stanley tape in frame), saved at `C:\Users\root\Downloads\iCloud Photos (2)\iCloud Photos\IMG_1682..1700.JPEG` (not committed: about 3 MB each). Read by eye against the tape, **about +/-5 mm**; the tape lay on the table in the plane of the chrome rim, but the photos are not orthographic. Treat as planning numbers, not drawing numbers.
+
+Layout (viewed from the front): **fuel, oil, speedometer (center, large), amps, temp**: two small gauges each side, the speedometer in a deep cup that stands proud of the trim at top and bottom. Two small rectangular indicator windows sit between the gauges (one in each side panel). This matches the 4 + 1 plan.
+
+| Item | Estimate | Notes |
+|---|---|---|
+| Chrome trim outline | about 518 x 120 mm (20.4 x 4.7 in) | longer and taller than the 457.2 x 116.69 mm opening the user gave earlier, so that figure is the opening behind the trim, not the trim |
+| Depth, rim to back plate | about 60 mm | studs add about 8 mm |
+| Depth, rim to speedometer housing | about 85 mm | |
+| Depth, rim to speedometer cable fitting | about 113 mm | rear projection |
+| Small gauge ring | about 61 mm outside, about 50 mm opening | matches the owner figure of 49.5 mm |
+| Speedometer ring | about 127 mm outside, about 90 to 95 mm opening | owner figure 89.3 mm |
+| Gauge centres from the speedometer centre | **about +/-118 mm (inner pair), +/-197 mm (outer pair)** | measured from two photos that agreed within about 4 mm; the speedometer sits within about 5 mm of the trim's centre |
+
+**Mismatch with our boards.** `gauges/` places the four small-gauge connectors on an even five-slot grid: **+/-98.5 mm and +/-197 mm** from the centre. The outer pair matches the stock layout; the **inner pair is about 20 mm closer to the speedometer than stock (98.5 mm vs about 118 mm)**. With a custom faceplate either is possible, but the stock pattern looks right and leaves more clearance to the 110 mm panel body (46 mm instead of 26 mm to the nearest small module). Moving the inner connectors outward is a one-parameter change in `gauges/build_pcb.py`, then a re-route.
+
+Still needed to turn estimates into drawing numbers (calipers, 10 minutes): speedometer cup inside diameter and depth; small cup inside diameter and depth; the centre-to-centre distance of the two inner gauges (one number, gives the +/-118 mm directly); trim outline width and height at the rim; rim-to-back depth.

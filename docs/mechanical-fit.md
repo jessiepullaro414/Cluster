@@ -75,3 +75,16 @@ Layout (viewed from the front): **fuel, oil, speedometer (center, large), amps, 
 **Mismatch with our boards.** `gauges/` places the four small-gauge connectors on an even five-slot grid: **+/-98.5 mm and +/-197 mm** from the centre. The outer pair matches the stock layout; the **inner pair is about 20 mm closer to the speedometer than stock (98.5 mm vs about 118 mm)**. With a custom faceplate either is possible, but the stock pattern looks right and leaves more clearance to the 110 mm panel body (46 mm instead of 26 mm to the nearest small module). Moving the inner connectors outward is a one-parameter change in `gauges/build_pcb.py`, then a re-route.
 
 Still needed to turn estimates into drawing numbers (calipers, 10 minutes): speedometer cup inside diameter and depth; small cup inside diameter and depth; the centre-to-centre distance of the two inner gauges (one number, gives the +/-118 mm directly); trim outline width and height at the rim; rim-to-back depth.
+
+## Caliper readings from the user (2026-10-08), replacing the photo estimates for the cups
+
+| Item | Reading |
+|---|---|
+| Speedometer cup inside diameter | about 102 mm |
+| Speedometer cup depth | about 36 mm (depends where it is measured) |
+| Small cup inside diameter | about 47 mm |
+| Small cup depth | about 25 mm |
+
+Checks against our parts:
+- **Center panel**: the 101.52 mm active circle just fits a 102 mm bore (0.24 mm clearance), but the 105 mm LCD glass and 110 mm module body do not. The panel therefore cannot sit inside the stock speedometer cup; it sits at or behind the cup's mouth, so the cup either is cut back/replaced by a custom housing or the panel is mounted behind it with the active area looking through the 102 mm bore.
+- **Small gauges**: the Raystar RFA401280B-AYW-DNF1 module is **50.20 x 50.20 x 3.99 mm** (touch panel outer diameter 50.20 mm, active area 32.40 mm, tolerance +/-0.3 mm; [Raystar datasheet](https://www.raystar-optronics.com/upload_files/tft-lcd-display-module/1-28-tft/capacitive-touch-screen-display/RFA401280B-AYW-DNF1-datasheet.pdf)). It is larger than the 47 mm stock cup, so it also cannot sit inside the stock cup. Neighbour clearance is fine: small modules 79 mm apart centre to centre (outer to inner), and about 38 mm from the inner module edge to the 110 mm center body.

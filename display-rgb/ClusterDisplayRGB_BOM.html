@@ -1,0 +1,238 @@
+<title>Display Carrier Bill of Materials</title>
+<style>
+  :root{
+    --paper:#fbfaf8; --panel:#ffffff; --ink:#1a1d21; --muted:#6b6f76;
+    --rule:#e4e1dc; --rule-soft:#efedea;
+    --accent:#1d4e89; --brass:#8a6a24;
+    --ok:#2f6b45; --ok-bg:#e9f2ec;
+    --warn:#8a5a00; --warn-bg:#f8efdd;
+    --none:#6b6f76; --none-bg:#eeecea;
+    --shadow:0 1px 2px rgba(26,29,33,.05);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#14161a; --panel:#1b1e23; --ink:#e9e7e3; --muted:#9aa0a8;
+      --rule:#2c3037; --rule-soft:#23272d;
+      --accent:#7fb0ec; --brass:#d3ab5c;
+      --ok:#77d7a2; --ok-bg:#16301f;
+      --warn:#efbe73; --warn-bg:#33260f;
+      --none:#9aa0a8; --none-bg:#24282e;
+      --shadow:none;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14161a; --panel:#1b1e23; --ink:#e9e7e3; --muted:#9aa0a8;
+    --rule:#2c3037; --rule-soft:#23272d;
+    --accent:#7fb0ec; --brass:#d3ab5c;
+    --ok:#77d7a2; --ok-bg:#16301f;
+    --warn:#efbe73; --warn-bg:#33260f;
+    --none:#9aa0a8; --none-bg:#24282e;
+    --shadow:none;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:52px 22px 80px;
+        display:flex; flex-direction:column; gap:30px}
+
+  .eyebrow{margin:0; font-size:11.5px; font-weight:700; letter-spacing:.18em;
+           text-transform:uppercase; color:var(--brass)}
+  h1{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+     font-weight:600; font-size:clamp(32px,5vw,50px); line-height:1.08;
+     letter-spacing:-.015em; margin:10px 0 0; text-wrap:balance}
+  .standfirst{margin:14px 0 0; color:var(--muted); max-width:64ch; font-size:17px}
+  .rule{height:1px; background:var(--rule); border:0; margin:0}
+
+  .figures{display:flex; flex-wrap:wrap; border:1px solid var(--rule);
+           border-radius:4px; background:var(--panel); box-shadow:var(--shadow); overflow:hidden}
+  .fig{flex:1 1 150px; padding:16px 20px; border-right:1px solid var(--rule-soft)}
+  .fig:last-child{border-right:0}
+  .fig b{display:block; font-size:26px; line-height:1.15; letter-spacing:-.02em;
+         font-variant-numeric:tabular-nums;
+         font-family:"Iowan Old Style",Palatino,Georgia,serif; font-weight:600}
+  .fig span{display:block; margin-top:3px; font-size:11.5px; letter-spacing:.08em;
+            text-transform:uppercase; color:var(--muted)}
+
+  .note{border-left:2px solid var(--accent); padding:2px 0 2px 20px;
+        display:flex; flex-direction:column; gap:10px}
+  .note h2{font-family:"Iowan Old Style",Palatino,Georgia,serif;
+           font-size:19px; font-weight:600; margin:0; letter-spacing:-.01em}
+  .note p{margin:0; font-size:15px; color:var(--muted); max-width:70ch}
+  .note strong{color:var(--ink); font-weight:600}
+
+  .tablewrap{border:1px solid var(--rule); border-radius:4px; background:var(--panel);
+             box-shadow:var(--shadow); overflow-x:auto}
+  table{border-collapse:collapse; width:100%; min-width:920px; font-size:14px}
+  thead th{position:sticky; top:0; z-index:1; background:var(--panel);
+           text-align:left; font-size:10.5px; font-weight:700; letter-spacing:.12em;
+           text-transform:uppercase; color:var(--muted);
+           padding:15px 16px 11px; border-bottom:1px solid var(--rule); white-space:nowrap}
+  tbody td{padding:11px 16px; border-bottom:1px solid var(--rule-soft); vertical-align:top}
+  tbody tr:last-child td{border-bottom:0}
+  tr.cat td{background:var(--paper); color:var(--brass);
+            font-size:10.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+            padding:11px 16px; border-bottom:1px solid var(--rule); border-top:1px solid var(--rule)}
+  .mpn,.pkg,.refs{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+  .mpn{font-size:13px; font-weight:600; white-space:nowrap}
+  .desc{color:var(--muted); min-width:260px}
+  .pkg{font-size:12px; color:var(--muted); white-space:nowrap}
+  .qty{text-align:right; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap}
+  .refs{font-size:12px; color:var(--muted)}
+  .q-yes,.q-tbd,.q-na{display:inline-block; padding:2px 9px; border-radius:3px;
+                      font-size:11px; font-weight:700; letter-spacing:.03em; white-space:nowrap}
+  .q-yes{color:var(--ok); background:var(--ok-bg)}
+  .q-tbd{color:var(--warn); background:var(--warn-bg)}
+  .q-na{color:var(--none); background:var(--none-bg)}
+
+  footer{color:var(--muted); font-size:14px; max-width:72ch}
+  footer p{margin:0}
+  footer code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+              font-size:13px; color:var(--ink)}
+  a{color:var(--accent)}
+  a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important}}
+  @media (max-width:640px){
+    .wrap{padding:32px 15px 60px; gap:24px}
+    .fig{flex-basis:50%; border-bottom:1px solid var(--rule-soft)}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Jessie&rsquo;s Cars &middot; Cluster / display</p>
+    <h1>Display Carrier Bill of Materials</h1>
+    <p class="standfirst">Every part on the Android Automotive display carrier of
+    the Mustang restomod cluster &mdash; a Toradex Verdin iMX95 SoM driving a
+    4in 800-nit round MIPI-DSI panel directly, with its own &plusmn;6.5V
+    analog rails and 15V backlight boost, CAN out to gauges/ and ecu-pcb.</p>
+  </header>
+
+  <div class="figures">
+    <div class="fig"><b>70</b><span>Line items</span></div>
+    <div class="fig"><b>133</b><span>Placements</span></div>
+    <div class="fig"><b>4</b><span>Copper layers</span></div>
+    <div class="fig"><b>see repo</b><span>Board, mm</span></div>
+  </div>
+
+  <div class="note">
+    <h2>How to read this list</h2>
+    <p><strong>No line is left as a placeholder part.</strong> J2/J3 are the real
+    harness connectors (power and CAN, same families as gauges/), J8/J9 are
+    bench-only headers. Still unknown: final wire gauge and harness routing, so
+    the DTM06-3S pigtails are a same-family assumption. Everything else that started as an open item (the front-end
+    FET pair, the input TVS, the fuse's exact rating, and the Verdin SoM's
+    exact SKU) was resolved to a real, cited part on 2026-09-28. Also open, and
+    flagged in the J4 and panel lines: the panel datasheet's table and drawing
+    disagree on which FPC pins carry +6.5V vs -6.5V (JP1/JP2 are left open until
+    resolved), and its FPC connector is inferred, not named.</p>
+    <p><strong>Active parts with a real MPN</strong> carry provenance straight
+    from <code>build_schematic.py</code>'s own comments, each one traced to a
+    real datasheet during the design pass that introduced it.</p>
+    <p><strong>Passives are specified parametrically</strong> &mdash; value, package
+    and the AEC-Q200 requirement &mdash; rather than pinned to one vendor.</p>
+    <p><strong>Pricing and stock are not included.</strong></p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Part number</th><th scope="col">Manufacturer</th>
+          <th scope="col">Description</th><th scope="col">Package</th>
+          <th scope="col">Qty</th><th scope="col">Designators</th>
+          <th scope="col">Qualification</th>
+        </tr>
+      </thead>
+      <tbody>
+<tr class="cat"><td colspan="7">Semiconductors</td></tr>
+<tr><td class="mpn">BAV99-Q (confirm reel suffix at order time)</td><td>Nexperia</td><td class="desc">Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)</td><td class="pkg">SOT-23</td><td class="qty">3</td><td class="refs">D5-D7</td><td><span class="q-yes">AEC-Q101</span></td></tr>
+<tr><td class="mpn">PMEG6010ELRX</td><td>Nexperia</td><td class="desc">Boost rectifier Schottky, 60V/1A, SOD-123W</td><td class="pkg">Nexperia_CFP3_SOD-123W</td><td class="qty">3</td><td class="refs">D2-D4</td><td><span class="q-yes">AEC-Q101</span></td></tr>
+<tr><td class="mpn">PMV55ENEAR</td><td>Nexperia</td><td class="desc">60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair (orderable suffix R = reel; 12NC 934068714215)</td><td class="pkg">SOT-23</td><td class="qty">3</td><td class="refs">Q1-Q3</td><td><span class="q-yes">AEC-Q101</span></td></tr>
+<tr><td class="mpn">(no part - PCB footprint only)</td><td>-</td><td class="desc">3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel&#x27;s +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py</td><td class="pkg">SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm</td><td class="qty">2</td><td class="refs">JP1, JP2</td><td><span class="q-yes">n/a</span></td></tr>
+<tr><td class="mpn">XAL4030-472MEC</td><td>Coilcraft</td><td class="desc">4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)</td><td class="pkg">L_Coilcraft_XAL4030-XXX</td><td class="qty">2</td><td class="refs">L2, L3</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">DS90CF384AQMTX/NOPB</td><td>TI</td><td class="desc">AEC-Q100 Grade 3 (-40..+85 C) 3.3 V LVDS receiver to 24-bit RGB, 20-65 MHz, TSSOP-56 (DGG), tape and reel; TI lists it Active/Production (package addendum 11-Nov-2025, SNLS345A). Bridges the Verdin LVDS0 channel to the RGB panel</td><td class="pkg">TSSOP-56_6.1x14mm_P0.5mm</td><td class="qty">1</td><td class="refs">U9</td><td><span class="q-yes">AEC-Q100 Grade 3</span></td></tr>
+<tr><td class="mpn">LM61460AASQRJRRQ1</td><td>TI</td><td class="desc">Automotive 3-36V 6A low-EMI synchronous buck, main +5V rail, VQFN-HR-14 RJR (datasheet SNVSB70F). LM61460 is a FAMILY of three adjustable variants: AAS (auto light-load mode + spread spectrum, chosen), AAN (auto, no spread spectrum), AFS (forced-PWM + spread spectrum). AAS was picked for EMI; use AFS if PFM ripple at light load is a problem. Not yet bench-verified</td><td class="pkg">TI_RJR0014A_VQFN-HR-14_4x3.5mm</td><td class="qty">1</td><td class="refs">U2</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
+<tr><td class="mpn">LM74930QRGERQ1</td><td>TI</td><td class="desc">Automotive ideal-diode surge stopper w/ circuit breaker + OV clamp, VQFN-24 RGE (datasheet SNOSDF6); TI lists it Active/Production</td><td class="pkg">Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm</td><td class="qty">1</td><td class="refs">U1</td><td><span class="q-yes">AEC-Q100 Grade 1</span></td></tr>
+<tr><td class="mpn">SMCJ33A (multi-source)</td><td>Littelfuse / onsemi / Vishay (industry-standard P/N)</td><td class="desc">SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/&#x27;s own D1 already uses</td><td class="pkg">D_SMB</td><td class="qty">1</td><td class="refs">D1</td><td><span class="q-yes">AEC-Q101</span></td></tr>
+<tr><td class="mpn">TCAN1044VDRQ1</td><td>TI</td><td class="desc">Automotive CAN FD transceiver w/ 1.8V I/O support (V variant is load-bearing - see parts.py), SOIC-8 D (datasheet SLLSF17D)</td><td class="pkg">SOIC-8_3.9x4.9mm_P1.27mm</td><td class="qty">1</td><td class="refs">U4</td><td><span class="q-yes">AEC-Q100 Grade 1</span></td></tr>
+<tr><td class="mpn">TLV73333PQDBVRQ1</td><td>TI</td><td class="desc">300 mA fixed 3.3 V LDO, SOT-23-5: +3.3 V for the LVDS-to-RGB receiver (same part gauges/ uses)</td><td class="pkg">SOT-23-5</td><td class="qty">1</td><td class="refs">U10</td><td><span class="q-yes">AEC-Q100 Grade 1</span></td></tr>
+<tr><td class="mpn">TLV76701QWDRBRQ1</td><td>TI</td><td class="desc">Automotive 16V/1A adjustable LDO, +1V8 Verdin I/O rail, VSON-8 DRB with wettable flanks (datasheet SBVS381A); 01 = adjustable, QW = wettable-flank automotive</td><td class="pkg">Texas_DRB0008A</td><td class="qty">1</td><td class="refs">U3</td><td><span class="q-yes">AEC-Q100 (TI -Q1 suffix)</span></td></tr>
+<tr><td class="mpn">TPS22918TDBVRQ1</td><td>TI</td><td class="desc">Automotive 1-5.5V 2A load switch, SOT-23-6, switches the rotary dial sensor&#x27;s 5V off in sleep (ON driven by the Verdin&#x27;s CTRL_SLEEP_MOCI#; datasheet SLVSCZ8B); TI lists it Active</td><td class="pkg">SOT-23-6</td><td class="qty">1</td><td class="refs">U8</td><td><span class="q-yes">AEC-Q100 Grade 2</span></td></tr>
+<tr><td class="mpn">TPS61165TDBVRQ1</td><td>TI</td><td class="desc">Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 DBV (datasheet SLVSB73B); TI lists the family Active. Orderable suffix taken from a TI E2E thread and a datasheet listing - confirm on TI&#x27;s store</td><td class="pkg">SOT-23-6</td><td class="qty">1</td><td class="refs">U7</td><td><span class="q-yes">AEC-Q100</span></td></tr>
+<tr><td class="mpn">TPS65131TRGERQ1</td><td>TI</td><td class="desc">Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE with wettable flanks (datasheet SLVSBB2F); TI lists it Active</td><td class="pkg">HVQFN-24-1EP_4x4mm_P0.5mm_EP2.5x2.5mm</td><td class="qty">1</td><td class="refs">U6</td><td><span class="q-yes">AEC-Q100 Grade 2</span></td></tr>
+<tr><td class="mpn">XAL4040-103MEC</td><td>Coilcraft</td><td class="desc">10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)</td><td class="pkg">L_Coilcraft_XAL4040-XXX</td><td class="qty">1</td><td class="refs">L4</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">XEL5030-102MEC</td><td>Coilcraft</td><td class="desc">1uH shielded molded power inductor for the LM61460-Q1 5V buck at 2.1MHz: Isat 16.9A vs the 11.5A max high-side current limit, DCR 7mR typ, 5.5x5.3x3.1mm, AEC-Q200; the part the LM61460-Q1 datasheet&#x27;s Table 10-5 used for 5V/2.1MHz (Coilcraft Document 1412-2; trailing C = 7in reel ordering code)</td><td class="pkg">L_Coilcraft_XAL5030-XXX</td><td class="qty">1</td><td class="refs">L1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr class="cat"><td colspan="7">Electromechanical</td></tr>
+<tr><td class="mpn">0297005.WXNV</td><td>Littelfuse</td><td class="desc">5A MINI blade fuse element, 32V, 1kA interrupt rating at 32V, -40..+125C (one per board; plugs into the F1 holder)</td><td class="pkg">Mini blade (element)</td><td class="qty">1</td><td class="refs">F1 (fuse element)</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">3568</td><td>Keystone Electronics</td><td class="desc">Mini blade fuse holder, PCB mount - same real holder gauges/ uses. REVIEW FIX 2026-10-03: replaces the Bourns MF-RG500 PTC (16V max, -40..+85C, not rated for jump start or load dump). The 5A fuse element is the next line</td><td class="pkg">Fuseholder_Blade_Mini_Keystone_3568</td><td class="qty">1</td><td class="refs">F1</td><td><span class="q-na">-</span></td></tr>
+<tr class="cat"><td colspan="7">Connectors</td></tr>
+<tr><td class="mpn">1058</td><td>Keystone Electronics</td><td class="desc">20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family&#x27;s own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py&#x27;s own comments</td><td class="pkg">BatteryHolder_Keystone_1058_1x2032</td><td class="qty">1</td><td class="refs">J10</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">22-27-2031</td><td>Molex</td><td class="desc">3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/&#x27;s J7 uses. This is the display&lt;-&gt;gauges&lt;-&gt;ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail</td><td class="pkg">Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J3</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">22-27-2041</td><td>Molex</td><td class="desc">4-circuit KK 254 (2.54mm) vertical header for the rotary dial: sensor 5V (switched), sensor signal, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts</td><td class="pkg">Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J11</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">2309409-2</td><td>TE Connectivity</td><td class="desc">260-position DDR4 SODIMM socket, 5.2mm stack - the socket Toradex recommends in datasheet section 6.5.1 (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), matching this board&#x27;s SODIMM-260_DDR4_H4.0-5.2 footprint. The Verdin SoM that plugs into it is its own line under Companion parts (review 2026-10-03: the two were one line)</td><td class="pkg">SODIMM-260_DDR4_H4.0-5.2_OrientationStd_Socket</td><td class="qty">1</td><td class="refs">J1</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">FH12-50S-0.5SH(55)</td><td>Hirose</td><td class="desc">PLACEHOLDER 50-position 0.5 mm FPC connector standing in for the RGB panel&#x27;s real connector; the Anders 12575 datasheet (connector, pinout, supply voltages) has not been received, so the pin order on this board is invented and this line needs real part selection</td><td class="pkg">Hirose_FH12-50S-0.5SH_1x50-1MP_P0.50mm_Horizontal</td><td class="qty">1</td><td class="refs">J14</td><td><span class="q-tbd">TBD</span></td></tr>
+<tr><td class="mpn">FH26-39S-0.3SHW(99)</td><td>Hirose</td><td class="desc">39-position 0.3mm-pitch FPC connector for the TST040HDBC-42&#x27;s 39-pin FPC. The panel datasheet does NOT name a connector: 0.3mm pitch is inferred from the FPC&#x27;s 12mm width across 39 pins, and FH26 is bottom-contact - specify the FPC&#x27;s exposed-pad side when ordering from TSD. Hirose lists the (05) variant obsolete and FH26W-39S-0.3SHW(60) as current: confirm its land pattern against the bundled FH26 footprint before ordering</td><td class="pkg">Hirose_FH26-39S-0.3SHW_2Rows-39Pins-1MP_P0.60mm_Horizontal</td><td class="qty">1</td><td class="refs">J4</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">MKDS 1,5/ 3-5,08 (1715734)</td><td>Phoenix Contact</td><td class="desc">3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/&#x27;s J1 uses. Harness end: sealed Deutsch DTM06-3S (TE) pigtail, as on gauges/</td><td class="pkg">TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal</td><td class="qty">1</td><td class="refs">J2</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">TSW-103-07-G-S</td><td>Samtec</td><td class="desc">1x3 0.100in gold-finish pin header, A55 console UART_3 (1.8 V logic: use a 1.8 V USB-serial adapter or a level shifter) - bench and service use only</td><td class="pkg">PinHeader_1x03_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J12</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">TSW-104-07-G-S</td><td>Samtec</td><td class="desc">1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness</td><td class="pkg">PinHeader_1x04_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J9</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">TSW-105-07-G-S</td><td>Samtec</td><td class="desc">1x5 0.100in gold-finish pin header, USB_1 (VBUS, D-, D+, ID, GND) for flashing/adb bring-up - bench use only, keep the cable short (USB 2.0 high speed over an uncontrolled header)</td><td class="pkg">PinHeader_1x05_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J13</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">TSW-108-07-G-S</td><td>Samtec</td><td class="desc">1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness</td><td class="pkg">PinHeader_1x08_P2.54mm_Vertical</td><td class="qty">1</td><td class="refs">J8</td><td><span class="q-na">-</span></td></tr>
+<tr class="cat"><td colspan="7">Companion parts (ordered separately)</td></tr>
+<tr><td class="mpn">(momentary push switch - part not chosen yet)</td><td>(not yet specified)</td><td class="desc">The dial&#x27;s click: a normally-open momentary switch wired to J11 pins 3 and 4 (the PSC-360 has no push action). Any panel-mount automotive switch works; contact current is microamps</td><td class="pkg">click switch (companion)</td><td class="qty">1</td><td class="refs">wired to J11 pins 3-4</td><td><span class="q-tbd">TBD</span></td></tr>
+<tr><td class="mpn">PSC360G2-F1A-C0000-ERA360-05K</td><td>Amphenol Piher</td><td class="desc">Contactless Hall-effect end-of-shaft rotary position sensor, endless 360-degree rotation with no dead band, 12-bit, 5V +/-10% supply, ratiometric ANALOG output (not PWM/CAN/SPI), 50 million cycles, -40..+125C, fly leads (brown 5V, blue ground, black signal). Use the panel-mount PSC-360U version (3/8&quot;-32 thread, 6.35mm shaft) for a dash hole. Configure: single output, analog, 5V supply, electrical angle 360 degrees, -40..125C. NOTE its &#x27;switch output&#x27; is an angle threshold, not a click. This stocked part number (Newark/DigiKey list it) is the flange-mount G2 version: single analog output, 360-degree range, 5V, -40..125C - good for the prototype. A panel-mount PSC-360U ordering code is not confirmed; ask Piher. Piher&#x27;s web page may describe push-button versions: the datasheet only shows an angle-threshold switch output, so ask Piher before relying on one</td><td class="pkg">dial (companion)</td><td class="qty">1</td><td class="refs">wired to J11 pins 1-3</td><td><span class="q-tbd">TBD</span></td></tr>
+<tr><td class="mpn">Team Source Display TST040HDBC-42</td><td>Team Source Display (TSD)</td><td class="desc">4.0in 720x720 round IPS, native MIPI-DSI (3 lanes), ICNL9707 driver built into the module, 800 cd/m2, -30..+80C, 101.52mm active circle - datasheet V1.0 (2023-06-29) read in full; connects via J4 above, not its own BOM line. Datasheet table and drawing DISAGREE on which FPC pins carry +6.5V vs -6.5V - resolve with TSD before bridging JP1/JP2. Order the FPC with the exposed-pad side matching J4&#x27;s bottom-contact. ORDER FROM TSD (not a stocked distributor part): request the FPC with contact fingers matching J4 (Hirose FH26 is bottom-contact) and ask the questions in docs/rfq-drafts.md first</td><td class="pkg">FPC module</td><td class="qty">1</td><td class="refs">plugs into J4</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">Verdin iMX95 Hexa 8GB WB IT (Toradex product no. 0089)</td><td>Toradex</td><td class="desc">The SoM that plugs into J1 (docs.toradex.com/200007-verdin_imx95_datasheet.pdf). Toradex product no. 0089 per developer.toradex.com (checked 2026-09-30): V1.0A is end-of-life, V1.0B moved to B0 silicon, V1.1A fixed errata HAR-12581, and V1.1B (Q3 2026) moved to mass-production SoC and PMIC - order the latest revision. Also listed on Mouser</td><td class="pkg">SoM (companion)</td><td class="qty">1</td><td class="refs">plugs into J1</td><td><span class="q-na">-</span></td></tr>
+<tr class="cat"><td colspan="7">Passives</td></tr>
+<tr><td class="mpn">GCM188R71H104KA57D</td><td>Murata</td><td class="desc">Capacitor, 100 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">18</td><td class="refs">C2-C4, C7, C11, C12, C39, C42, C56, C57, C61, C62, C66-C71</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07100KL</td><td>Yageo</td><td class="desc">Resistor 100k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">10</td><td class="refs">R5, R7, R10, R13, R15, R16, R18, R41, R43, R50</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0710KL</td><td>Yageo</td><td class="desc">Resistor 10k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">10</td><td class="refs">R4, R21, R44-R48, R53, R57, R64</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07100RL</td><td>Yageo</td><td class="desc">Resistor 100R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">6</td><td class="refs">R37, R59-R63</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71C105KA64D</td><td>Murata</td><td class="desc">Capacitor, 1 uF X7R 16 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">5</td><td class="refs">C6, C60, C63-C65</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM31CR71A226KE02L</td><td>Murata</td><td class="desc">Capacitor, 22 uF X7R 10 V, AEC-Q200</td><td class="pkg">C_1206_3216Metric</td><td class="qty">5</td><td class="refs">C8, C46, C47, C54, C59</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM21BR71A106KE22L</td><td>Murata</td><td class="desc">Capacitor, 10 uF X7R 10 V, AEC-Q200</td><td class="pkg">C_0805_2012Metric</td><td class="qty">4</td><td class="refs">C9, C10, C50, C72</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCJ31CC71H475KA01L</td><td>Murata</td><td class="desc">Capacitor, 4.7 uF X7R 50 V, AEC-Q200</td><td class="pkg">C_1206_3216Metric</td><td class="qty">3</td><td class="refs">C5, C52, C55</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-071KL</td><td>Yageo</td><td class="desc">Resistor 1k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R55, R56</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0724K9L</td><td>Yageo</td><td class="desc">Resistor 24k9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R11, R14</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0760RL</td><td>Yageo</td><td class="desc">Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">2</td><td class="refs">R19, R20</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71H103KA37D</td><td>Murata</td><td class="desc">Capacitor, 10 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">2</td><td class="refs">C44, C53</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71H224KA64D</td><td>Murata</td><td class="desc">Capacitor, 220 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">2</td><td class="refs">C43, C51</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71H472KA37D</td><td>Murata</td><td class="desc">Capacitor, 4.7 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">2</td><td class="refs">C13, C45</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM21BR71C475KA73L</td><td>Murata</td><td class="desc">Capacitor, 4.7 uF X7R 16 V, AEC-Q200</td><td class="pkg">C_0805_2012Metric</td><td class="qty">2</td><td class="refs">C40, C41</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0710K2L</td><td>Yageo</td><td class="desc">Resistor 10k2 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R58</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0711K5L</td><td>Yageo</td><td class="desc">Resistor 11k5 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R8</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07124KL</td><td>Yageo</td><td class="desc">Resistor 124k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R17</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07130KL</td><td>Yageo</td><td class="desc">Resistor 130k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R39</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-071R1L</td><td>Yageo</td><td class="desc">Resistor 1R1 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R42</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0722K1L</td><td>Yageo</td><td class="desc">Resistor 22k1 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R54</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-072K05L</td><td>Yageo</td><td class="desc">Resistor 2k05 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R6</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0733KL</td><td>Yageo</td><td class="desc">Resistor 33k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R52</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0747KL</td><td>Yageo</td><td class="desc">Resistor 47k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R49</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0749R9L</td><td>Yageo</td><td class="desc">Resistor 49R9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R2</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07536KL</td><td>Yageo</td><td class="desc">Resistor 536k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R40</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07562KL</td><td>Yageo</td><td class="desc">Resistor 562k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R38</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0756KL</td><td>Yageo</td><td class="desc">Resistor 56k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R51</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-0760K4L</td><td>Yageo</td><td class="desc">Resistor 60k4 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R3</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-076K04L</td><td>Yageo</td><td class="desc">Resistor 6k04 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R12</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603JR-070RL</td><td>Yageo</td><td class="desc">0 ohm jumper 0603, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R9</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">EEH-ZA1V101P</td><td>Panasonic</td><td class="desc">Capacitor, 100 uF 35 V hybrid polymer, 8 x 10.2 mm, AEC-Q200</td><td class="pkg">CP_Elec_8x10</td><td class="qty">1</td><td class="refs">C1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM1885C1H120JA16D</td><td>Murata</td><td class="desc">Capacitor, 12 pF C0G 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C48</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM1885C1H150JA16D</td><td>Murata</td><td class="desc">Capacitor, 15 pF C0G 50 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C49</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM1885C1H220JA16D</td><td>Murata</td><td class="desc">Capacitor, 22 pF C0G 50 V (Murata marks it NRND; still orderable, swap if unavailable), AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C58</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">KRL3216E-C-R002-G-T5</td><td>Susumu</td><td class="desc">2 mohm 2% 1206 current sense, AEC-Q200</td><td class="pkg">R_1206_3216Metric</td><td class="qty">1</td><td class="refs">R1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="rule">
+
+  <footer>
+    <p>Generated directly from the project schematic by <code>build_bom.py</code>, so
+    quantities and designators cannot drift from the board. What remains before
+    ordering: confirm the harness wire gauge, resolve the panel's +/-6.5V pin
+    polarity with TSD, and run a purchasing pass for live pricing and availability.</p>
+  </footer>
+</div>

@@ -9,6 +9,7 @@ The center gauge runs Android Automotive; the four small gauges are driven by a 
 | Dir | Role | Core | Board |
 |---|---|---|---|
 | [display/](display/) | Android center gauge | Toradex Verdin iMX95 SoM, 4in 800-nit round MIPI-DSI panel | about 152 x 102mm |
+| [display-rgb/](display-rgb/) | Variant of display/ with an LVDS-to-RGB bridge for a parallel-RGB round panel (Anders 4.2 in, 1300 nits); placement only, not routed | same as display/ + TI DS90CF384AQ-Q1 | about 211 x 102mm |
 | [gauges/](gauges/) | 4 small aux gauges, resistive sender front end, Hall speed, tach and six 12 V indicator-lamp inputs | NXP S32K144, 4x GC9A01 round SPI | 447.1 x 58.3mm |
 
 **Status: prototype, not yet ordered.** Both boards are routed with 0 unconnected nets and have generated BOMs (`ClusterDisplay_BOM.html`, `ClusterGauges_BOM.html`). display/ is ERC-clean (0 violations); gauges/ shows 4 known ERC items (a SWCLK pin, the MCU and buck supply pins flagged as undriven, and a `+5V` power-flag note). DRC on display/ reports 10 `solder_mask_bridge` errors that are the intentional open polarity jumpers JP1/JP2, plus silkscreen and library-copy warnings. Nothing has been fabricated, powered or firmware-tested. Mechanical fit in the dash is not yet checked against a 3D model, and gauges/ (447.1 mm) is wider than the 441.09 mm inner opening dimension, within the 457.2 mm outer limit.

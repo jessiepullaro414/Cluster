@@ -1,0 +1,461 @@
+"""
+Verified pinouts for the display carrier's active parts.
+
+Trimmed from fascia-pcb's own parts.py: this board is a dedicated round-
+panel Android carrier (Verdin iMX95 + power tree + CAN), not a
+touchscreen/infotainment head unit, so PCM3168A-Q1 (audio codec),
+SN74AXC4T245-Q1 (audio level shifters) and TPS2557-Q1 (USB-C power
+switch) are dropped along with their footprints - real parts this board
+has no use for, not parts awaiting a later stage. SN65DSI85-Q1 (DSI-to-
+LVDS bridge) was here too at one point but is gone as of 2026-09-25:
+the real target panel (DisplayModule DM-TFTR50-413) speaks MIPI-DSI
+natively, so there's no LVDS anywhere in this board's real requirement
+and no bridge chip needed - see build_schematic.py's build_panel().
+
+Every remaining entry here was read out of the part's own datasheet, not
+recalled - see fascia-pcb/parts.py for the original source citations
+(same real parts, same real pin tables; this file only removes rows, it
+does not re-derive anything). Pin tuples are:
+
+    (pin_number, pin_name, electrical_type)
+
+using KiCad's electrical-type vocabulary, so build_schematic.py can hand
+them straight to the symbol factory.
+
+Notes marked GOTCHA are things that will destroy a board or silently not
+work, and that contradict the obvious default.
+"""
+
+# ---------------------------------------------------------------------------
+# LM74930-Q1 - automotive ideal diode surge stopper with circuit breaker,
+# overvoltage protection and fault output.
+# Source: TI SNOSDF6, October 2023. VQFN-24 (RGE).
+#
+# GOTCHA: the exposed thermal pad (RTN) must be left FLOATING. The
+# datasheet says explicitly "Leave exposed pad floating. Do Not connect to
+# GND plane." That is the opposite of the usual VQFN convention, so the
+# footprint and any ground-stitching pass need a deliberate exception.
+#
+# GOTCHA: OVCLAMP (16) tied to OV (5) selects overvoltage CLAMP with
+# circuit-breaker timing, i.e. the part regulates through a surge instead
+# of just disconnecting. Tied to GND instead, that behaviour is disabled.
+# ---------------------------------------------------------------------------
+LM74930_Q1 = [
+    (1,  "DGATE",   "output"),      # ideal-diode FET gate
+    (2,  "A",       "passive"),     # ideal-diode anode (that FET's source)
+    (3,  "SW",      "passive"),     # battery-sense disconnect switch; may float
+    (4,  "UVLO",    "input"),       # tie to VS or EN if unused
+    (5,  "OV",      "input"),       # tie to GND if unused
+    (6,  "EN",      "input"),       # tie to VS for always-on
+    (7,  "MODE",    "input"),       # low disables reverse blocking; tie EN/VS
+    (8,  "NC1",     "no_connect"),
+    (9,  "TMR",     "passive"),     # fault/clamp timer cap; GND disables OCP
+    (10, "IMON",    "output"),      # analog current monitor; may float
+    (11, "ILIM",    "passive"),     # overcurrent threshold resistor
+    (12, "FLT",     "open_collector"),
+    (13, "GND",     "power_in"),
+    (14, "HGATE",   "output"),      # pass (load switch) FET gate
+    (15, "OUT",     "passive"),     # common source rail
+    (16, "OVCLAMP", "input"),       # tie to OV to enable clamp; GND disables
+    (17, "NC2",     "no_connect"),
+    (18, "ISCP",    "input"),       # tie to C for internal 20 mV SCP threshold
+    (19, "CS-",     "input"),
+    (20, "CS+",     "input"),       # 50R to the sense resistor
+    (21, "NC3",     "no_connect"),
+    (22, "VS",      "power_in"),    # 100 nF to GND
+    (23, "CAP",     "passive"),     # charge pump; 100 nF across CAP and VS
+    (24, "C",       "passive"),     # ideal-diode cathode (that FET's drain)
+    # Pad 25 is the exposed pad. It MUST be left floating on this part -
+    # see the GOTCHA above. It exists here so the schematic can carry a
+    # deliberate NoConnect rather than leaving a netless pad by omission.
+    (25, "EP",      "passive"),
+]
+
+# ---------------------------------------------------------------------------
+# TCAN1044V-Q1 - automotive CAN FD transceiver with 1.8 V I/O support.
+# Source: TI SLLSF17D, August 2019, revised March 2025. SOIC-8 (D),
+# SOT-8 (DDF) and VSON-8 (DRB) share this pinout.
+#
+# GOTCHA: the "V" suffix is load bearing. Per the datasheet's own device
+# comparison table, TCAN1044-Q1 has pin 5 as a No-Connect while
+# TCAN1044V-Q1 has it as VIO. The Verdin's I/O is 1.8 V logic, so ordering
+# the non-V part yields a board that assembles perfectly and never talks.
+#
+# GOTCHA: VCC wants 4.5-5.5 V (so the 5 V rail), while VIO wants the 1.8 V
+# rail to match the module. They are different supplies, each needing its
+# own 100 nF close to the pin.
+# ---------------------------------------------------------------------------
+TCAN1044V_Q1 = [
+    (1, "TXD",  "input"),
+    (2, "GND",  "power_in"),
+    (3, "VCC",  "power_in"),        # 4.5-5.5 V
+    (4, "RXD",  "output"),
+    (5, "VIO",  "power_in"),        # 1.7-5.5 V; 1.8 V here
+    (6, "CANL", "bidirectional"),
+    (7, "CANH", "bidirectional"),
+    (8, "STB",  "input"),           # standby, integrated pull-up
+]
+
+
+# ---------------------------------------------------------------------------
+# LM61460-Q1 - automotive 3-36 V, 6 A low-EMI synchronous buck.
+# Source: TI SNVSB70F, May 2019, revised June 2021. VQFN-HR-14 (RJR).
+#
+# GOTCHA: BIAS (1) is not a bypass pin. It feeds the internal LDO and
+# should be tied to the OUTPUT rail to improve efficiency - but only while
+# Vout is at or below 12 V. Above that the datasheet says tie it to
+# ground. At our 5 V output it goes to the output.
+#
+# GOTCHA: three pins must not float AND must not be grounded - FB (4),
+# RT (6) and EN/SYNC (7). Grounding RT is a particularly easy mistake
+# since most "set with a resistor to ground" pins tolerate it.
+#
+# GOTCHA: AGND (3) must connect to BOTH PGND1 (9) and PGND2 (11) on the
+# PCB, and VIN1/VIN2 and PGND1/PGND2 each need a low-impedance connection
+# to their pair. These are one net electrically but a real layout
+# constraint, not something the schematic alone captures.
+#
+# RBOOT (13) sets the SW-node rise time, so it is the EMI knob on this
+# part - relevant here given LVDS shares the enclosure.
+# ---------------------------------------------------------------------------
+LM61460_Q1 = [
+    (1,  "BIAS",     "power_in"),
+    (2,  "VCC",      "power_out"),   # internal LDO; 1 uF to AGND, no ext load
+    (3,  "AGND",     "power_in"),
+    (4,  "FB",       "input"),       # do not float or ground
+    (5,  "PGOOD",    "open_collector"),
+    (6,  "RT",       "passive"),     # 5.76k-66.5k to GND -> 200k-2200 kHz
+    (7,  "EN/SYNC",  "input"),       # do not float; doubles as sync input
+    (8,  "VIN1",     "power_in"),
+    (9,  "PGND1",    "power_in"),
+    (10, "SW",       "output"),
+    (11, "PGND2",    "power_in"),
+    (12, "VIN2",     "power_in"),
+    (13, "RBOOT",    "passive"),     # SW rise time / EMI
+    (14, "CBOOT",    "passive"),     # 100 nF to SW
+]
+
+
+# ---------------------------------------------------------------------------
+# TLV767-Q1 - automotive 16 V, 1 A linear regulator, adjustable version.
+# Source: TI SBVS381A, April 2020, revised December 2020. 8-pin WSON (DRB).
+#
+# Chosen as an LDO rather than a buck deliberately: the 1.8 V rail feeds
+# the DSI-to-LVDS bridge and the CAN transceiver's VIO, the load is small,
+# and a linear regulator contributes no switching noise to a board that
+# already has LVDS sharing an enclosure.
+#
+# GOTCHA: pin 3 differs between versions - FB on the adjustable part,
+# SNS on the fixed part. This design uses the ADJUSTABLE version, so
+# pin 3 is FB and drives the output through an external divider. Neither
+# may float.
+#
+# NOTE (contrast with the LM74930-Q1 above): this thermal pad MAY be
+# grounded - "connect this pad to ground or leave floating", and a large
+# ground plane is preferred for thermals. Do not generalise either part's
+# pad rule to the other.
+# ---------------------------------------------------------------------------
+TLV767_Q1 = [
+    (1, "OUT", "power_out"),
+    (2, "NC1", "no_connect"),   # not internally connected; may tie to GND
+    (3, "FB",  "input"),        # adjustable version; do not float
+    (4, "GND", "power_in"),
+    (5, "EN",  "input"),        # internal pull-up; may float to enable
+    (6, "GND2", "power_in"),
+    (7, "NC2", "no_connect"),
+    (8, "IN",  "power_in"),
+    (9, "EP",  "passive"),      # exposed pad; grounded on this part
+]
+
+
+# ---------------------------------------------------------------------------
+# TPS65131-Q1 - automotive dual-output (positive boost + inverting) LCD
+# bias supply: VIN 2.7-5.5 V, VPOS 3.2-15 V, VNEG -15 to -2 V, ~200 mA,
+# AEC-Q100 Grade 2. Source: TI SLVSBB2F (Aug 2024), Table 5-1, RGE
+# package (VQFN-24, 4x4 mm; package outline RGE0024B, thermal pad 2.45 mm).
+# Powers the TST040HDBC-42 panel's +6.5 V / -6.5 V analog rails from +5V.
+#
+# GOTCHA: VPOS/VNEG are datasheet-typed as sense INPUTS. They are modelled
+# as power_out here because they are the nets these converters regulate;
+# without a power_out on the net ERC reports the panel's supply pins as
+# undriven.
+# GOTCHA: BSW (7) is the gate drive for an OPTIONAL external load-disconnect
+# PMOS. The datasheet says to leave it floating when unused.
+# GOTCHA: the datasheet's own duplicated pins (INP 1/24, PGND 2/3, INN 5/6,
+# OUTN 13/14) get distinct names here only so verify() can keep names unique.
+# ---------------------------------------------------------------------------
+TPS65131_Q1 = [
+    (1,  "INP1",  "passive"),      # boost switch pin
+    (2,  "PGND1", "power_in"),
+    (3,  "PGND2", "power_in"),
+    (4,  "VIN",   "power_in"),     # control supply, RC filtered from +5V
+    (5,  "INN1",  "power_in"),     # inverter input
+    (6,  "INN2",  "power_in"),
+    (7,  "BSW",   "output"),       # optional load-disconnect PMOS gate
+    (8,  "ENP",   "input"),        # boost enable, VIH 1.4 V min
+    (9,  "PSP",   "input"),        # boost power-save (0 V = forced PWM)
+    (10, "ENN",   "input"),        # inverter enable
+    (11, "PSN",   "input"),        # inverter power-save
+    (12, "NC1",   "no_connect"),
+    (13, "OUTN1", "passive"),      # inverter switch output
+    (14, "OUTN2", "passive"),
+    (15, "VNEG",  "power_out"),    # -6.5 V output / sense
+    (16, "FBN",   "input"),        # divider to VREF, not GND
+    (17, "VREF",  "output"),       # 220 nF to GND
+    (18, "CN",    "passive"),      # 4.7 nF comp cap, inverter
+    (19, "AGND",  "power_in"),
+    (20, "NC2",   "no_connect"),
+    (21, "CP",    "passive"),      # 10 nF comp cap, boost
+    (22, "FBP",   "input"),        # divider to GND, VFB = 1.213 V
+    (23, "VPOS",  "power_out"),    # +6.5 V output / sense
+    (24, "INP2",  "passive"),
+    (25, "EP",    "power_in"),     # thermal pad -> PGND
+]
+
+
+# ---------------------------------------------------------------------------
+# TPS61165-Q1 - automotive boost white-LED driver: VIN 3-18 V, up to 38 V
+# out, 1.2 A switch (0.96-1.44 A over temperature), 1.2 MHz, VFB = 0.2 V,
+# CTRL = enable + PWM dimming (5-100 kHz), AEC-Q100. Source: TI SLVSB73B
+# (May 2015), DBV (SOT-23-6) pin table.
+# Drives the TST040HDBC-42 backlight (15 V / 180 mA) from +5V.
+# ---------------------------------------------------------------------------
+TPS61165_Q1 = [
+    (1, "VIN",  "power_in"),
+    (2, "CTRL", "input"),          # enable + PWM dimming; ~800k pulldown
+    (3, "SW",   "passive"),
+    (4, "GND",  "power_in"),
+    (5, "COMP", "passive"),        # 220 nF to GND
+    (6, "FB",   "input"),          # 0.2 V across the sense resistor
+]
+
+
+# ---------------------------------------------------------------------------
+# TPS22918-Q1 - AEC-Q100 Grade 2 load switch, 1-5.5 V, 2 A, 52 mohm. Source:
+# TI SLVSCZ8B, DBV (SOT-23-6) pin table. ON is active high with VIH 1.0 V min
+# and VIL 0.5 V max, so the Verdin's 1.8 V CTRL_SLEEP_MOCI# drives it
+# directly; CIN must be at least 1 uF. Switches the rotary dial's 5 V supply
+# off in sleep.
+# ---------------------------------------------------------------------------
+TPS22918_Q1 = [
+    (1, "VIN",  "power_in"),
+    (2, "GND",  "power_in"),
+    (3, "ON",   "input"),        # active high, do not float
+    (4, "CT",   "passive"),      # slew control, may float
+    (5, "QOD",  "passive"),      # quick output discharge, left open
+    (6, "VOUT", "power_out"),
+]
+
+
+# NOTE: this file previously carried SN65DSI85-Q1 (DSI-to-LVDS bridge),
+# removed 2026-09-25 when the board's target panel changed to a real
+# native-MIPI-DSI round panel (DisplayModule DM-TFTR50-413) - see
+# build_schematic.py's build_panel() docstring. No bridge chip on this
+# board anymore; the Verdin's own DSI output goes straight to the panel.
+
+# ---------------------------------------------------------------------------
+# DS90CF384AQ-Q1 - AEC-Q100 Grade 3 (-40..+85 C) +3.3 V LVDS receiver, 24-bit
+# flat-panel-display link, 20-65 MHz shift clock. Source: TI SNLS345A (April
+# 2013), Figure 12 "56-Lead TSSOP (DGG Package)" pin diagram, read from the
+# datasheet page image on 2026-10-08; orderable DS90CF384AQMTX/NOPB (Active,
+# Production, TI package addendum 11-Nov-2025). Pin names are made unique here
+# (GND1.., VCC1..) because the schematic generator keys nets by pin name.
+# RxOUT bit-to-colour mapping is the datasheet's Figure 3 recommended mapping:
+#   R0..R4 = RxOUT0..4, R5 = 6, R6 = 27, R7 = 5; G0..G2 = 7..9, G3..G5 = 12..14,
+#   G6 = 10, G7 = 11; B0 = 15, B1..B4 = 18..21, B5 = 22, B6 = 16, B7 = 17;
+#   HSYNC = 24, VSYNC = 25, DE = 26, RxOUT23 = reserved. RxCLK OUT's FALLING
+#   edge is the data strobe. No internal LVDS termination is documented, so
+#   100 ohm external terminations sit across each input pair.
+# ---------------------------------------------------------------------------
+DS90CF384AQ_Q1 = [
+    (1,  "RxOUT22", "output"), (2,  "RxOUT23", "output"), (3,  "RxOUT24", "output"),
+    (4,  "GND1", "power_in"),
+    (5,  "RxOUT25", "output"), (6,  "RxOUT26", "output"), (7,  "RxOUT27", "output"),
+    (8,  "LVDS_GND1", "power_in"),
+    (9,  "RxIN0-", "input"), (10, "RxIN0+", "input"),
+    (11, "RxIN1-", "input"), (12, "RxIN1+", "input"),
+    (13, "LVDS_VCC", "power_in"), (14, "LVDS_GND2", "power_in"),
+    (15, "RxIN2-", "input"), (16, "RxIN2+", "input"),
+    (17, "RxCLKIN-", "input"), (18, "RxCLKIN+", "input"),
+    (19, "RxIN3-", "input"), (20, "RxIN3+", "input"),
+    (21, "LVDS_GND3", "power_in"),
+    (22, "PLL_GND1", "power_in"), (23, "PLL_VCC", "power_in"), (24, "PLL_GND2", "power_in"),
+    (25, "PWR_DWN", "input"),         # active low: low = outputs low, receiver off
+    (26, "RxCLK_OUT", "output"), (27, "RxOUT0", "output"),
+    (28, "GND2", "power_in"),
+    (29, "RxOUT1", "output"), (30, "RxOUT2", "output"),
+    (31, "VCC1", "power_in"),
+    (32, "RxOUT3", "output"), (33, "RxOUT4", "output"), (34, "RxOUT5", "output"),
+    (35, "RxOUT6", "output"),
+    (36, "GND3", "power_in"),
+    (37, "RxOUT7", "output"), (38, "RxOUT8", "output"), (39, "RxOUT9", "output"),
+    (40, "VCC2", "power_in"),
+    (41, "RxOUT10", "output"), (42, "RxOUT11", "output"), (43, "RxOUT12", "output"),
+    (44, "GND4", "power_in"),
+    (45, "RxOUT13", "output"), (46, "RxOUT14", "output"), (47, "RxOUT15", "output"),
+    (48, "VCC3", "power_in"),
+    (49, "RxOUT16", "output"), (50, "RxOUT17", "output"), (51, "RxOUT18", "output"),
+    (52, "GND5", "power_in"),
+    (53, "RxOUT19", "output"), (54, "RxOUT20", "output"), (55, "RxOUT21", "output"),
+    (56, "VCC4", "power_in"),
+]
+
+# TLV733P-Q1 (SOT-23-5, DBV): same pinout gauges/ already uses for its 3.3 V
+# LDO - 1 IN, 2 GND, 3 EN, 4 NC, 5 OUT; 300 mA, fixed 3.3 V (TLV73333PQDBVRQ1).
+TLV733P_Q1 = [
+    (1, "IN", "power_in"), (2, "GND", "power_in"), (3, "EN", "input"),
+    (4, "NC", "no_connect"), (5, "OUT", "power_out"),
+]
+
+
+def verify():
+    """Sanity-check the tables before anything builds symbols from them."""
+    problems = []
+    for name, pins in (("LM74930_Q1", LM74930_Q1),
+                       ("TCAN1044V_Q1", TCAN1044V_Q1),
+                       ("LM61460_Q1", LM61460_Q1),
+                       ("TLV767_Q1", TLV767_Q1),
+                       ("TPS65131_Q1", TPS65131_Q1),
+                       ("TPS61165_Q1", TPS61165_Q1),
+                       ("TPS22918_Q1", TPS22918_Q1),
+                       ("DS90CF384AQ_Q1", DS90CF384AQ_Q1),
+                       ("TLV733P_Q1", TLV733P_Q1)):
+        numbers = [p[0] for p in pins]
+        if numbers != list(range(1, len(pins) + 1)):
+            problems.append(f"{name}: pin numbers are not 1..{len(pins)} "
+                            f"contiguous: {numbers}")
+        if len(set(p[1] for p in pins)) != len(pins):
+            problems.append(f"{name}: duplicate pin names")
+
+    # Both parts are known-size packages; assert the counts so a careless
+    # edit that drops a pin is caught here rather than in the netlist.
+    if len(LM74930_Q1) != 25:
+        problems.append(f"LM74930_Q1 should have 25 pins (24 + exposed pad), has {len(LM74930_Q1)}")
+    if len(TCAN1044V_Q1) != 8:
+        problems.append(f"TCAN1044V_Q1 should have 8 pins, "
+                        f"has {len(TCAN1044V_Q1)}")
+    if len(LM61460_Q1) != 14:
+        problems.append(f"LM61460_Q1 should have 14 pins, "
+                        f"has {len(LM61460_Q1)}")
+    if len(TLV767_Q1) != 9:
+        problems.append(f"TLV767_Q1 should have 9 pins (8 + EP), has {len(TLV767_Q1)}")
+    if len(TPS65131_Q1) != 25:
+        problems.append(f"TPS65131_Q1 should have 25 pins (24 + thermal pad), has {len(TPS65131_Q1)}")
+    if len(TPS22918_Q1) != 6:
+        problems.append(f"TPS22918_Q1 should have 6 pins, has {len(TPS22918_Q1)}")
+    if len(DS90CF384AQ_Q1) != 56:
+        problems.append(f"DS90CF384AQ_Q1 should have 56 pins, has {len(DS90CF384AQ_Q1)}")
+    if len(TLV733P_Q1) != 5:
+        problems.append(f"TLV733P_Q1 should have 5 pins, has {len(TLV733P_Q1)}")
+    if len(TPS61165_Q1) != 6:
+        problems.append(f"TPS61165_Q1 should have 6 pins, has {len(TPS61165_Q1)}")
+    return problems
+
+
+if __name__ == "__main__":
+    import sys
+
+    problems = verify()
+    for name, pins in (("LM74930-Q1 (VQFN-24)", LM74930_Q1),
+                       ("TCAN1044V-Q1 (SOIC-8)", TCAN1044V_Q1),
+                       ("LM61460-Q1 (VQFN-HR-14)", LM61460_Q1),
+                       ("TLV767-Q1 (WSON-8)", TLV767_Q1),
+                       ("TPS65131-Q1 (VQFN-24)", TPS65131_Q1),
+                       ("TPS61165-Q1 (SOT-23-6)", TPS61165_Q1)):
+        print(f"\n=== {name}: {len(pins)} pins ===")
+        for num, pname, etype in pins:
+            print(f"   {num:2d}  {pname:<8s} {etype}")
+    print()
+    if problems:
+        print("PART TABLES INVALID:")
+        for p in problems:
+            print("  -", p)
+        sys.exit(1)
+    print("part tables OK")
+
+
+# ---------------------------------------------------------------------------
+# Footprint assignments.
+#
+# All but one come from KiCad's own libraries, and build_schematic.py
+# verifies at build time that every file named here actually exists -
+# a typo in a footprint name is otherwise invisible until the netlist is
+# imported into the PCB editor.
+#
+# Exposed pads are pad N+1 in every one of these footprints (65 on the
+# TQFP-64, 25 on the VQFN-24), which is why the pin tables above carry an
+# explicit EP pin.
+# ---------------------------------------------------------------------------
+FOOTPRINTS = {
+    # The Verdin module plugs into a standard DDR4 SODIMM socket, and
+    # KiCad's footprint has exactly 260 pads numbered 1-260 - a direct
+    # match for the extracted pinout.
+    "Verdin_iMX95_X1": "Connector_PCBEdge:SODIMM-260_DDR4_H4.0-5.2_OrientationStd_Socket",
+    "LM74930-Q1":      "Package_DFN_QFN:Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm",
+    "TLV767-Q1":       "Package_DFN_QFN:Texas_DRB0008A",
+    "TCAN1044V-Q1":    "Package_SO:SOIC-8_3.9x4.9mm_P1.27mm",
+    # Generated rather than from a KiCad library: the RJR (VQFN-HR-14)
+    # package has no stock footprint. See fascia-pcb/tools/build_lm61460_footprint.py
+    # (reused verbatim - same real part, same real package).
+    "LM61460-Q1":      "TI_RJR0014A_VQFN-HR:TI_RJR0014A_VQFN-HR-14_4x3.5mm",
+    "R":    "Resistor_SMD:R_0603_1608Metric",
+    "C":    "Capacitor_SMD:C_0603_1608Metric",
+    "L":    "Inductor_SMD:L_1210_3225Metric",
+    "TVS":  "Diode_SMD:D_SMB",
+    # Real part MF-RG500 (5.0A hold, matching F1's own real "5A" target -
+    # see build_schematic.py's own comment on F1). MF-RG300 (3.0A hold)
+    # was the wrong footprint AND the wrong real part - Bourns' MF-RG
+    # family's numeric suffix is the hold current, and each member has
+    # its own real, different physical package size, not a shared one.
+    "FUSE": "Fuse:Fuseholder_Blade_Mini_Keystone_3568",
+    "NFET": "Package_TO_SOT_SMD:SOT-23",
+    # RGE0024B: 4x4 mm, 24 pins at 0.5 mm, thermal pad 2.45 mm per TI's own
+    # package drawing. KiCad's stock HVQFN-24 4x4/0.5mm footprint carries a
+    # 2.5 mm pad - the closest bundled match, 0.05 mm larger than TI's
+    # land pattern example.
+    "TPS65131-Q1": "Package_DFN_QFN:HVQFN-24-1EP_4x4mm_P0.5mm_EP2.5x2.5mm",
+    "TPS61165-Q1": "Package_TO_SOT_SMD:SOT-23-6",
+    "TPS22918-Q1": "Package_TO_SOT_SMD:SOT-23-6",
+    # Coilcraft XAL, AEC-Q200 125C shielded molded inductors (datasheet
+    # Document 806-1): XAL4030-472ME 4.7 uH / Isat 4.6 A / 40 mOhm typ and
+    # XAL4040-103ME 10 uH / Isat 3.0 A / 84 mOhm typ.
+    "L_4U7": "Inductor_SMD:L_Coilcraft_XAL4030-XXX",
+    "L_10U": "Inductor_SMD:L_Coilcraft_XAL4040-XXX",
+    "SCHOTTKY_SOD123W": "Diode_SMD:Nexperia_CFP3_SOD-123W",
+    "D_BAV99": "Package_TO_SOT_SMD:SOT-23",
+    "CONN_DIAL": "Connector_Molex:Molex_KK-254_AE-6410-04A_1x04_P2.54mm_Vertical",
+    "C_0805": "Capacitor_SMD:C_0805_2012Metric",
+    # Power-stage packages (2026-10-02 audit): XEL5030 shares the XAL5030
+    # land pattern (pads 1.18 x 4.70 mm, both datasheets), 2 mohm sense
+    # resistor in 1206, and the 8 x 10.2 mm hybrid polymer can.
+    "L_5030": "Inductor_SMD:L_Coilcraft_XAL5030-XXX",
+    "R_1206": "Resistor_SMD:R_1206_3216Metric",
+    "CP_HYBRID": "Capacitor_SMD:CP_Elec_8x10",
+    "C_1206": "Capacitor_SMD:C_1206_3216Metric",
+    # Open 3-pad solder jumpers for the panel's +/-6.5 V pin-group polarity.
+    "SOLDERJUMPER3": "Jumper:SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm",
+
+    # Connectors. J2/J3 are real harness parts (see below); J8 (JTAG) and
+    # J9 (buttons) are bench/service-only 2.54 mm headers (Samtec
+    # TSW-108-07-G-S / TSW-104-07-G-S) that never enter the vehicle harness.
+    # J2 (12V/GND/IGN in): real Phoenix MKDS 1,5/3-5,08 (order no. 1715734,
+    # 17.5 A / 400 V nominal) - same MKDS 5.08 family gauges/'s own J1 power
+    # input uses. J3 (CAN): real Molex KK 254 22-27-2031, 3 circuits, 4 A /
+    # 250 V per contact - same KK 254 family gauges/'s own J7 uses.
+    "CONN3":      "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal",
+    "CONN_CAN":   "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical",
+    # Real: Hirose FH26 0.3 mm-pitch 39-position FPC connector for the
+    # TST040HDBC-42's 39-pin FPC (KiCad bundled footprint, 2 rows staggered).
+    "CONN_PANEL": "Connector_FFC-FPC:Hirose_FH26-39S-0.3SHW_2Rows-39Pins-1MP_P0.60mm_Horizontal",
+    "CONN_JTAG":  "Connector_PinHeader_2.54mm:PinHeader_1x08_P2.54mm_Vertical",
+    "CONN_BTN":   "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+    "CONN_UART":  "Connector_PinHeader_2.54mm:PinHeader_1x03_P2.54mm_Vertical",
+    "DS90CF384AQ-Q1": "Package_SO:TSSOP-56_6.1x14mm_P0.5mm",
+    "TLV733P-Q1":     "Package_TO_SOT_SMD:SOT-23-5",
+    # PLACEHOLDER: the Anders 12575 panel's real connector is unknown until its
+    # datasheet arrives; a 50-pin 0.5 mm FPC stands in so the layout has a
+    # realistic footprint.
+    "CONN_RGB":   "Connector_FFC-FPC:Hirose_FH12-50S-0.5SH_1x50-1MP_P0.50mm_Horizontal",
+    "CONN_USB":   "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical",
+    "CONN_CELL":  "Battery:BatteryHolder_Keystone_1058_1x2032",
+}

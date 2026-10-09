@@ -182,10 +182,12 @@ if ok:
     j = txt.index("))", i)
     pts = [(cx0, cy0), (cx1, cy0), (cx1, cy1), (cx0, cy1)]
     poly = " ".join(str(int(round(x * 1000))) + " " + str(int(round(-y * 1000))) for x, y in pts)
-    extra = " (keepout dsi_corridor"
-    for layer in ("F.Cu", "In1.Cu", "B.Cu"):
-        extra += " (polygon " + layer + " 0 " + poly + ")"
-    extra += ")"
+    # One keepout item PER LAYER: with three polygons in a single item the
+    # autorouter honoured only the first (a +1V8 track on In1.Cu ran straight
+    # through the corridor on the RGB variant, 2026-10-08).
+    extra = ""
+    for layer in ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"):
+        extra += " (keepout dsi_corridor_" + layer.replace(".", "_") + " (polygon " + layer + " 0 " + poly + "))"
     txt = txt[:j + 2] + extra + txt[j + 2:]
     open({DSN!r}, "w", encoding="utf-8").write(txt)
 print("DSN export:", "OK" if ok else "FAILED", "->", {DSN!r})
@@ -270,6 +272,32 @@ if not ok:
 board.Save({PCB!r})
 print("Saved routed board to", {PCB!r})
 ''')
+
+
+def corridor_violations():
+    """Count other-net copper (tracks, vias) inside the DSI corridor after the
+    DSI pairs are in: the real check behind the keepout above."""
+    code = f'''
+import json, pcbnew
+b = pcbnew.LoadBoard({PCB!r})
+U = pcbnew.ToMM
+x0, y0, x1, y1 = json.load(open({KEEPOUTS!r}))["dsi_corridor_rect_mm"]
+bad = 0
+for t in b.GetTracks():
+    if t.GetNetname().startswith(("DSI_D0", "DSI_D1", "DSI_D2", "DSI_CLK")):
+        continue
+    if t.GetClass() == "PCB_VIA":
+        pts = [(U(t.GetPosition().x), U(t.GetPosition().y))]
+    else:
+        s, e = t.GetStart(), t.GetEnd()
+        pts = [(U(s.x) + (U(e.x) - U(s.x)) * k / 10, U(s.y) + (U(e.y) - U(s.y)) * k / 10) for k in range(11)]
+    if any(x0 <= x <= x1 and y0 <= y <= y1 for x, y in pts):
+        bad += 1
+print("CORRIDOR_VIOLATIONS=" + str(bad))
+'''
+    out = subprocess.run([KICAD_PYTHON, "-c", code], capture_output=True, text=True).stdout
+    m = re.search(r"CORRIDOR_VIOLATIONS=(\d+)", out)
+    return int(m.group(1)) if m else 0
 
 
 def add_dsi():
@@ -616,6 +644,11 @@ if __name__ == "__main__":
         widen_trunks()
         add_and_fill_zones()
         real_unconnected = real_unconnected_count()
+        _cv = corridor_violations()
+        if _cv:
+            print(f"WARNING: {_cv} other-net copper item(s) inside the DSI corridor; "
+                  f"treating the attempt as failed")
+        real_unconnected += _cv
         if real_unconnected == 0:
             print(f"\nReal DRC confirms 0 unconnected items (pipeline attempt "
                   f"{pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS}).")

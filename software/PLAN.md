@@ -29,15 +29,15 @@ Rules: AAOS source and builds stay on the distro's ext4 (never `/mnt/c`); the sm
 | A0 | skeleton, pins header, `aggregate.c` + host tests | source-priority logic | nothing | **done** |
 | A1 | cross-compile check | M4F builds with the installed toolchain | nothing | **done** |
 | A2 | startup + vector table + linker script + clock tree + 10 ms tick, `make arm` producing an ELF | boots to `main` | S32K144 RM memory map and SCG chapter (verify addresses, do not guess) | 2 to 3 h |
-| A3 | protocol codec: encode/decode every message from `cluster_can.h`, counter + CRC, Haltech V2 decode, test vectors from `../protocol` | wire format | nothing (host tests) | 2 h |
-| A4 | input math: pulse period to speed and RPM, lamp debounce, dimmer scaling, sender tables with fake curves | conversions | nothing (host tests) | 2 h |
+| A3 | protocol codec: `../protocol/cluster_codec.h` (generated: struct + pack/unpack per private message with counter and CRC-8, Haltech V2 decode) and a generated C test whose expected bytes come from cantools (independent of the C code; mutation-checked) | wire format | nothing (host tests) | **done** |
+| A4 | input math (`inputmath.c`): pulse period to speed and RPM, lamp debounce, dimmer scaling, table lookup; host-tested (sender curves still need real data) | conversions | nothing (host tests) | **done** |
 | A5 | FlexCAN driver (CAN0 listen-only, CAN1) | frames on a bus | board + CAN adapter | 4 h + bench |
 | A6 | FTM capture, ADC, GPIO, ignition wake | real inputs | board | 4 h + bench |
 | A7 | GC9A01 driver and needle gauges on LPSPI2 | the four small gauges | board + screens | 4 h + bench |
 | A8 | STOP mode and wake, `PowerState` handshake with display/ | sleep current, wake time | board + meter | 3 h + bench |
 | A9 | sender curves from the real senders | gauge accuracy | the user's senders | measurement |
 
-A2 to A4 can be done now. A5 onward need hardware.
+A2 can be done now (it needs the Reference Manual). A5 onward need hardware.
 
 ### B. Android Automotive (display/)
 
@@ -56,16 +56,20 @@ A2 to A4 can be done now. A5 onward need hardware.
 2. Generate more of the protocol side: C decode helpers (A3) and a C++/Kotlin decode table from the same Python table, so firmware, bridge and DBC cannot drift.
 3. CI-style script `software/check.sh`: protocol tests, host firmware tests, `make arm-check`, run in WSL.
 
-## 3. Decisions needed (recommendation first)
-1. **Own register layer vs NXP S32 SDK.** Recommend our own, generated from the Reference Manual and checked against its register diagrams: no NXP login, matches `ecu-firmware`, and the firmware is small. SDK only if the RM approach stalls.
-2. **Bare-metal cooperative loop vs RTOS.** Recommend bare-metal: one 10 ms tick, interrupts only for CAN, capture and wake.
-3. **Debug probe** for SWD through the Tag-Connect on `gauges/`: a J-Link, PEmicro or CMSIS-DAP probe (not chosen).
-4. **Android dev platform**: the NXP 19x19 EVK (supported for this release) vs emulator only until a Verdin dev carrier arrives.
+## 3. Decisions
+Made by the user, 2026-10-14:
+1. **Own register layer**, written from the S32K144 Reference Manual (no NXP SDK, no login). Every address and bit is checked against the RM's register diagrams, as in `ecu-firmware`.
+2. **Debug probe: SEGGER J-Link.** Before buying, confirm in SEGGER's supported-device list that it covers the S32K144, and match the cable to `gauges/` J2, a Tag-Connect TC2030 footprint (our symbol has SWDIO on pin 1 and SWCLK on pin 3: check that against the Tag-Connect pinout and the J-Link's 10-pin Cortex layout, which is not the same connector).
+3. **Android platform: the user will buy one NXP 19x19 EVK; until it arrives the emulator is the platform.** B1 and B2 therefore target the emulator and host tests first.
+
+Still open, with a recommendation:
+4. **Bare-metal cooperative loop vs RTOS.** Recommend bare-metal: one 10 ms tick, interrupts only for CAN, capture and wake.
 5. **CarPlay / Android Auto**: Apple's CarPlay program and Google's Android Auto receiver for AAOS both involve licences; which route and when is a business decision. Nothing in B1 to B4 depends on it.
 
 ## 4. Verification discipline (same as the hardware)
 Every register address and bit comes from the Reference Manual, not memory; stubs say so. Host tests for every pure function; `make arm-check` must stay clean with `-Werror`; any message layout comes from the generated header, never retyped. Measure, then claim.
 
 ## 5. First actions
-1. A3 and A4 (host-only, no hardware): about 4 hours.
-2. In parallel, read the S32K144 Reference Manual's memory map, SCG and FlexCAN chapters for A2 (needs the RM; the sibling `manifold-pcb` / `thermo-pcb` notes show where it was fetched before).
+1. A2: read the S32K144 Reference Manual's memory map, SCG and FlexCAN chapters (needs the RM; the sibling `manifold-pcb` / `thermo-pcb` notes show where it was fetched before), then write startup, linker script, clocks and the 10 ms tick.
+2. B1: the cluster app on the emulator with a fake property source.
+3. C1: `can_replay.py` once a CAN adapter is chosen.

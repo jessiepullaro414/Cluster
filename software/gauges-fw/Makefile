@@ -3,12 +3,22 @@
 CC      ?= gcc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 
-CORE := src/aggregate.c
+CORE := src/aggregate.c src/inputmath.c
 STUBS := src/senders.c src/inputs.c src/can_link.c src/aux_display.c src/power.c
 
 .PHONY: test stubs arm-check clean
-test: build/test_aggregate
+test: build/test_aggregate build/test_codec build/test_inputmath
 	./build/test_aggregate
+	./build/test_codec
+	./build/test_inputmath
+
+build/test_inputmath: test/test_inputmath.c src/inputmath.c inc/inputmath.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -o $@ test/test_inputmath.c src/inputmath.c -lm
+
+build/test_codec: test/test_codec.c ../../protocol/cluster_codec.h ../../protocol/cluster_can.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -o $@ test/test_codec.c -lm
 
 build/test_aggregate: test/test_aggregate.c $(CORE) inc/aggregate.h
 	mkdir -p build

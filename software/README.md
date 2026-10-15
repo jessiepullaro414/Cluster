@@ -9,6 +9,8 @@ Nothing here runs on a car yet. Every file is a stub unless it says otherwise.
 
 The wire protocol is not duplicated here: `../protocol/can_protocol.py` generates `cluster_can.h`, the DBC files and the spec, and both sides use those.
 
+The plan, build environment and decisions: [PLAN.md](PLAN.md).
+
 Host build and test of the firmware core (needs gcc, available in WSL here):
 
 ```

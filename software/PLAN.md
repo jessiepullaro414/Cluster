@@ -52,9 +52,9 @@ A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watch
 | B6 | suspend-to-RAM and wake on ignition | wake time | Verdin module, System Manager port |
 
 ### C. Test rig and tooling
-1. `tools/can_replay.py`: replays Haltech V2 car-bus frames and private-link frames from the DBC onto a CAN adapter (python-can). Needs a CAN adapter.
+1. `tools/can_replay.py` (**done**, `--selftest` passes): replays a scripted drive as Haltech V2 car-bus frames (`--role car`, bench ECU for gauges/ CAN0) or as private-link frames with rolling counter and CRC-8 (`--role gauges`, feeds the Android VHAL bridge with no gauges/ board). Encoded from the DBCs by cantools. Sending needs a CAN adapter; `--dry-run` and the in-process self-test do not.
 2. Generate more of the protocol side: C decode helpers (A3) and a C++/Kotlin decode table from the same Python table, so firmware, bridge and DBC cannot drift.
-3. CI-style script `software/check.sh`: protocol tests, host firmware tests, `make arm-check`, run in WSL.
+3. `software/check.sh` (**done**): host firmware tests, `make arm-check`, `make arm` and the image inspection, in WSL. The protocol checks need cantools, which WSL's python3 lacks (and it has no pip), so the script prints a SKIPPED line there; run `python protocol/test_protocol.py` from Windows.
 
 ## 3. Decisions
 Made by the user, 2026-10-14:

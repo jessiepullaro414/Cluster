@@ -5,13 +5,11 @@
 #include "inputs.h"
 #include "power.h"
 #include "senders.h"
+#include "tick.h"
 #include "cluster_can.h"
 
-/* STUB main: the init order and the 10 ms task are the point; every module is
- * a stub. now_ms() and the scheduler tick come from a SysTick/LPIT driver that
- * does not exist yet. */
-extern uint32_t now_ms(void);
-extern void     wait_for_tick_10ms(void);
+/* STUB main: the init order and the 10 ms task are the point; every module
+ * except the clock and the tick (tick.c) is a stub. */
 
 static void step(uint32_t now)
 {

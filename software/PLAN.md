@@ -28,7 +28,7 @@ Rules: AAOS source and builds stay on the distro's ext4 (never `/mnt/c`); the sm
 |---|---|---|---|---|
 | A0 | skeleton, pins header, `aggregate.c` + host tests | source-priority logic | nothing | **done** |
 | A1 | cross-compile check | M4F builds with the installed toolchain | nothing | **done** |
-| A2 | startup + vector table + linker script + clock tree + 10 ms tick, `make arm` producing an ELF | boots to `main` | S32K144 RM memory map and SCG chapter (verify addresses, do not guess) | 2 to 3 h |
+| A2 | startup + vector table + linker script + clock tree + 10 ms tick, `make arm` producing an ELF | boots to `main` | S32K144 RM memory map and SCG chapter (verify addresses, do not guess) | **done to the image** (links; reset path inspected; boots on hardware is unproven) |
 | A3 | protocol codec: `../protocol/cluster_codec.h` (generated: struct + pack/unpack per private message with counter and CRC-8, Haltech V2 decode) and a generated C test whose expected bytes come from cantools (independent of the C code; mutation-checked) | wire format | nothing (host tests) | **done** |
 | A4 | input math (`inputmath.c`): pulse period to speed and RPM, lamp debounce, dimmer scaling, table lookup; host-tested (sender curves still need real data) | conversions | nothing (host tests) | **done** |
 | A5 | FlexCAN driver (CAN0 listen-only, CAN1) | frames on a bus | board + CAN adapter | 4 h + bench |
@@ -37,7 +37,7 @@ Rules: AAOS source and builds stay on the distro's ext4 (never `/mnt/c`); the sm
 | A8 | STOP mode and wake, `PowerState` handshake with display/ | sleep current, wake time | board + meter | 3 h + bench |
 | A9 | sender curves from the real senders | gauge accuracy | the user's senders | measurement |
 
-A2 can be done now (it needs the Reference Manual). A5 onward need hardware.
+A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watchdog off, SCG crystal to 80 MHz, vector table generated from NXP's interrupt workbook). A5 onward need hardware.
 
 ### B. Android Automotive (display/)
 

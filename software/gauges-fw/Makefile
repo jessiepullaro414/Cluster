@@ -6,7 +6,7 @@ CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 CORE := src/aggregate.c src/inputmath.c
 STUBS := src/senders.c src/inputs.c src/can_link.c src/aux_display.c src/power.c
 
-.PHONY: test stubs arm-check clean
+.PHONY: test stubs arm-check arm clean
 test: build/test_aggregate build/test_codec build/test_inputmath
 	./build/test_aggregate
 	./build/test_codec
@@ -39,6 +39,20 @@ arm-check:
 	mkdir -p build
 	for f in $(CORE) $(STUBS) src/main.c; do 	  $(ARMCC) $(ARMFLAGS) -DHOST_BUILD -c $$f -o build/arm_$$(basename $$f .c).o || exit 1; done
 	$(dir $(ARMCC))arm-none-eabi-size build/arm_*.o
+
+# Full firmware image: startup, generated vector table, flash configuration
+# field, clocks, tick and the (mostly stub) application, linked with link/s32k144.ld.
+# Verified by size and objdump only: nothing has run on a part yet.
+BOOT := src/startup.c src/vectors.c src/fcf.c src/clock.c src/tick.c
+ARMBIN := $(dir $(ARMCC))
+ARMLINK := $(ARMFLAGS) -ffunction-sections -fdata-sections -nostartfiles --specs=nano.specs --specs=nosys.specs \
+           -Wl,-T,link/s32k144.ld -Wl,--gc-sections -Wl,-Map,build/gauges-fw.map
+arm: build/gauges-fw.elf
+	$(ARMBIN)arm-none-eabi-size build/gauges-fw.elf
+
+build/gauges-fw.elf: $(BOOT) $(CORE) $(STUBS) src/main.c link/s32k144.ld $(wildcard inc/*.h)
+	mkdir -p build
+	$(ARMCC) $(ARMLINK) $(BOOT) $(CORE) $(STUBS) src/main.c -lm -o $@
 
 clean:
 	rm -rf build

@@ -45,7 +45,7 @@ A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watch
 |---|---|---|---|
 | B0 | layout and property map (`android/`) | the plan | **done** |
 | B1 | cluster app on an AAOS emulator with a fake property source; round layout, 720 px safe circle, dimmer and night mode | the UI | Android Studio AAOS emulator image |
-| B2 | VHAL bridge as a standalone C++ library: decode SocketCAN frames from `cluster_private.dbc`, host unit tests with the protocol test vectors | decoding and staleness | nothing (host) |
+| B2 | VHAL bridge as a standalone C++ library: decode SocketCAN frames from `cluster_private.dbc`, host unit tests with the protocol test vectors | decoding and staleness | **done** (`android/vhal-bridge`; the SocketCAN reader is part of B3) |
 | B3 | wire the bridge into the AAOS vehicle HAL in `~/imx-automotive` and build | a real build | WSL tree, hours of build time |
 | B4 | rotary service (dial ADC and click to key/rotary events) | the dial | Verdin + display board |
 | B5 | CarPlay / Android Auto viewport inside the circle | the phone projection | licensing decisions (below) |

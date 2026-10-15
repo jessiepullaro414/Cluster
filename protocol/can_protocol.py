@@ -247,7 +247,10 @@ def check():
 
 
 def fnum(x):
-    return f"{x:g}"
+    """Number for a C float literal: '1' would make '1f', which is not valid C
+    (found 2026-10-14 when the firmware first included the header)."""
+    t = f"{x:g}"
+    return t if any(ch in t for ch in ".eE") else t + ".0"
 
 
 def write_dbc(path, msgs, nodes, big_endian, version):

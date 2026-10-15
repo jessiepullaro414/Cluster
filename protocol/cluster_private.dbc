@@ -7,86 +7,86 @@ BS_:
 BU_: GAUGES DISPLAY
 
 BO_ 768 VehicleMotion: 8 GAUGES
- SG_ SpeedKph : 0|16@1+ (0.1,0) [0|400] "km/h" DISPLAY
- SG_ Rpm : 16|16@1+ (1,0) [0|12000] "rpm" DISPLAY
- SG_ BatteryV : 32|16@1+ (0.01,0) [0|20] "V" DISPLAY
- SG_ SpeedValid : 48|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ RpmValid : 49|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ BatteryValid : 50|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ SpeedFromHall : 51|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" DISPLAY
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" DISPLAY
+ SG_ SpeedKph : 0|16@1+ (0.1,0.0) [0.0|400.0] "km/h" DISPLAY
+ SG_ Rpm : 16|16@1+ (1.0,0.0) [0.0|12000.0] "rpm" DISPLAY
+ SG_ BatteryV : 32|16@1+ (0.01,0.0) [0.0|20.0] "V" DISPLAY
+ SG_ SpeedValid : 48|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ RpmValid : 49|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ BatteryValid : 50|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ SpeedFromHall : 51|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" DISPLAY
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
 
 BO_ 770 VehicleFluids: 8 GAUGES
- SG_ FuelPct : 0|16@1+ (0.01,0) [0|100] "%" DISPLAY
- SG_ CoolantC : 16|16@1- (0.1,0) [-40|150] "degC" DISPLAY
- SG_ OilKpa : 32|16@1+ (0.1,0) [0|1000] "kPa" DISPLAY
- SG_ FuelValid : 48|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ CoolantValid : 49|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ OilValid : 50|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" DISPLAY
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" DISPLAY
+ SG_ FuelPct : 0|16@1+ (0.01,0.0) [0.0|100.0] "%" DISPLAY
+ SG_ CoolantC : 16|16@1- (0.1,0.0) [-40.0|150.0] "degC" DISPLAY
+ SG_ OilKpa : 32|16@1+ (0.1,0.0) [0.0|1000.0] "kPa" DISPLAY
+ SG_ FuelValid : 48|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ CoolantValid : 49|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ OilValid : 50|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" DISPLAY
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
 
 BO_ 771 Indicators: 8 GAUGES
- SG_ TurnLeft : 0|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ TurnRight : 1|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ HighBeam : 2|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ BrakeWarning : 3|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ AlternatorWarning : 4|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ OilWarning : 5|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ DashLightsOn : 6|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ DashDimmerPct : 8|8@1+ (1,0) [0|100] "%" DISPLAY
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" DISPLAY
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" DISPLAY
+ SG_ TurnLeft : 0|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ TurnRight : 1|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ HighBeam : 2|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ BrakeWarning : 3|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ AlternatorWarning : 4|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ OilWarning : 5|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ DashLightsOn : 6|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ DashDimmerPct : 8|8@1+ (1.0,0.0) [0.0|100.0] "%" DISPLAY
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" DISPLAY
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
 
 BO_ 769 GaugesStatus: 8 GAUGES
- SG_ FwMajor : 0|8@1+ (1,0) [0|255] "" DISPLAY
- SG_ FwMinor : 8|8@1+ (1,0) [0|255] "" DISPLAY
- SG_ FuelSenderOpen : 16|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ OilSenderOpen : 17|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ TempSenderOpen : 18|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ CarBusActive : 19|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ FuelFromCar : 20|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ CoolantFromCar : 21|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ OilFromCar : 22|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ BatteryFromCar : 23|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ ActiveProfile : 24|8@1+ (1,0) [0|255] "" DISPLAY
- SG_ DisplayOffline : 32|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ RpmFromTach : 33|1@1+ (1,0) [0|1] "" DISPLAY
+ SG_ FwMajor : 0|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
+ SG_ FwMinor : 8|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
+ SG_ FuelSenderOpen : 16|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ OilSenderOpen : 17|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ TempSenderOpen : 18|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ CarBusActive : 19|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ FuelFromCar : 20|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ CoolantFromCar : 21|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ OilFromCar : 22|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ BatteryFromCar : 23|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ ActiveProfile : 24|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
+ SG_ DisplayOffline : 32|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ RpmFromTach : 33|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
 
 BO_ 784 PowerState: 8 GAUGES
- SG_ IgnitionOn : 0|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ SuspendRequest : 1|1@1+ (1,0) [0|1] "" DISPLAY
- SG_ SuspendInSeconds : 8|8@1+ (1,0) [0|255] "s" DISPLAY
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" DISPLAY
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" DISPLAY
+ SG_ IgnitionOn : 0|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ SuspendRequest : 1|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ SuspendInSeconds : 8|8@1+ (1.0,0.0) [0.0|255.0] "s" DISPLAY
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" DISPLAY
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
 
 BO_ 1024 DisplaySettings: 8 DISPLAY
- SG_ BrightnessPct : 0|8@1+ (1,0) [0|100] "%" GAUGES
- SG_ NightMode : 8|1@1+ (1,0) [0|1] "" GAUGES
- SG_ UnitsMph : 9|1@1+ (1,0) [0|1] "" GAUGES
- SG_ CarProfile : 16|8@1+ (1,0) [0|255] "" GAUGES
- SG_ CarBitrate : 24|2@1+ (1,0) [0|3] "" GAUGES
- SG_ TankCapacityL : 32|16@1+ (0.1,0) [0|200] "L" GAUGES
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" GAUGES
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" GAUGES
+ SG_ BrightnessPct : 0|8@1+ (1.0,0.0) [0.0|100.0] "%" GAUGES
+ SG_ NightMode : 8|1@1+ (1.0,0.0) [0.0|1.0] "" GAUGES
+ SG_ UnitsMph : 9|1@1+ (1.0,0.0) [0.0|1.0] "" GAUGES
+ SG_ CarProfile : 16|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
+ SG_ CarBitrate : 24|2@1+ (1.0,0.0) [0.0|3.0] "" GAUGES
+ SG_ TankCapacityL : 32|16@1+ (0.1,0.0) [0.0|200.0] "L" GAUGES
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
 
 BO_ 1040 SpeedCalibration: 8 DISPLAY
- SG_ PulsesPerMile : 0|32@1+ (1,0) [100|200000] "" GAUGES
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" GAUGES
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" GAUGES
+ SG_ PulsesPerMile : 0|32@1+ (1.0,0.0) [100.0|200000.0] "" GAUGES
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
 
 BO_ 1056 InputConfig: 8 DISPLAY
- SG_ LampInvertMask : 0|8@1+ (1,0) [0|63] "" GAUGES
- SG_ TachEnabled : 8|1@1+ (1,0) [0|1] "" GAUGES
- SG_ TachPulsesPerRev : 16|8@1+ (1,0) [1|16] "" GAUGES
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" GAUGES
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" GAUGES
+ SG_ LampInvertMask : 0|8@1+ (1.0,0.0) [0.0|63.0] "" GAUGES
+ SG_ TachEnabled : 8|1@1+ (1.0,0.0) [0.0|1.0] "" GAUGES
+ SG_ TachPulsesPerRev : 16|8@1+ (1.0,0.0) [1.0|16.0] "" GAUGES
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
 
 BO_ 1264 DisplayHeartbeat: 8 DISPLAY
- SG_ State : 0|2@1+ (1,0) [0|3] "" GAUGES
- SG_ Counter : 52|4@1+ (1,0) [0|15] "" GAUGES
- SG_ Crc8 : 56|8@1+ (1,0) [0|255] "" GAUGES
+ SG_ State : 0|2@1+ (1.0,0.0) [0.0|3.0] "" GAUGES
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
 
 CM_ BO_ 768 "Consolidated motion data, chosen by gauges/ from the Hall input and the car bus.";
 CM_ BO_ 770 "Consolidated fluid data: ECU value if fresh, else local sender.";

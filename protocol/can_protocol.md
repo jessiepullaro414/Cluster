@@ -26,15 +26,15 @@ Consolidated motion data, chosen by gauges/ from the Hall input and the car bus.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| SpeedKph | 0 | 16 | 0.1 | 0 | 0..400 | km/h |
-| Rpm | 16 | 16 | 1 | 0 | 0..12000 | rpm |
-| BatteryV | 32 | 16 | 0.01 | 0 | 0..20 | V |
-| SpeedValid | 48 | 1 | 1 | 0 | 0..1 |  |
-| RpmValid | 49 | 1 | 1 | 0 | 0..1 |  |
-| BatteryValid | 50 | 1 | 1 | 0 | 0..1 |  |
-| SpeedFromHall | 51 | 1 | 1 | 0 | 0..1 |  |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| SpeedKph | 0 | 16 | 0.1 | 0.0 | 0.0..400.0 | km/h |
+| Rpm | 16 | 16 | 1.0 | 0.0 | 0.0..12000.0 | rpm |
+| BatteryV | 32 | 16 | 0.01 | 0.0 | 0.0..20.0 | V |
+| SpeedValid | 48 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| RpmValid | 49 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| BatteryValid | 50 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| SpeedFromHall | 51 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x302 VehicleFluids (GAUGES, 100 ms)
 
@@ -42,14 +42,14 @@ Consolidated fluid data: ECU value if fresh, else local sender.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| FuelPct | 0 | 16 | 0.01 | 0 | 0..100 | % |
-| CoolantC | 16 | 16 signed | 0.1 | 0 | -40..150 | degC |
-| OilKpa | 32 | 16 | 0.1 | 0 | 0..1000 | kPa |
-| FuelValid | 48 | 1 | 1 | 0 | 0..1 |  |
-| CoolantValid | 49 | 1 | 1 | 0 | 0..1 |  |
-| OilValid | 50 | 1 | 1 | 0 | 0..1 |  |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| FuelPct | 0 | 16 | 0.01 | 0.0 | 0.0..100.0 | % |
+| CoolantC | 16 | 16 signed | 0.1 | 0.0 | -40.0..150.0 | degC |
+| OilKpa | 32 | 16 | 0.1 | 0.0 | 0.0..1000.0 | kPa |
+| FuelValid | 48 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| CoolantValid | 49 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| OilValid | 50 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x303 Indicators (GAUGES, 100 ms)
 
@@ -57,16 +57,16 @@ Indicator-lamp states from the six 12 V lamp inputs on gauges/ (1 = lamp on afte
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| TurnLeft | 0 | 1 | 1 | 0 | 0..1 |  |
-| TurnRight | 1 | 1 | 1 | 0 | 0..1 |  |
-| HighBeam | 2 | 1 | 1 | 0 | 0..1 |  |
-| BrakeWarning | 3 | 1 | 1 | 0 | 0..1 |  |
-| AlternatorWarning | 4 | 1 | 1 | 0 | 0..1 |  |
-| OilWarning | 5 | 1 | 1 | 0 | 0..1 |  |
-| DashLightsOn | 6 | 1 | 1 | 0 | 0..1 |  |
-| DashDimmerPct | 8 | 8 | 1 | 0 | 0..100 | % |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| TurnLeft | 0 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| TurnRight | 1 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| HighBeam | 2 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| BrakeWarning | 3 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| AlternatorWarning | 4 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| OilWarning | 5 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| DashLightsOn | 6 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| DashDimmerPct | 8 | 8 | 1.0 | 0.0 | 0.0..100.0 | % |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x301 GaugesStatus (GAUGES, 1000 ms)
 
@@ -74,19 +74,19 @@ Health, identity and where each value currently comes from.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| FwMajor | 0 | 8 | 1 | 0 | 0..255 |  |
-| FwMinor | 8 | 8 | 1 | 0 | 0..255 |  |
-| FuelSenderOpen | 16 | 1 | 1 | 0 | 0..1 |  |
-| OilSenderOpen | 17 | 1 | 1 | 0 | 0..1 |  |
-| TempSenderOpen | 18 | 1 | 1 | 0 | 0..1 |  |
-| CarBusActive | 19 | 1 | 1 | 0 | 0..1 |  |
-| FuelFromCar | 20 | 1 | 1 | 0 | 0..1 |  |
-| CoolantFromCar | 21 | 1 | 1 | 0 | 0..1 |  |
-| OilFromCar | 22 | 1 | 1 | 0 | 0..1 |  |
-| BatteryFromCar | 23 | 1 | 1 | 0 | 0..1 |  |
-| ActiveProfile | 24 | 8 | 1 | 0 | 0..255 |  |
-| DisplayOffline | 32 | 1 | 1 | 0 | 0..1 |  |
-| RpmFromTach | 33 | 1 | 1 | 0 | 0..1 |  |
+| FwMajor | 0 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+| FwMinor | 8 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+| FuelSenderOpen | 16 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| OilSenderOpen | 17 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| TempSenderOpen | 18 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| CarBusActive | 19 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| FuelFromCar | 20 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| CoolantFromCar | 21 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| OilFromCar | 22 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| BatteryFromCar | 23 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| ActiveProfile | 24 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+| DisplayOffline | 32 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| RpmFromTach | 33 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 
 ### 0x310 PowerState (GAUGES, 500 ms)
 
@@ -94,11 +94,11 @@ Ignition and sleep coordination; also sent on every change.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| IgnitionOn | 0 | 1 | 1 | 0 | 0..1 |  |
-| SuspendRequest | 1 | 1 | 1 | 0 | 0..1 |  |
-| SuspendInSeconds | 8 | 8 | 1 | 0 | 0..255 | s |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| IgnitionOn | 0 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| SuspendRequest | 1 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| SuspendInSeconds | 8 | 8 | 1.0 | 0.0 | 0.0..255.0 | s |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x400 DisplaySettings (DISPLAY, 1000 ms)
 
@@ -106,14 +106,14 @@ Persistent settings owned by Android; sent on change and every second. gauges/ k
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| BrightnessPct | 0 | 8 | 1 | 0 | 0..100 | % |
-| NightMode | 8 | 1 | 1 | 0 | 0..1 |  |
-| UnitsMph | 9 | 1 | 1 | 0 | 0..1 |  |
-| CarProfile | 16 | 8 | 1 | 0 | 0..255 |  |
-| CarBitrate | 24 | 2 | 1 | 0 | 0..3 |  |
-| TankCapacityL | 32 | 16 | 0.1 | 0 | 0..200 | L |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| BrightnessPct | 0 | 8 | 1.0 | 0.0 | 0.0..100.0 | % |
+| NightMode | 8 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| UnitsMph | 9 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| CarProfile | 16 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+| CarBitrate | 24 | 2 | 1.0 | 0.0 | 0.0..3.0 |  |
+| TankCapacityL | 32 | 16 | 0.1 | 0.0 | 0.0..200.0 | L |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x410 SpeedCalibration (DISPLAY, 1000 ms)
 
@@ -121,9 +121,9 @@ Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile 
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| PulsesPerMile | 0 | 32 | 1 | 0 | 100..200000 |  |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| PulsesPerMile | 0 | 32 | 1.0 | 0.0 | 100.0..200000.0 |  |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x420 InputConfig (DISPLAY, 1000 ms)
 
@@ -131,11 +131,11 @@ Per-input options for the lamp and tach inputs on gauges/. A lamp wired ground-s
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| LampInvertMask | 0 | 8 | 1 | 0 | 0..63 |  |
-| TachEnabled | 8 | 1 | 1 | 0 | 0..1 |  |
-| TachPulsesPerRev | 16 | 8 | 1 | 0 | 1..16 |  |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| LampInvertMask | 0 | 8 | 1.0 | 0.0 | 0.0..63.0 |  |
+| TachEnabled | 8 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| TachPulsesPerRev | 16 | 8 | 1.0 | 0.0 | 1.0..16.0 |  |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x4F0 DisplayHeartbeat (DISPLAY, 1000 ms)
 
@@ -143,9 +143,9 @@ Liveness plus coarse state; gauges/ marks the display offline if this stops.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| State | 0 | 2 | 1 | 0 | 0..3 |  |
-| Counter | 52 | 4 | 1 | 0 | 0..15 |  |
-| Crc8 | 56 | 8 | 1 | 0 | 0..255 |  |
+| State | 0 | 2 | 1.0 | 0.0 | 0.0..3.0 |  |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ## Car bus: Haltech V2.35.0 subset (read only)
 
@@ -166,10 +166,10 @@ RPM, manifold pressure (absolute), throttle, coolant pressure.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| Rpm | 7 | 16 | 1 | 0 | 0..20000 | rpm |
-| MapKpaAbs | 23 | 16 | 0.1 | 0 | 0..1000 | kPa |
-| ThrottlePct | 39 | 16 | 0.1 | 0 | 0..100 | % |
-| CoolantPressureKpa | 55 | 16 | 0.1 | -101.3 | -101.3..1000 | kPa |
+| Rpm | 7 | 16 | 1.0 | 0.0 | 0.0..20000.0 | rpm |
+| MapKpaAbs | 23 | 16 | 0.1 | 0.0 | 0.0..1000.0 | kPa |
+| ThrottlePct | 39 | 16 | 0.1 | 0.0 | 0.0..100.0 | % |
+| CoolantPressureKpa | 55 | 16 | 0.1 | -101.3 | -101.3..1000.0 | kPa |
 
 ### 0x361 HaltechPressures (ECU, 20 ms)
 
@@ -177,9 +177,9 @@ Fuel pressure, oil pressure (absolute minus 101.3), demand.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| FuelPressureKpa | 7 | 16 | 0.1 | -101.3 | -101.3..1000 | kPa |
-| OilPressureKpa | 23 | 16 | 0.1 | -101.3 | -101.3..1000 | kPa |
-| EngineDemandPct | 39 | 16 | 0.1 | 0 | 0..400 | % |
+| FuelPressureKpa | 7 | 16 | 0.1 | -101.3 | -101.3..1000.0 | kPa |
+| OilPressureKpa | 23 | 16 | 0.1 | -101.3 | -101.3..1000.0 | kPa |
+| EngineDemandPct | 39 | 16 | 0.1 | 0.0 | 0.0..400.0 | % |
 
 ### 0x370 HaltechSpeed (ECU, 50 ms)
 
@@ -187,7 +187,7 @@ Vehicle speed (only sent if the ECU's speed input is set up).
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| VehicleSpeedKph | 7 | 16 | 0.1 | 0 | 0..400 | km/h |
+| VehicleSpeedKph | 7 | 16 | 0.1 | 0.0 | 0.0..400.0 | km/h |
 
 ### 0x372 HaltechBattery (ECU, 100 ms)
 
@@ -195,7 +195,7 @@ Battery voltage.
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| BatteryV | 7 | 16 | 0.1 | 0 | 0..30 | V |
+| BatteryV | 7 | 16 | 0.1 | 0.0 | 0.0..30.0 | V |
 
 ### 0x3E0 HaltechTemps (ECU, 200 ms)
 
@@ -203,10 +203,10 @@ Temperatures in kelvin (x/10).
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| CoolantTempK | 7 | 16 | 0.1 | 0 | 0..500 | K |
-| AirTempK | 23 | 16 | 0.1 | 0 | 0..500 | K |
-| FuelTempK | 39 | 16 | 0.1 | 0 | 0..500 | K |
-| OilTempK | 55 | 16 | 0.1 | 0 | 0..500 | K |
+| CoolantTempK | 7 | 16 | 0.1 | 0.0 | 0.0..500.0 | K |
+| AirTempK | 23 | 16 | 0.1 | 0.0 | 0.0..500.0 | K |
+| FuelTempK | 39 | 16 | 0.1 | 0.0 | 0.0..500.0 | K |
+| OilTempK | 55 | 16 | 0.1 | 0.0 | 0.0..500.0 | K |
 
 ### 0x3E2 HaltechFuelLevel (ECU, 200 ms)
 
@@ -214,4 +214,4 @@ Fuel level in litres (x/10).
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
-| FuelLevelL | 7 | 16 | 0.1 | 0 | 0..500 | L |
+| FuelLevelL | 7 | 16 | 0.1 | 0.0 | 0.0..500.0 | L |

@@ -28,8 +28,17 @@ void aux_display_set_backlight(bool on, uint8_t pct);
 void aux_display_screen(uint8_t index, const screen_view_t *view);
 void aux_display_set_imperial(bool imperial);
 
+/* Per-tick budget used by main.c and the harness. A run is at most 240 x 8 pixels = 3851 bytes, and a
+ * tick must stay under 10 ms of bus time (9.6 MHz = 12000 bytes per 10 ms), so a budget of 8000 bytes
+ * plus the one run that may cross it keeps every tick at or below about 9.9 ms. */
+#define AUX_POLL_RUNS   32
+#define AUX_POLL_BYTES  8000u
+
 /* Send up to max_runs runs of dirty tiles, round robin over the screens. Returns the number sent. */
 int  aux_display_poll(int max_runs);
+
+/* As above, and stop once max_bytes have been sent (the run that crosses the limit is finished). */
+int  aux_display_poll_budget(int max_runs, uint32_t max_bytes);
 
 /* Tiles still waiting to be sent (for the host tests and the stats). */
 int  aux_display_pending_tiles(void);

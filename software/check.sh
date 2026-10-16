@@ -21,6 +21,9 @@ fi
 echo "== gauges-fw: host tests"
 make -C "$HERE/gauges-fw" test
 
+echo "== gauges-fw: 60 s simulated drive (bus load, tick budget, panel == model)"
+make -C "$HERE/gauges-fw" sim
+
 echo "== gauges-fw: Cortex-M4F compile of every file (-Werror)"
 make -C "$HERE/gauges-fw" arm-check >/dev/null
 

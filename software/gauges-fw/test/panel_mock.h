@@ -16,6 +16,7 @@ typedef struct { uint8_t screen, cmd, n; uint8_t p[16]; } mock_cmd_t;
 typedef struct {
     uint16_t fb[MOCK_SCREENS][240 * 240];      /* RGB565, host order */
     bool     written[MOCK_SCREENS][240 * 240]; /* pixel was ever written */
+    uint32_t gen[MOCK_SCREENS];        /* bumped on every stored pixel: lets a viewer redraw only what changed */
 
     mock_cmd_t log[MOCK_LOG_MAX];
     int        n_log;

@@ -113,6 +113,28 @@ int main(void)
         CHECK(a > 40.0 && a < 100.0);
     }
 
+    /* the font: every glyph draws something, no two different characters draw the same picture,
+     * and lower case maps to upper case */
+    {
+        const char *set = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ:+=(),_/%-.";
+        static uint16_t pic[64][GFX_GLYPH_W * GFX_GLYPH_H];
+        int n = (int)strlen(set);
+        for (int i = 0; i < n; i++) {
+            op_t g = gfx_glyph(0, 0, set[i], 1, 0xFFFFFF);
+            gfx_render(&g, 1, 0, 0, GFX_GLYPH_W, GFX_GLYPH_H, pic[i], GFX_GLYPH_W);
+            int lit = 0;
+            for (int k = 0; k < GFX_GLYPH_W * GFX_GLYPH_H; k++) lit += pic[i][k] != 0;
+            CHECK(lit > 0);
+            for (int j = 0; j < i; j++)
+                if (memcmp(pic[i], pic[j], sizeof pic[i]) == 0) { printf("glyphs '%c' and '%c' are identical\n", set[i], set[j]); failures++; }
+        }
+        static uint16_t a[GFX_GLYPH_W * GFX_GLYPH_H], b2[GFX_GLYPH_W * GFX_GLYPH_H];
+        op_t up = gfx_glyph(0, 0, 'K', 1, 0xFFFFFF), lo = gfx_glyph(0, 0, 'k', 1, 0xFFFFFF);
+        gfx_render(&up, 1, 0, 0, GFX_GLYPH_W, GFX_GLYPH_H, a, GFX_GLYPH_W);
+        gfx_render(&lo, 1, 0, 0, GFX_GLYPH_W, GFX_GLYPH_H, b2, GFX_GLYPH_W);
+        CHECK(memcmp(a, b2, sizeof a) == 0);
+    }
+
     /* tile independence: rendering a scene whole equals rendering it tile by tile */
     {
         op_t ops[6];

@@ -57,17 +57,20 @@ What is shown where is `inc/screens.h` (default left to right: fuel + volts, spe
 
 Four screens updating 15 times a second is about 3.5 Mbit/s, roughly a third of the bus. Tricks used: tiles are 8x8; only the tiles under the old and new needle are resent; only the digits that changed are resent; the needle moves in whole degrees; rpm is shown to the nearest 10. CPU cost per small update is about 2 to 3 ms (operation counts times an **assumed** cost per operation: not measured on hardware). The SPI transfers block the CPU; DMA would free it and is the next optimisation.
 
-**Watch them live, fed by Android.** `python tools/live_screens.py` (Windows; `--build` builds the C side in WSL first, `--demo` feeds a built-in drive with no emulator) opens http://localhost:8765 with the four round screens. The Android app (`../android/cluster-app`) sends its vehicle state as one UDP line every 50 ms to `10.0.2.2:5005` (the PC, as seen from the emulator); the script pipes it into `test/screens_live.c`, which runs the real screen code in the firmware's loop shape (10 ms tick, 12 tile runs per tick) into the mock panel, and the page shows what the four panels hold plus the bus load. With no data for one second the C side shows dashes, as the firmware would. The data direction is a development convenience: in the car the gauges board is the source and Android only reads.
+**Test harness (`test/harness.c`, `make harness` / `make harness_cli`).** One native program that runs the real screen code (screens, dial, gfx, driver, scheduler) in the firmware's loop shape against the mock panel, so a styling or timing change is seen or measured in seconds. `tools/run_harness.ps1` builds it, opens the window (an X11 window shown on the Windows desktop by WSLg; the X11 headers are unpacked once into `~/x11sdk` by `tools/get_x11_headers.sh`, no root needed) and points the Android app at it. Without a window (`build/harness_cli`, no display needed) the same program does the automated work:
 
-```
-python tools/live_screens.py --build          # first time, or after C changes
-adb shell am broadcast -a com.jessiescars.cluster.SET --ef speed_kph 120 --ef rpm 6500
-adb shell am broadcast -a com.jessiescars.cluster.SET --es units kph      # metric on the small screens
-adb shell am broadcast -a com.jessiescars.cluster.SET --ez link_dead true # Android reports no data: dashes
-adb shell am broadcast -a com.jessiescars.cluster.CLEAR
-```
+| Command | What it does |
+|---|---|
+| `harness` | window with the four round screens and a status area drawn with the firmware's own font. Keys: SPACE pause, D built-in drive, M manual (arrows = speed and rpm, F C O B = fuel, coolant, oil, battery, 1-6 toggle an input valid/invalid), A Android, R replay, U units, TAB zoom, S save a PNG, Q quit |
+| `harness --udp 5005` | listen for the Android app's telemetry line (UDP); no data for 1 s shows dashes, like the firmware. `--record f` saves what arrives, `--replay f` plays it back |
+| `make golden` | 11 fixed states x 4 screens against stored checksums (`test/golden_screens.txt`). A one-bit colour change or a moved label shows up as CHANGED; look with `make golden-dump` (PNGs in `build/golden`), accept with `make golden-update` |
+| `make sim` | 60 virtual seconds of driving with unit switches: bus load, worst tick, backlog, time to redraw after a switch, and whether the panel equals the model at the end. Fails if any tick needs more than 10 ms of bus time |
+| `harness --selftest` | panel equals model through a drive (with a unit switch), lost data gives dashes, CRC and PNG helpers |
+| `harness --shot f.png --after 5` | run, then save the window picture (works without a display) |
 
-A frame taken while a large redraw is still being sent (a units switch touches about 760 tiles per screen) shows half-drawn digits for a few ticks; that is what the real panel would show too, and it settles in well under a second.
+What the harness found that the unit tests had not (it is the loop shape and the load that matter): with the old "12 tile runs per tick" limit the screens always had tiles waiting and a unit switch could need 12.8 ms of bus time in a 10 ms tick. The scheduler now has a byte budget (`aux_display_poll_budget`, 8000 bytes per tick): steady driving keeps up (on average 1 tile waiting, 95th percentile 8), no tick exceeds 9.9 ms of bus time at 9.6 MHz, and a unit switch (about 3000 tiles) settles in 380 ms.
+
+The Android side of the feed: the app sends its vehicle state as one UDP line every 50 ms (`../android/cluster-app`, `Telemetry`), by default to `10.0.2.2:5005` (the PC); `run_harness.ps1` redirects it to WSL's address with the `telemetry` broadcast extra. In the car the data flows the other way (the gauges board is the source).
 
 **Verification.** The property test replays 720 random updates (all four layouts, both unit systems, valid and invalid inputs) and requires the patched panel to equal a full redraw and equal a render straight from the model; twelve deliberate breakages of the tile marking and the rasteriser are each caught. The mock panel enforces the GC9A01 protocol: chip select framing, the FEh/EFh unlock before level-3 registers, COLMOD before pixel writes, 5 ms after Sleep Out, no display-on too early, no pixels outside the window. `tools/check_vendor_block.py` re-derives the register tables from the open-source reference and compares them byte for byte; `tools/check_pins.py` checks the HAL's pins against `gauges_pins.h`.
 

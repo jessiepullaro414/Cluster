@@ -209,6 +209,51 @@ int main(void)
         CHECK(mock_errors(&g_mock) == 0);
     }
 
+    /* the byte budget: no single poll sends much more than its budget, whatever the backlog, and the
+     * panel still ends up identical to a full draw */
+    {
+        mock_init(&g_mock);
+        aux_display_init(mock_hal(&g_mock), SCREENS_DEFAULT, true);
+        screen_values_t v = { cv(96.56f, true), cv(3500.0f, true), cv(13.8f, true), cv(68.0f, true), cv(90.0f, true), cv(350.0f, true) };
+        aux_display_set_imperial(false);                               /* a unit switch: every tile of every screen */
+        for (uint8_t s = 0; s < SCREEN_COUNT; s++) {
+            screen_view_t view = screens_build(&SCREENS_DEFAULT[s], &v, false);
+            aux_display_screen(s, &view);
+        }
+        int polls = 0;
+        uint64_t worst = 0;
+        for (;;) {
+            uint64_t b0 = g_mock.bytes_written;
+            int sent = aux_display_poll_budget(AUX_POLL_RUNS, AUX_POLL_BYTES);
+            uint64_t used = g_mock.bytes_written - b0;
+            if (used > worst) worst = used;
+            if (sent == 0) break;
+            polls++;
+        }
+        printf("gc9a01: a full redraw of all four screens took %d polls, worst %llu bytes (%.2f ms at 9.6 MHz)\n", polls,
+               (unsigned long long)worst, (double)worst * 8.0 / 9600.0);
+        CHECK(worst <= AUX_POLL_BYTES + 240 * 8 * 2 + 11 + 64);        /* budget plus the run that crosses it */
+        CHECK((double)worst * 8.0 / 9.6e6 < 0.010);                     /* a tick never exceeds 10 ms of bus time */
+        CHECK(polls > 20 && aux_display_pending_tiles() == 0);
+        static uint16_t truth[240 * 240];
+        static dial_t d;
+        for (uint8_t s = 0; s < SCREEN_COUNT; s++) {
+            dial_init(&d);
+            screen_view_t view = screens_build(&SCREENS_DEFAULT[s], &v, false);
+            dial_set_view(&d, &view, false);
+            gfx_render(d.ops, d.n_total, 0, 0, 240, 240, truth, 240);
+            CHECK(visible_diff(g_mock.fb[s], truth) == 0);
+        }
+        /* a budget of one byte still sends one run per call: progress is guaranteed */
+        v.speed_kph.value += 40.0f;
+        screen_view_t w = screens_build(&SCREENS_DEFAULT[1], &v, false);
+        aux_display_screen(1, &w);
+        int pending = aux_display_pending_tiles();
+        CHECK(pending > 0 && aux_display_poll_budget(AUX_POLL_RUNS, 1u) == 1);
+        while (aux_display_poll(8) > 0) { }
+        CHECK(mock_errors(&g_mock) == 0);
+    }
+
     /* units change redraws the face with the new labels */
     {
         mock_init(&g_mock);

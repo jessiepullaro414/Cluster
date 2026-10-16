@@ -13,8 +13,8 @@ HW := src/panel_hal_s32k.c
 # Sources of the screen chain for tests that use the mock panel.
 SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/gfx.c src/gc9a01.c src/screens.c
 
-.PHONY: test stubs arm-check arm preview bench live clean
-test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01
+.PHONY: test stubs arm-check arm preview bench harness golden golden-update golden-dump sim clean
+test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/harness_cli
 	./build/test_aggregate
 	./build/test_codec
 	./build/test_inputmath
@@ -22,6 +22,8 @@ test: build/test_aggregate build/test_codec build/test_inputmath build/test_scre
 	./build/test_gfx
 	./build/test_dial
 	./build/test_gc9a01
+	./build/harness_cli --selftest
+	./build/harness_cli --golden check test/golden_screens.txt
 
 build/test_inputmath: test/test_inputmath.c src/inputmath.c inc/inputmath.h
 	mkdir -p build
@@ -63,13 +65,38 @@ build/preview: test/preview.c $(SCREEN) inc/aux_display.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -Itest -o $@ test/preview.c $(SCREEN) -lm
 
-# Live host run of the real screen chain, fed with text lines on stdin (see test/screens_live.c and
-# tools/live_screens.py, which starts it and shows the screens).
-live: build/screens_live
+# ---- test harness: the real screen code on a mock panel, with a window ----
+# build/harness_cli has no window and needs no display (golden images, simulation, self test).
+# build/harness adds an X11 window; on Windows 11 the WSLg X server shows it on the desktop. The X11
+# development headers are not installed in WSL (no root), so they are unpacked privately by
+# tools/get_x11_headers.sh into ~/x11sdk; the library itself is the system's libX11.so.6.
+HARNESS_SRC := test/harness.c test/panel_mock.c src/aux_display.c src/dial.c src/gfx.c src/gc9a01.c src/screens.c
+X11INC ?= $(HOME)/x11sdk/root/usr/include
+HARNESS_DEPS := $(HARNESS_SRC) test/harness_x11.h inc/aux_display.h inc/dial.h inc/gfx.h
 
-build/screens_live: test/screens_live.c $(SCREEN) inc/aux_display.h
+build/harness_cli: $(HARNESS_DEPS)
 	mkdir -p build
-	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Itest -o $@ test/screens_live.c $(SCREEN) -lm
+	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Itest -o $@ $(HARNESS_SRC) -lm
+
+build/harness: $(HARNESS_DEPS) test/harness_x11.c
+	mkdir -p build
+	$(CC) -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol -DHARNESS_X11 -I$(X11INC) -Itest -o $@ $(HARNESS_SRC) test/harness_x11.c -lm -l:libX11.so.6
+
+# Fixed states against stored checksums (test/golden_screens.txt). A styling change shows up as
+# CHANGED lines; look at the pictures (make golden-dump), then accept with make golden-update.
+golden: build/harness_cli
+	./build/harness_cli --golden check test/golden_screens.txt
+
+golden-update: build/harness_cli
+	./build/harness_cli --golden update test/golden_screens.txt
+
+golden-dump: build/harness_cli
+	mkdir -p build/golden
+	./build/harness_cli --golden check test/golden_screens.txt --dump build/golden || true
+
+# 60 virtual seconds of driving: bus load, backlog, tick overruns, panel == model.
+sim: build/harness_cli
+	./build/harness_cli --sim 60 --units-switch
 
 # Counts the rendering work of typical updates (operations, not time).
 bench: build/bench_render

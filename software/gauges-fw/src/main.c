@@ -13,8 +13,6 @@
 /* STUB main: the init order and the 10 ms task are the point; every module
  * except the clock and the tick (tick.c) is a stub. */
 
-#define AUX_RUNS_PER_TICK 12
-
 static void step(uint32_t now)
 {
     power_poll(now);
@@ -39,9 +37,9 @@ static void step(uint32_t now)
         screen_view_t view = screens_build(&SCREENS_DEFAULT[i], &sv, cfg.units_mph);
         aux_display_screen(i, &view);
     }
-    /* Send what changed, a bounded amount per tick. Each run is about 150 to 500 bytes, so 12 runs
-     * keep the (blocking, 9.6 MHz) bus time per 10 ms tick to roughly 3 to 4 ms. */
-    aux_display_poll(AUX_RUNS_PER_TICK);
+    /* Send what changed, a bounded amount per tick: at most 8000 bytes (plus the run that crosses the
+     * limit), which is under 10 ms on the 9.6 MHz bus, so the blocking transfers never overrun the tick. */
+    aux_display_poll_budget(AUX_POLL_RUNS, AUX_POLL_BYTES);
 
     can_link_send_motion(speed.value, rpm.value, battery.value, speed.valid, rpm.valid,
                          battery.valid, speed.src == SRC_LOCAL);

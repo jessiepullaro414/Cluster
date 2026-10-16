@@ -94,6 +94,7 @@ static void param(mock_t *m, int s, uint8_t b)
             m->err_window++;
         } else {
             m->fb[s][y * 240 + x] = px;
+            m->gen[s]++;
             m->written[s][y * 240 + x] = true;
         }
         if (++m->col[s] > m->ec[s]) {

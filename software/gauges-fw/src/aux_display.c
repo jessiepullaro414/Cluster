@@ -49,21 +49,34 @@ void aux_display_screen(uint8_t index, const screen_view_t *view)
     if (index < SCREEN_COUNT) dial_set_view(&g_dial[index], view, g_imperial);
 }
 
-int aux_display_poll(int max_runs)
+int aux_display_poll_budget(int max_runs, uint32_t max_bytes)
 {
     if (!g_hal) return 0;
     int sent = 0;
-    for (uint8_t i = 0; i < SCREEN_COUNT && sent < max_runs; i++) {
-        uint8_t s = (uint8_t)((g_next + i) % SCREEN_COUNT);
-        int row, col, n;
-        if (dial_next_run(&g_dial[s], &row, &col, &n)) {
-            dial_render_run(&g_dial[s], row, col, n, g_stage);
-            gc9a01_blit(g_hal, s, col * GFX_TILE, row * GFX_TILE, n * GFX_TILE, GFX_TILE, g_stage);
-            sent++;
+    uint32_t bytes = 0;
+    /* round robin: each pass takes one run from each screen that has one, starting after the last */
+    bool any = true;
+    while (any && sent < max_runs && bytes < max_bytes) {
+        any = false;
+        for (uint8_t i = 0; i < SCREEN_COUNT && sent < max_runs && bytes < max_bytes; i++) {
+            uint8_t s = (uint8_t)((g_next + i) % SCREEN_COUNT);
+            int row, col, n;
+            if (dial_next_run(&g_dial[s], &row, &col, &n)) {
+                dial_render_run(&g_dial[s], row, col, n, g_stage);
+                gc9a01_blit(g_hal, s, col * GFX_TILE, row * GFX_TILE, n * GFX_TILE, GFX_TILE, g_stage);
+                bytes += (uint32_t)n * GFX_TILE * GFX_TILE * 2u + 11u;
+                sent++;
+                any = true;
+                g_next = (uint8_t)((s + 1) % SCREEN_COUNT);
+            }
         }
     }
-    g_next = (uint8_t)((g_next + 1) % SCREEN_COUNT);
     return sent;
+}
+
+int aux_display_poll(int max_runs)
+{
+    return aux_display_poll_budget(max_runs, 0xFFFFFFFFu);
 }
 
 int aux_display_pending_tiles(void)

@@ -20,12 +20,13 @@
 #include "font.h"
 
 #define COL_NEEDLE   0xFF4A1Au
-#define COL_CHROME   0xC9CDD3u
+#define COL_CHROME   0xB9BDC3u
+#define COL_CHROME_EDGE 0xE6E8EBu
 #define COL_HUB_DARK 0x1A1A1Au
-#define COL_HUB_GLINT 0x6E7278u
+#define COL_HUB_GLINT 0x3A3C40u
 #define COL_DOME     0x2C2C2Eu
 #define COL_DOME_IN  0x0D0D0Du
-#define COL_BLUE_OFF 0x0F2A9Eu
+#define COL_BLUE_OFF 0x1457D8u
 #define COL_VOLTS    0x9A9A9Au
 
 typedef struct {
@@ -39,7 +40,7 @@ typedef struct {
 static fgeom_t geom_for(gauge_kind_t k, bool imperial)
 {
     switch (k) {
-    case GK_SPEED:   return (fgeom_t){ imperial ? &FACE_SPEED_MPH : &FACE_SPEED_KPH, 120.0f, 122.0f, 156.0f, 390.0f, 70.0f, 14.0f, true };
+    case GK_SPEED:   return (fgeom_t){ imperial ? &FACE_SPEED_MPH : &FACE_SPEED_KPH, 120.0f, 126.0f, 151.0f, 389.5f, 67.0f, 0.0f, true };
     case GK_OIL:     return (fgeom_t){ &FACE_OIL, 120.0f, 84.0f, 122.0f, 58.0f, 72.0f, 6.0f, false };
     case GK_COOLANT: return (fgeom_t){ &FACE_TEMP, 120.0f, 84.0f, 122.0f, 58.0f, 72.0f, 6.0f, false };
     default:         return (fgeom_t){ &FACE_FUEL, 120.0f, 104.0f, 122.0f, 58.0f, 80.0f, 6.0f, false };   /* fuel; also the fallback */
@@ -94,7 +95,7 @@ static void build_static(dial_t *d, const gauge_view_t *p, bool imperial)
     fgeom_t g = geom_for(p->kind, imperial);
     olist_t l = { d->ops, 0, DIAL_MAX_OPS };
     dial_olist_add(&l, gfx_image(g.face));
-    if (p->kind == GK_SPEED) dial_olist_add(&l, gfx_disc(120.0f, 86.0f, 5.5f, COL_BLUE_OFF));   /* the high-beam lens, unlit */
+    if (p->kind == GK_SPEED) dial_olist_add(&l, gfx_disc(119.0f, 87.0f, 5.5f, COL_BLUE_OFF));   /* the high-beam lens, unlit */
     d->n_static = (uint8_t)l.n;
 }
 
@@ -152,17 +153,21 @@ void dial_factory_set_view(dial_t *d, const screen_view_t *view, bool imperial)
 
     olist_t l = { d->ops, d->n_static, DIAL_MAX_OPS };
     if (needle) {
-        float tx, ty, bx, by, hx, hy;
+        /* tapered like the real needle: wide at the root, a fine point at the end */
+        float tx, ty, ax, ay, bx, by, hx, hy;
         tip_point(&g, deg, g.len, &tx, &ty);
-        tip_point(&g, deg, g.len * 0.28f, &bx, &by);
+        tip_point(&g, deg, g.len * 0.70f, &bx, &by);
+        tip_point(&g, deg, g.len * 0.35f, &ax, &ay);
         tip_point(&g, deg, -g.tail, &hx, &hy);
-        dial_olist_add(&l, gfx_capsule(hx, hy, bx, by, 5.2f, COL_NEEDLE));      /* the wide root ... */
-        dial_olist_add(&l, gfx_capsule(bx, by, tx, ty, 2.8f, COL_NEEDLE));      /* ... and the fine tip */
+        dial_olist_add(&l, gfx_capsule(hx, hy, ax, ay, g.chrome_hub ? 4.6f : 5.2f, COL_NEEDLE));
+        dial_olist_add(&l, gfx_capsule(ax, ay, bx, by, g.chrome_hub ? 3.2f : 3.6f, COL_NEEDLE));
+        dial_olist_add(&l, gfx_capsule(bx, by, tx, ty, g.chrome_hub ? 1.8f : 2.4f, COL_NEEDLE));
     }
     if (g.chrome_hub) {
-        dial_olist_add(&l, gfx_disc(g.px, g.py, 13.0f, COL_CHROME));
-        dial_olist_add(&l, gfx_disc(g.px, g.py, 9.0f, COL_HUB_DARK));
-        dial_olist_add(&l, gfx_disc(g.px - 2.0f, g.py - 2.0f, 2.6f, COL_HUB_GLINT));
+        dial_olist_add(&l, gfx_disc(g.px, g.py, 17.0f, COL_CHROME_EDGE));      /* the bright bevelled ring ... */
+        dial_olist_add(&l, gfx_disc(g.px, g.py, 15.0f, COL_CHROME));
+        dial_olist_add(&l, gfx_disc(g.px, g.py, 10.5f, COL_HUB_DARK));         /* ... around the dark centre */
+        dial_olist_add(&l, gfx_disc(g.px, g.py, 7.0f, COL_HUB_GLINT));
     } else {
         dial_olist_add(&l, gfx_disc(g.px, g.py, 9.5f, COL_DOME));
         dial_olist_add(&l, gfx_disc(g.px, g.py, 6.0f, COL_DOME_IN));

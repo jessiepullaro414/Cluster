@@ -29,14 +29,18 @@ PREVIEW = os.path.join(FW, "docs", "screens", "factory_faces.png")
 
 N = 240                     # face size in pixels
 S = 4                       # supersampling
-FACE_RGB = (0x0C, 0x0C, 0x0C)
+FACE_RGB = (0x08, 0x08, 0x08)         # multiples of 8 stay neutral in RGB565
 PRINT_RGB = (0xF2, 0xEF, 0xE6)
 
-# speedometer: the needle rests at the lower left (156 degrees clockwise from 3 o'clock, y down) and
-# ends at the lower right (30 degrees, i.e. 390): 234 degrees for the whole scale
-SPEED_PIVOT = (120.0, 122.0)
-SPEED_START, SPEED_SWEEP = 156.0, 234.0
-SPEED_LABEL_R, SPEED_TICK_R0, SPEED_TICK_R1 = 86.0, 57.0, 66.0
+# speedometer, measured on the owner's photo of a real one (scaled so the face fills the round panel): the needle
+# rests at the lower left (151 degrees clockwise from 3 o'clock, y down) and ends at the lower right (389.5, i.e.
+# 29.5 degrees) at 140 mph: 1.704 degrees per mph. The numerals are large, bold and narrow, their tops pointing
+# outwards, on a ring just inside the edge; the ticks sit between them and the hub.
+SPEED_PIVOT = (120.0, 126.0)
+SPEED_START, SPEED_SWEEP = 151.0, 238.5
+SPEED_LABEL_R = 77.0
+SPEED_TICK_R_LONG = (47.0, 61.0)            # at the numbered speeds
+SPEED_TICK_R_SHORT = (52.0, 60.0)           # between them
 
 # small gauges: the needle hangs from a pivot near the top and swings between E/L/C and F/H
 FUEL_PIVOT = (120.0, 104.0)
@@ -101,17 +105,23 @@ def speed_face(mph):
     for v in range(0, vmax + 1, minor):
         ang = SPEED_START + SPEED_SWEEP * v / vmax
         tens = v % label == 0
-        x0, y0 = polar(SPEED_PIVOT, SPEED_TICK_R0 + (1.5 if tens else 0.0), ang)
-        x1, y1 = polar(SPEED_PIVOT, SPEED_TICK_R1, ang)
-        line(d, x0, y0, x1, y1, 2.0 if tens else 1.2)
+        r0, r1 = SPEED_TICK_R_LONG if tens else SPEED_TICK_R_SHORT
+        x0, y0 = polar(SPEED_PIVOT, r0, ang)
+        x1, y1 = polar(SPEED_PIVOT, r1, ang)
+        line(d, x0, y0, x1, y1, 2.2 if tens else 1.6)
     for v in range(label, vmax + 1, label):
         ang = SPEED_START + SPEED_SWEEP * v / vmax
         cx, cy = polar(SPEED_PIVOT, SPEED_LABEL_R, ang)
-        c = put(c, text_img(str(v), 15, 800, 0.72), cx, cy, ang + 90.0)     # the tops of the numerals point outwards
-    c = put(c, text_img("MILES" if mph else "KM/H", 11, 800, 0.8, 1.2), 120, 21)
+        squeeze = 0.5 if len(str(v)) < 3 else 0.44
+        c = put(c, text_img(str(v), 22, 900, squeeze, -0.4), cx, cy, ang + 90.0)     # the tops of the numerals point outwards
+    c = put(c, text_img("MILES" if mph else "KM/H", 12, 800, 0.8, 1.4), 120, 21)
     d = ImageDraw.Draw(c)
-    # the odometer window: an empty black box (no odometer data exists yet)
-    d.rounded_rectangle([86 * S, 150 * S, 154 * S, 168 * S], radius=2 * S, outline=120, width=int(1.3 * S), fill=0)
+    # the odometer: a window with six empty cells (no odometer data exists yet, so no digits)
+    x0, y0, x1, y1 = 82.0, 147.0, 158.0, 162.0
+    d.rounded_rectangle([x0 * S, y0 * S, x1 * S, y1 * S], radius=1.5 * S, outline=150, width=int(1.4 * S), fill=0)
+    for i in range(1, 6):
+        x = x0 + (x1 - x0) * i / 6.0
+        d.line([(x * S, (y0 + 1.5) * S), (x * S, (y1 - 1.5) * S)], fill=90, width=int(0.9 * S))
     return c
 
 

@@ -234,6 +234,7 @@ typedef struct {
     uint8_t night_mode;
     uint8_t units_mph;
     uint32_t gauge_theme;
+    uint8_t center_shows_speed;
     uint32_t car_profile;
     uint32_t car_bitrate;
     float tank_capacity_l;
@@ -246,6 +247,7 @@ static inline void cluster_display_settings_pack(const cluster_display_settings_
     cluster_set_bits(out, CAN_DISPLAYSETTINGS_NIGHTMODE_START, CAN_DISPLAYSETTINGS_NIGHTMODE_LEN, (uint64_t)(m->night_mode ? 1 : 0));
     cluster_set_bits(out, CAN_DISPLAYSETTINGS_UNITSMPH_START, CAN_DISPLAYSETTINGS_UNITSMPH_LEN, (uint64_t)(m->units_mph ? 1 : 0));
     cluster_set_bits(out, CAN_DISPLAYSETTINGS_GAUGETHEME_START, CAN_DISPLAYSETTINGS_GAUGETHEME_LEN, (uint64_t)(int64_t)m->gauge_theme);
+    cluster_set_bits(out, CAN_DISPLAYSETTINGS_CENTERSHOWSSPEED_START, CAN_DISPLAYSETTINGS_CENTERSHOWSSPEED_LEN, (uint64_t)(m->center_shows_speed ? 1 : 0));
     cluster_set_bits(out, CAN_DISPLAYSETTINGS_CARPROFILE_START, CAN_DISPLAYSETTINGS_CARPROFILE_LEN, (uint64_t)(int64_t)m->car_profile);
     cluster_set_bits(out, CAN_DISPLAYSETTINGS_CARBITRATE_START, CAN_DISPLAYSETTINGS_CARBITRATE_LEN, (uint64_t)(int64_t)m->car_bitrate);
     cluster_set_bits(out, CAN_DISPLAYSETTINGS_TANKCAPACITYL_START, CAN_DISPLAYSETTINGS_TANKCAPACITYL_LEN, (uint64_t)cluster_scale_to_raw(m->tank_capacity_l, 0.1f, 0.0f, 0.0f, 200.0f));
@@ -260,6 +262,7 @@ static inline int cluster_display_settings_unpack(const uint8_t in[8], cluster_d
     m->night_mode = (uint8_t)cluster_get_bits(in, CAN_DISPLAYSETTINGS_NIGHTMODE_START, CAN_DISPLAYSETTINGS_NIGHTMODE_LEN);
     m->units_mph = (uint8_t)cluster_get_bits(in, CAN_DISPLAYSETTINGS_UNITSMPH_START, CAN_DISPLAYSETTINGS_UNITSMPH_LEN);
     m->gauge_theme = (uint32_t)cluster_get_bits(in, CAN_DISPLAYSETTINGS_GAUGETHEME_START, CAN_DISPLAYSETTINGS_GAUGETHEME_LEN);
+    m->center_shows_speed = (uint8_t)cluster_get_bits(in, CAN_DISPLAYSETTINGS_CENTERSHOWSSPEED_START, CAN_DISPLAYSETTINGS_CENTERSHOWSSPEED_LEN);
     m->car_profile = (uint32_t)cluster_get_bits(in, CAN_DISPLAYSETTINGS_CARPROFILE_START, CAN_DISPLAYSETTINGS_CARPROFILE_LEN);
     m->car_bitrate = (uint32_t)cluster_get_bits(in, CAN_DISPLAYSETTINGS_CARBITRATE_START, CAN_DISPLAYSETTINGS_CARBITRATE_LEN);
     m->tank_capacity_l = (float)(cluster_get_bits(in, CAN_DISPLAYSETTINGS_TANKCAPACITYL_START, CAN_DISPLAYSETTINGS_TANKCAPACITYL_LEN)) * 0.1f + 0.0f;

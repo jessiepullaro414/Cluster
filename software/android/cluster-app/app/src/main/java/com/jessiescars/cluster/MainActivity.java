@@ -78,9 +78,13 @@ public class MainActivity extends Activity implements SettingsView.Listener {
         @Override public void run() {
             float t = (SystemClock.elapsedRealtime() - t0) / 1000f;
             VehicleState s = DriveScenario.at(t, override);
+            final int look = settings.effectiveTheme(phoneProjecting && projectingCarPlay);
+            gauge.setTheme(look);                  // the centre speedometer matches the small screens
+            gauge.setImperial(settings.imperial);
             gauge.setState(s);
             maps.setState(s);
-            telemetry.publish(Telemetry.encode(s, settings.imperial, settings.effectiveTheme(phoneProjecting && projectingCarPlay)));   // development feed for the small screens
+            // development feed for the small screens; while the centre shows the speedometer they do not repeat speed
+            telemetry.publish(Telemetry.encode(s, settings.imperial, look, shown == Content.GAUGE));
             handler.postDelayed(this, TICK_MS);
         }
     };

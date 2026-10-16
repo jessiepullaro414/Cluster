@@ -110,6 +110,7 @@ Persistent settings owned by Android; sent on change and every second. gauges/ k
 | NightMode | 8 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 | UnitsMph | 9 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 | GaugeTheme | 10 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| CenterShowsSpeed | 14 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 | CarProfile | 16 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 | CarBitrate | 24 | 2 | 1.0 | 0.0 | 0.0..3.0 |  |
 | TankCapacityL | 32 | 16 | 0.1 | 0.0 | 0.0..200.0 | L |

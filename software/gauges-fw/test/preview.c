@@ -20,9 +20,10 @@ int main(int argc, char **argv)
     if (argc > 3 && strcmp(argv[3], "modern") == 0) theme = THEME_MODERN;
     if (argc > 3 && strcmp(argv[3], "carplay") == 0) theme = THEME_CARPLAY;
     if (argc > 3 && strcmp(argv[3], "factory") == 0) theme = THEME_FACTORY;
+    bool center = argc > 4 && strcmp(argv[4], "center") == 0;
     mock_init(&g_mock);
     aux_display_init(mock_hal(&g_mock), theme, imperial);
-    const screen_cfg_t *layout = screens_layout(theme);
+    const screen_cfg_t *layout = screens_layout_for(theme, center);
 
     screen_values_t v;
     switch (preset) {

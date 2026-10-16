@@ -96,6 +96,10 @@ static void static_ring_gauge(olist_t *l, const screen_view_t *view, bool imperi
         text(l, &FONT_SMALL, "RPM", 120, 74, TEXT_CENTER, COL_LABEL);
         text(l, &FONT_SMALL, "x1000", 120, 170, TEXT_CENTER, COL_LABEL);
         break;
+    case GK_FUEL:
+        text(l, &FONT_SMALL, "FUEL", 120, 74, TEXT_CENTER, COL_LABEL);
+        text(l, &FONT_SMALL, "%", 120, 170, TEXT_CENTER, COL_LABEL);
+        break;
     case GK_COOLANT:
         text(l, &FONT_SMALL, "COOLANT", 120, 74, TEXT_CENTER, COL_LABEL);
         text(l, &FONT_SMALL, g->unit[0] == 'F' ? DEG "F" : DEG "C", 120, 170, TEXT_CENTER, COL_LABEL);
@@ -148,6 +152,7 @@ static void dyn_ring_gauge(dial_t *d, olist_t *l, const screen_view_t *view, boo
 
     uint32_t c0 = COL_BLUE, c1 = COL_CYAN;
     if (g->kind == GK_RPM) { c0 = COL_YELLOW; c1 = COL_ORANGE; }
+    if (g->kind == GK_FUEL) { c0 = g->warn ? COL_RED : COL_GREEN0; c1 = g->warn ? COL_RED : COL_GREEN1; }
     if (g->kind == GK_COOLANT) { c0 = c1 = g->warn ? COL_RED : COL_CYAN; }          /* a straight blend of cyan to red turns grey on the way */
 
     if (g->valid) {

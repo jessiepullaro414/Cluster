@@ -8,7 +8,7 @@
 /* Defaults until a DisplaySettings message arrives (the real code keeps the last copy in flash). Named
  * fields: a positional initializer silently shifts when a field is added. The modern theme is the default look. */
 static display_settings_t g_settings = {
-    .brightness_pct = 100, .night_mode = false, .units_mph = false, .gauge_theme = 1,
+    .brightness_pct = 100, .night_mode = false, .units_mph = false, .gauge_theme = 1, .center_shows_speed = false,
     .car_profile = 0, .car_bitrate = 0, .tank_capacity_l = 0.0f, .lamp_invert_mask = 0,
     .tach_enabled = false, .tach_pulses_per_rev = 4, .pulses_per_mile = 16000u, .display_heartbeat_seen = false,
 };

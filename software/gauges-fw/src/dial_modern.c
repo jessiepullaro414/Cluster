@@ -4,7 +4,7 @@
  * the reference picture of the four small gauges the owner supplied (2026-10-16).
  *
  * Three kinds of screen, chosen by the primary gauge of the layout (screens_layout(THEME_MODERN)):
- *   speed, rpm, coolant   a 270 degree arc with a big value inside
+ *   speed, rpm, coolant, fuel   a 270 degree arc with a big value inside
  *   battery (+ oil)       two horizontal bars with their values
  * Placeholder styling: tune colours, sizes and positions together with the owner.
  */
@@ -71,6 +71,7 @@ dial_scale_t dial_scale_for(gauge_kind_t k, bool imperial)
     case GK_RPM:     return (dial_scale_t){ 0, 8000, 1000, 1000, 500, 6000, true };
     case GK_COOLANT: return imperial ? (dial_scale_t){ 104, 266, 0, 0, 0, 1e9f, false }
                                      : (dial_scale_t){ 40, 130, 0, 0, 0, 1e9f, false };
+    case GK_FUEL:    return (dial_scale_t){ 0, 100, 0, 0, 0, 1e9f, false };
     case GK_BATTERY: return (dial_scale_t){ 10, 16, 0, 0, 0, 1e9f, false };
     case GK_OIL:     return imperial ? (dial_scale_t){ 0, 101.5f, 0, 0, 0, 1e9f, false }
                                      : (dial_scale_t){ 0, 700, 0, 0, 0, 1e9f, false };
@@ -185,6 +186,12 @@ static void static_arc(olist_t *l, const screen_view_t *view, bool imperial)
         dial_olist_text(l, &FONT_SMALL, "x1000", 120, 166, TEXT_CENTER, COL_LABEL);
         icon_thermo(l, 84, 188, COL_ICON, COL_BLUE1);
         break;
+    case GK_FUEL:
+        icon_fuel(l, 112, 56, COL_ICON);
+        dial_olist_text(l, &FONT_SMALL, "FUEL", 120, 100, TEXT_CENTER, COL_WHITE);
+        dial_olist_text(l, &FONT_SMALL, "E", 62, 192, TEXT_CENTER, COL_WHITE);
+        dial_olist_text(l, &FONT_SMALL, "F", 178, 192, TEXT_CENTER, COL_WHITE);
+        break;
     case GK_COOLANT:
         icon_thermo(l, 120, 58, COL_ICON, COL_BLUE1);
         dial_olist_text(l, &FONT_SMALL, "COOLANT", 120, 100, TEXT_CENTER, COL_WHITE);
@@ -289,6 +296,14 @@ static void dyn_arc(dial_t *d, olist_t *l, const screen_view_t *view, bool imper
     case GK_RPM:
         dial_olist_text(l, &FONT_BIG, txt, 120, 144, TEXT_CENTER, col);
         break;
+    case GK_FUEL: {
+        dial_olist_text(l, &FONT_BIG, txt, 112, 152, TEXT_CENTER, col);
+        if (g->valid) {
+            int w = gfx_text_width(&FONT_BIG, txt);
+            dial_olist_text(l, &FONT_SMALL, "%", 112 + w / 2 + 3, 124, TEXT_LEFT, COL_WHITE);
+        }
+        break;
+    }
     case GK_COOLANT: {
         dial_olist_text(l, &FONT_BIG, txt, 112, 152, TEXT_CENTER, col);
         if (g->valid) {

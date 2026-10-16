@@ -30,6 +30,43 @@ static const screen_cfg_t LAYOUT_FACTORY[SCREEN_COUNT] = {
     { GK_COOLANT, GK_NONE    },   /* 3 outer right */
 };
 
+/* With the speedometer on the centre screen. The screen that showed speed gets a gauge that had no screen of its own. */
+static const screen_cfg_t CENTER_CLASSIC[SCREEN_COUNT] = {
+    { GK_FUEL,    GK_NONE    },   /* volts moved to their own screen */
+    { GK_BATTERY, GK_NONE    },   /* where speed was */
+    { GK_RPM,     GK_NONE    },
+    { GK_COOLANT, GK_OIL     },
+};
+static const screen_cfg_t CENTER_MODERN[SCREEN_COUNT] = {
+    { GK_FUEL,    GK_NONE    },   /* where speed (+ fuel) was */
+    { GK_RPM,     GK_COOLANT },
+    { GK_BATTERY, GK_OIL     },
+    { GK_COOLANT, GK_NONE    },
+};
+static const screen_cfg_t CENTER_CARPLAY[SCREEN_COUNT] = {
+    { GK_FUEL,    GK_NONE    },   /* where speed (+ fuel) was */
+    { GK_RPM,     GK_NONE    },
+    { GK_BATTERY, GK_OIL     },
+    { GK_COOLANT, GK_NONE    },
+};
+static const screen_cfg_t CENTER_FACTORY[SCREEN_COUNT] = {
+    { GK_FUEL,    GK_NONE    },   /* volts have the next screen to themselves */
+    { GK_BATTERY, GK_NONE    },   /* an ammeter-style face, where the speedometer was */
+    { GK_OIL,     GK_NONE    },
+    { GK_COOLANT, GK_NONE    },
+};
+
+const screen_cfg_t *screens_layout_for(theme_t theme, bool center_shows_speed)
+{
+    if (!center_shows_speed) return screens_layout(theme);
+    switch (theme) {
+    case THEME_MODERN:  return CENTER_MODERN;
+    case THEME_CARPLAY: return CENTER_CARPLAY;
+    case THEME_FACTORY: return CENTER_FACTORY;
+    default:            return CENTER_CLASSIC;
+    }
+}
+
 const screen_cfg_t *screens_layout(theme_t theme)
 {
     if (theme == THEME_FACTORY) return LAYOUT_FACTORY;

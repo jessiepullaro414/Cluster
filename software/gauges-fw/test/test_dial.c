@@ -111,10 +111,11 @@ int main(void)
     /* THE property: patching only the dirty tiles gives exactly the picture a fresh full draw gives.
      * Random walks of views, every screen layout, both unit systems, valid and invalid inputs. */
     int pairs = 0, worst = 0;
-    for (int trial = 0; trial < 240; trial++) {
+    for (int trial = 0; trial < 320; trial++) {
         int s = trial % SCREEN_COUNT;
         theme_t th = (theme_t)((trial / SCREEN_COUNT) % THEME_COUNT);
-        const screen_cfg_t *layout = screens_layout(th);
+        bool ctr = ((trial / (SCREEN_COUNT * THEME_COUNT)) & 1) != 0;       /* half of the trials: speed is on the centre screen */
+        const screen_cfg_t *layout = screens_layout_for(th, ctr);
         bool imp = (rnd() & 1) != 0;
         static dial_t inc, ref;
         static frame_t fi, fr;
@@ -250,6 +251,23 @@ int main(void)
           screens_theme_from_setting(4) == THEME_CLASSIC && screens_theme_from_setting(15) == THEME_CLASSIC);
     CHECK(screens_layout(THEME_MODERN)[0].primary == GK_SPEED && screens_layout(THEME_MODERN)[2].primary == GK_BATTERY);
     CHECK(screens_layout(THEME_CLASSIC) == SCREENS_DEFAULT);
+    CHECK(screens_layout_for(THEME_CLASSIC, false) == SCREENS_DEFAULT);
+    /* with the speedometer on the centre screen: no small screen repeats speed, nothing is shown twice as a primary, and
+     * every quantity the normal layout shows is still shown somewhere */
+    for (int th = 0; th < THEME_COUNT; th++) {
+        const screen_cfg_t *n = screens_layout_for((theme_t)th, false), *c = screens_layout_for((theme_t)th, true);
+        bool shown_n[GK_COUNT] = { false }, shown_c[GK_COUNT] = { false };
+        for (int i = 0; i < SCREEN_COUNT; i++) {
+            CHECK(c[i].primary != GK_SPEED && c[i].secondary != GK_SPEED);
+            for (int j = i + 1; j < SCREEN_COUNT; j++) CHECK(c[i].primary != c[j].primary);
+            shown_n[n[i].primary] = shown_n[n[i].secondary] = true;
+            shown_c[c[i].primary] = shown_c[c[i].secondary] = true;
+        }
+        CHECK(shown_n[GK_SPEED]);
+        for (int k = GK_RPM; k < GK_COUNT; k++)
+            if (shown_n[k] && !(th == THEME_FACTORY && k == GK_RPM)) CHECK(shown_c[k]);
+        CHECK(c[0].primary != n[0].primary || c[1].primary != n[1].primary);      /* something changed */
+    }
     CHECK(screens_layout(THEME_FACTORY)[0].primary == GK_FUEL && screens_layout(THEME_FACTORY)[1].primary == GK_SPEED &&
           screens_layout(THEME_FACTORY)[2].primary == GK_OIL && screens_layout(THEME_FACTORY)[3].primary == GK_COOLANT);
     CHECK(screens_layout(THEME_CARPLAY)[0].primary == GK_SPEED && screens_layout(THEME_CARPLAY)[2].primary == GK_BATTERY &&

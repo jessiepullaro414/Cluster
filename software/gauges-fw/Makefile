@@ -100,6 +100,8 @@ sim: build/harness_cli
 	./build/harness_cli --sim 60 --units-switch --theme modern
 	./build/harness_cli --sim 60 --units-switch --theme carplay
 	./build/harness_cli --sim 60 --units-switch --theme factory
+	./build/harness_cli --sim 60 --units-switch --theme modern --center
+	./build/harness_cli --sim 60 --units-switch --theme factory --center
 
 # Counts the rendering work of typical updates (operations, not time).
 bench: build/bench_render

@@ -40,6 +40,10 @@ extern const screen_cfg_t SCREENS_DEFAULT[SCREEN_COUNT];            /* the class
  * rpm, volts and oil as two concentric rings, coolant. THEME_FACTORY (the 1966 Mustang's own gauges): fuel (+ volts),
  * speed, oil, temperature; there is no tachometer on the stock cluster. */
 const screen_cfg_t *screens_layout(theme_t theme);
+/* The layout while the CENTRE screen shows the speedometer in the same look (Android, DisplaySettings.CenterShowsSpeed):
+ * speed is then not repeated on the small screens, and the screen that had it takes a gauge that was not a screen of
+ * its own. Classic: volts; modern and carplay: fuel; factory: volts on the ammeter-style face. */
+const screen_cfg_t *screens_layout_for(theme_t theme, bool center_shows_speed);
 theme_t             screens_theme_from_setting(uint32_t value);      /* clamps unknown values to classic */
 
 typedef struct {

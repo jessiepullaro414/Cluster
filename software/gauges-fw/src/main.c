@@ -35,7 +35,7 @@ static void step(uint32_t now)
     aux_display_set_imperial(cfg.units_mph);
     theme_t theme = screens_theme_from_setting(cfg.gauge_theme);
     aux_display_set_theme(theme);
-    const screen_cfg_t *layout = screens_layout(theme);
+    const screen_cfg_t *layout = screens_layout_for(theme, cfg.center_shows_speed);
     for (uint8_t i = 0; i < SCREEN_COUNT; i++) {
         screen_view_t view = screens_build(&layout[i], &sv, cfg.units_mph);
         aux_display_screen(i, &view);

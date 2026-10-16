@@ -22,6 +22,12 @@ public class TelemetryTest {
         return m;
     }
 
+    @Test public void centerFlagIsSent() {
+        VehicleState st = new VehicleState();
+        assertTrue(Telemetry.encode(st, true, 1).contains(" center=0 "));
+        assertTrue(Telemetry.encode(st, true, 3, true).contains(" theme=3 center=1 "));
+    }
+
     @Test public void encodesValuesInTheUnitsTheGaugesUse() {
         VehicleState s = new VehicleState();
         s.speedMps = Reading.of(90f / 3.6f);

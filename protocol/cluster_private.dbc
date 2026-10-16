@@ -66,6 +66,7 @@ BO_ 1024 DisplaySettings: 8 DISPLAY
  SG_ NightMode : 8|1@1+ (1.0,0.0) [0.0|1.0] "" GAUGES
  SG_ UnitsMph : 9|1@1+ (1.0,0.0) [0.0|1.0] "" GAUGES
  SG_ GaugeTheme : 10|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
+ SG_ CenterShowsSpeed : 14|1@1+ (1.0,0.0) [0.0|1.0] "" GAUGES
  SG_ CarProfile : 16|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
  SG_ CarBitrate : 24|2@1+ (1.0,0.0) [0.0|3.0] "" GAUGES
  SG_ TankCapacityL : 32|16@1+ (0.1,0.0) [0.0|200.0] "L" GAUGES

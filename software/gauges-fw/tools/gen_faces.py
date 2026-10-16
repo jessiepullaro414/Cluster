@@ -109,11 +109,11 @@ def speed_face(mph):
         x0, y0 = polar(SPEED_PIVOT, r0, ang)
         x1, y1 = polar(SPEED_PIVOT, r1, ang)
         line(d, x0, y0, x1, y1, 2.2 if tens else 1.6)
-    for v in range(label, vmax + 1, label):
+    for v in range(0, vmax + 1, label):                     # the 0 is printed too (the needle rests over it)
         ang = SPEED_START + SPEED_SWEEP * v / vmax
         cx, cy = polar(SPEED_PIVOT, SPEED_LABEL_R, ang)
         squeeze = 0.5 if len(str(v)) < 3 else 0.44
-        c = put(c, text_img(str(v), 22, 900, squeeze, -0.4), cx, cy, ang + 90.0)     # the tops of the numerals point outwards
+        c = put(c, text_img(str(v), 22, 560, squeeze, -0.4), cx, cy, ang + 90.0)     # the tops of the numerals point outwards
     c = put(c, text_img("MILES" if mph else "KM/H", 12, 800, 0.8, 1.4), 120, 21)
     d = ImageDraw.Draw(c)
     # the odometer: a window with six empty cells (no odometer data exists yet, so no digits)
@@ -156,12 +156,28 @@ def bracket_face(low, high, name):
     return c
 
 
+def volts_face():
+    """Ammeter-style: D and C, slashes at the ends, VOLTS (this car has a voltmeter signal, not a shunt)."""
+    c = new_canvas()
+    d = ImageDraw.Draw(c)
+    for i, (ang, r0, r1, w) in enumerate([(122.0, 72.0, 96.0, 3.0), (106.0, 80.0, 92.0, 2.4), (90.0, 78.0, 94.0, 2.8),
+                                          (74.0, 80.0, 92.0, 2.4), (58.0, 72.0, 96.0, 3.0)]):
+        x0, y0 = polar(OIL_PIVOT, r0, ang)
+        x1, y1 = polar(OIL_PIVOT, r1, ang)
+        line(d, x0, y0, x1, y1, w)
+    c = put(c, text_img("D", 27, 800, 0.74), 38, 150)
+    c = put(c, text_img("C", 27, 800, 0.74), 202, 150)
+    c = put(c, text_img("VOLTS", 21, 800, 0.74, 3.0), 120, 206)
+    return c
+
+
 FACES = [
     ("SPEED_MPH", lambda: speed_face(True)),
     ("SPEED_KPH", lambda: speed_face(False)),
     ("FUEL", fuel_face),
     ("OIL", lambda: bracket_face("L", "H", "OIL")),
     ("TEMP", lambda: bracket_face("C", "H", "TEMP")),
+    ("VOLTS", volts_face),
 ]
 
 

@@ -8,7 +8,8 @@
  * and the voltage would otherwise be shown nowhere). A needle that has no valid value is not drawn at all,
  * like the dashes of the other themes.
  *
- * Layout (screens_layout(THEME_FACTORY)): fuel (+ volts), speed, oil, temperature. There is no tachometer: the
+ * Layout (screens_layout(THEME_FACTORY)): fuel (+ volts), speed, oil, temperature; with the speedometer on the centre
+ * screen, the speed screen becomes an ammeter-style face for the volts. There is no tachometer: the
  * stock cluster has none. The odometer window of the speedometer is an empty box (no odometer data exists).
  * Placeholder styling to tune together with the owner.
  */
@@ -41,6 +42,7 @@ static fgeom_t geom_for(gauge_kind_t k, bool imperial)
 {
     switch (k) {
     case GK_SPEED:   return (fgeom_t){ imperial ? &FACE_SPEED_MPH : &FACE_SPEED_KPH, 120.0f, 126.0f, 151.0f, 389.5f, 67.0f, 0.0f, true };
+    case GK_BATTERY: return (fgeom_t){ &FACE_VOLTS, 120.0f, 84.0f, 122.0f, 58.0f, 70.0f, 6.0f, false };
     case GK_OIL:     return (fgeom_t){ &FACE_OIL, 120.0f, 84.0f, 122.0f, 58.0f, 72.0f, 6.0f, false };
     case GK_COOLANT: return (fgeom_t){ &FACE_TEMP, 120.0f, 84.0f, 122.0f, 58.0f, 72.0f, 6.0f, false };
     default:         return (fgeom_t){ &FACE_FUEL, 120.0f, 104.0f, 122.0f, 58.0f, 80.0f, 6.0f, false };   /* fuel; also the fallback */
@@ -54,6 +56,7 @@ static float needle_fraction(const gauge_view_t *g, bool imperial)
     switch (g->kind) {
     case GK_SPEED:   f = g->value / (imperial ? 140.0f : 220.0f); break;
     case GK_FUEL:    f = g->value / 100.0f; break;
+    case GK_BATTERY:
     case GK_OIL:
     case GK_COOLANT: { dial_scale_t s = dial_scale_for(g->kind, imperial); f = dial_fraction(&s, g->value); break; }
     default:         f = 0.0f; break;
@@ -118,7 +121,7 @@ void dial_factory_set_view(dial_t *d, const screen_view_t *view, bool imperial)
     }
 
     fgeom_t g = geom_for(p->kind, imperial);
-    bool needle = p->valid && (p->kind == GK_SPEED || p->kind == GK_FUEL || p->kind == GK_OIL || p->kind == GK_COOLANT);
+    bool needle = p->valid && (p->kind == GK_SPEED || p->kind == GK_FUEL || p->kind == GK_OIL || p->kind == GK_COOLANT || p->kind == GK_BATTERY);
     int deg = 0;
     if (needle) deg = (int)lroundf(g.a_rest + (g.a_full - g.a_rest) * needle_fraction(p, imperial));
 

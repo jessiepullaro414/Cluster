@@ -46,13 +46,15 @@ typedef struct {
     bool  ok[I_COUNT];
     bool  imperial;
     theme_t theme;
+    bool  center;                       /* the centre screen shows the speedometer */
 } inputs_t;
 
 static theme_t g_cli_theme = THEME_CLASSIC;
+static bool g_cli_center = false;
 
 static inputs_t inputs_default(void)
 {
-    inputs_t in = { { 0.0f, 800.0f, 13.8f, 68.0f, 90.0f, 250.0f }, { true, true, true, true, true, true }, true, g_cli_theme };
+    inputs_t in = { { 0.0f, 800.0f, 13.8f, 68.0f, 90.0f, 250.0f }, { true, true, true, true, true, true }, true, g_cli_theme, g_cli_center };
     return in;
 }
 
@@ -98,6 +100,7 @@ static bool parse_telemetry(char *line, inputs_t *in)
         *eq = 0;
         const char *k = tok, *v = eq + 1;
         if (!strcmp(k, "imperial")) { in->imperial = v[0] == '1'; continue; }
+        if (!strcmp(k, "center")) { in->center = v[0] == '1'; continue; }
         if (!strcmp(k, "theme")) { in->theme = screens_theme_from_setting((uint32_t)atoi(v)); continue; }
         for (int i = 0; i < I_COUNT; i++)
             if (!strcmp(k, keys[i])) {
@@ -234,7 +237,7 @@ static void rig_tick(rig_t *r, const inputs_t *in, bool alive)
     screen_values_t v = to_values(in, alive);
     aux_display_set_imperial(in->imperial);
     aux_display_set_theme(in->theme);
-    const screen_cfg_t *layout = screens_layout(in->theme);
+    const screen_cfg_t *layout = screens_layout_for(in->theme, in->center);
     for (uint8_t i = 0; i < SCREEN_COUNT; i++) {
         screen_view_t view = screens_build(&layout[i], &v, in->imperial);
         aux_display_screen(i, &view);
@@ -392,13 +395,19 @@ typedef struct { const char *name; inputs_t in; } golden_state_t;
 
 static inputs_t gs(float spd, float rpm, float batt, float fuel, float cool, float oil, bool imp)
 {
-    inputs_t in = { { spd, rpm, batt, fuel, cool, oil }, { true, true, true, true, true, true }, imp, THEME_CLASSIC };
+    inputs_t in = { { spd, rpm, batt, fuel, cool, oil }, { true, true, true, true, true, true }, imp, THEME_CLASSIC, false };
     return in;
 }
 
 static inputs_t modern(inputs_t in)
 {
     in.theme = THEME_MODERN;
+    return in;
+}
+
+static inputs_t centre(inputs_t in)
+{
+    in.center = true;
     return in;
 }
 
@@ -467,6 +476,15 @@ static void golden_states(golden_state_t *out, int *n)
     out[k++] = (golden_state_t){ "factory_all_invalid", factory(inv) };
     out[k++] = (golden_state_t){ "factory_speed_invalid", factory(sp) };
     out[k++] = (golden_state_t){ "factory_secondaries_invalid", factory(ob) };
+    /* the speedometer is on the centre screen: the small screens drop speed and show another gauge */
+    out[k++] = (golden_state_t){ "center_classic_mph", centre(gs(96.56f, 3500, 13.8f, 68, 90, 350, true)) };
+    out[k++] = (golden_state_t){ "center_modern_mph", centre(modern(gs(96.56f, 3500, 13.8f, 68, 90, 350, true))) };
+    out[k++] = (golden_state_t){ "center_carplay_mph", centre(carplay(gs(96.56f, 3500, 13.8f, 68, 90, 350, true))) };
+    out[k++] = (golden_state_t){ "center_factory_mph", centre(factory(gs(96.56f, 3500, 13.8f, 68, 90, 350, true))) };
+    out[k++] = (golden_state_t){ "center_modern_warnings", centre(modern(gs(143, 5200, 11.2f, 8, 116, 60, true))) };
+    out[k++] = (golden_state_t){ "center_carplay_warnings", centre(carplay(gs(143, 5200, 11.2f, 8, 116, 60, true))) };
+    out[k++] = (golden_state_t){ "center_factory_warnings", centre(factory(gs(143, 5200, 11.2f, 8, 116, 60, true))) };
+    out[k++] = (golden_state_t){ "center_factory_invalid", centre(factory(inv)) };
     *n = k;
 }
 
@@ -476,7 +494,7 @@ static uint32_t golden_crc(const inputs_t *in, int screen, uint16_t *pic)
     static dial_t d;
     dial_init(&d);
     screen_values_t v = to_values(in, true);
-    screen_view_t view = screens_build(&screens_layout(in->theme)[screen], &v, in->imperial);
+    screen_view_t view = screens_build(&screens_layout_for(in->theme, in->center)[screen], &v, in->imperial);
     dial_set_view_theme(&d, &view, in->imperial, in->theme);
     gfx_render(d.ops, d.n_total, 0, 0, 240, 240, pic, 240);
     uint32_t crc = 0;
@@ -493,20 +511,20 @@ static uint32_t golden_crc(const inputs_t *in, int screen, uint16_t *pic)
 
 static int golden_run(const char *mode, const char *file, const char *dump_dir)
 {
-    static golden_state_t st[48];
+    static golden_state_t st[64];
     int n;
     golden_states(st, &n);
     static uint16_t pic[240 * 240];
     bool update = !strcmp(mode, "update");
     FILE *f = 0;
-    char names[48 * 4][64];
-    uint32_t want[48 * 4];
+    char names[64 * 4][64];
+    uint32_t want[64 * 4];
     int nwant = 0;
     if (!update) {
         f = fopen(file, "r");
         if (!f) { fprintf(stderr, "golden: cannot read %s (run with update first)\n", file); return 2; }
         char line[128];
-        while (fgets(line, sizeof line, f) && nwant < 192) {
+        while (fgets(line, sizeof line, f) && nwant < 256) {
             char nm[48]; int sc; unsigned crc;
             if (line[0] == '#') continue;
             if (sscanf(line, "%47s %d %x", nm, &sc, &crc) == 3) { snprintf(names[nwant], 64, "%s/%d", nm, sc); want[nwant++] = crc; }
@@ -577,7 +595,7 @@ static int panel_vs_model(const rig_t *r, const inputs_t *in, bool alive)
     screen_values_t v = to_values(in, alive);
     for (int s = 0; s < SCREEN_COUNT; s++) {
         dial_init(&d);
-        screen_view_t view = screens_build(&screens_layout(in->theme)[s], &v, in->imperial);
+        screen_view_t view = screens_build(&screens_layout_for(in->theme, in->center)[s], &v, in->imperial);
         dial_set_view_theme(&d, &view, in->imperial, in->theme);
         gfx_render(d.ops, d.n_total, 0, 0, 240, 240, truth, 240);
         bad += visible_diff(r->mock->fb[s], truth);
@@ -678,6 +696,9 @@ static int run_selftest(void)
             settle(&r, &in, true);
             int bad = panel_vs_model(&r, &in, true);
             if (bad) { printf("selftest: modern drive at %d s: %d pixels differ\n", sec, bad); failures++; }
+            if (sec == 3) in.center = true;
+            if (sec == 15) in.center = false;
+            if (sec == 21) in.center = true;
             if (sec == 6) in.theme = THEME_CARPLAY;
             if (sec == 12) in.theme = THEME_CLASSIC;
             if (sec == 18) in.theme = THEME_MODERN;
@@ -768,6 +789,7 @@ static void usage(void)
          "  --shot FILE [--after S] run S seconds (default 3), save the picture as PNG, exit\n"
          "  --golden check|update [FILE] [--dump DIR]   fixed states against stored checksums (default test/golden_screens.txt)\n"
          "  --sim SECONDS [--units-switch]              virtual drive: bus load, backlog, tick overruns, panel == model\n"
+         "  --center               the centre screen shows the speedometer: the small screens drop speed (C toggles it in the window)\n"
          "  --theme classic|modern|carplay|factory  the look to start in (T cycles it in the window; the Android app can choose it too)\n"
          "  --selftest             plumbing checks, no display needed\n"
          "  --x11check             open the window, show a known picture, read it back from the X server\n"
@@ -795,6 +817,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--sim") && i + 1 < argc) sim = atof(argv[++i]);
         else if (!strcmp(a, "--theme") && i + 1 < argc) { const char *t = argv[++i]; g_cli_theme = !strcmp(t, "factory") || !strcmp(t, "3") ? THEME_FACTORY : !strcmp(t, "carplay") || !strcmp(t, "2") ? THEME_CARPLAY : (!strcmp(t, "modern") || !strcmp(t, "1") ? THEME_MODERN : THEME_CLASSIC); }
         else if (!strcmp(a, "--units-switch")) units_switch = true;
+        else if (!strcmp(a, "--center")) g_cli_center = true;
         else if (!strcmp(a, "--selftest")) selftest = true;
         else if (!strcmp(a, "--x11check")) x11check = true;
         else if (!strcmp(a, "--headless")) headless = true;
@@ -887,6 +910,7 @@ int main(int argc, char **argv)
             else if (k == 'a' || k == 'A') src = SRC_ANDROID;
             else if ((k == 'r' || k == 'R') && replay) { src = SRC_REPLAY; replay_i = 0; replay_t0 = t; }
             else if (k == 'u' || k == 'U') in.imperial = !in.imperial;
+            else if (k == 'c' || k == 'C') in.center = !in.center;
             else if (k == 't' || k == 'T') in.theme = (theme_t)(((int)in.theme + 1) % (int)THEME_COUNT);
             else if (k >= '1' && k <= '6') in.ok[k - '1'] = !in.ok[k - '1'];
             else if (k == '\t' || k == HK_ENTER) {
@@ -969,7 +993,7 @@ int main(int argc, char **argv)
                 if (!in.ok[i] || !alive) snprintf(val[i], sizeof val[i], "--");
                 else snprintf(val[i], sizeof val[i], i == I_BATT ? "%.1f" : "%.0f", in.v[i]);
             }
-            snprintf(l0, sizeof l0, "SOURCE %s%s   UNITS %s   THEME %s   DATA %s", SRC_NAME[src], paused ? " (PAUSED)" : "", in.imperial ? "MPH" : "KM/H", in.theme == THEME_FACTORY ? "FACTORY" : in.theme == THEME_CARPLAY ? "CARPLAY" : (in.theme == THEME_MODERN ? "MODERN" : "CLASSIC"),
+            snprintf(l0, sizeof l0, "SOURCE %s%s   UNITS %s   THEME %s%s   DATA %s", SRC_NAME[src], paused ? " (PAUSED)" : "", in.imperial ? "MPH" : "KM/H", in.theme == THEME_FACTORY ? "FACTORY" : in.theme == THEME_CARPLAY ? "CARPLAY" : (in.theme == THEME_MODERN ? "MODERN" : "CLASSIC"), in.center ? " (SPEED ON CENTRE)" : "",
                      src == SRC_ANDROID ? (alive ? "LIVE FROM ANDROID" : (had_android ? "LOST: DASHES" : "WAITING FOR ANDROID")) : "BUILT IN");
             snprintf(l1, sizeof l1, "SPEED %s KM/H  RPM %s  BATT %s V  FUEL %s %%  COOL %s C  OIL %s KPA", val[0], val[1], val[2], val[3], val[4], val[5]);
             snprintf(l2, sizeof l2, "PANEL BUS %.1f %% (9.6 MHZ)  PEAK %.1f %%  BACKLOG %d TILES  RUNS/S %u  DATA/S %u  FRAMES/S %u",

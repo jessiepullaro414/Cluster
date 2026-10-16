@@ -135,7 +135,10 @@ PRIVATE = [
              S("GaugeTheme", 1, 0, 0, 15, "", 10, 4, rx=G,
                doc="look of the four small screens: 0 classic needles, 1 modern arcs, 2 CarPlay-inspired rings, 3 factory 1966 look; "
                    "an unknown value shows classic"),
-             S("CarProfile", 1, 0, 0, 255, "", 16, 8, rx=G,
+             S("CenterShowsSpeed", 1, 0, 0, 1, "", 14, 1, rx=G,
+              doc="the centre screen shows the speedometer, so the small screens do not repeat speed "
+                  "and the screen that had it shows another gauge"),
+            S("CarProfile", 1, 0, 0, 255, "", 16, 8, rx=G,
                doc="0 none, 1 Haltech V2"),
              S("CarBitrate", 1, 0, 0, 3, "", 24, 2, rx=G,
                doc="0 = 500 kbit/s, 1 = 1 Mbit/s, 2 = 250 kbit/s"),

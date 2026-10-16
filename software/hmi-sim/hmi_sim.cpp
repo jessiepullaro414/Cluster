@@ -223,6 +223,9 @@ struct Rig {
 
     bool phone = true;                       // a phone is showing CarPlay (key P toggles it)
     int shown_theme = -1;                    // what the small screens are set to
+    // the centre screen shows the speedometer: Home on the gauge view, or no phone and the owner chose the gauge
+    bool center_speed() const { return center_was; }
+    bool center_was = false;
     theme_t theme_of(const Model& m) const { int t = effective_theme(m, phone); return t == 0 ? THEME_CLASSIC : t == 1 ? THEME_MODERN : t == 2 ? THEME_CARPLAY : THEME_FACTORY; }
 
     void init(mock_t* mk, const Model& start) {
@@ -278,7 +281,8 @@ struct Rig {
         v.fuel_pct = ok(62.0f);
         v.coolant_c = ok(90.0f);
         v.oil_kpa = ok(350.0f);
-        const screen_cfg_t* layout = screens_layout(theme_of(ui.model()));
+        if (ui.screen() == Screen::Home) center_was = phone ? ui.gauge_view() : !ui.model().no_phone_home;     // the centre shows the speedometer
+        const screen_cfg_t* layout = screens_layout_for(theme_of(ui.model()), center_speed());
         for (uint8_t s = 0; s < SCREEN_COUNT; s++) {
             screen_view_t view = screens_build(&layout[s], &v, ui.model().imperial);
             aux_display_screen(s, &view);

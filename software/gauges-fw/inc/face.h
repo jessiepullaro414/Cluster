@@ -10,8 +10,8 @@ typedef struct {
     const uint32_t *pal;                /* 16 colours, 0x00RRGGBB */
 } face_t;
 
-#define FACE_COUNT 5
-extern const face_t FACE_SPEED_MPH, FACE_SPEED_KPH, FACE_FUEL, FACE_OIL, FACE_TEMP;
+#define FACE_COUNT 6
+extern const face_t FACE_SPEED_MPH, FACE_SPEED_KPH, FACE_FUEL, FACE_OIL, FACE_TEMP, FACE_VOLTS;
 extern const face_t *const FACE_LIST[FACE_COUNT];
 extern const char *const FACE_NAMES[FACE_COUNT];
 extern const uint32_t FACE_CHECKS[FACE_COUNT];     /* CRC-32 of the decoded pixels, one byte each, row-major */

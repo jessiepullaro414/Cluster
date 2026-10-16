@@ -54,6 +54,12 @@ int main(void)
     v = sample();
     g = screens_gauge(GK_RPM, &v, true);
     CHECK(NEAR(g.needle, 0.5f, 0.001f) && NEAR(g.value, 3500.0f, 0.01f) && !g.warn);
+    v.rpm = ok(3504.0f);                                          /* shown to the nearest 10, the needle is exact */
+    g = screens_gauge(GK_RPM, &v, true);
+    CHECK(NEAR(g.value, 3500.0f, 0.01f) && NEAR(g.needle, 3504.0f / 7000.0f, 0.0001f));
+    v.rpm = ok(3505.0f);
+    CHECK(NEAR(screens_gauge(GK_RPM, &v, true).value, 3510.0f, 0.01f));
+    v.rpm = ok(3500.0f);
 
     /* coolant: the needle uses degrees C whatever the display units */
     g = screens_gauge(GK_COOLANT, &v, true);

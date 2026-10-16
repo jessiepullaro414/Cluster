@@ -57,6 +57,58 @@
 #define WDOG_CS_ULK     (1u << 11)      /* unlocked */
 #define WDOG_UNLOCK     0xD928C520u     /* 32-bit write to CNT (CMD32EN = 1 at reset) */
 
+/* ---- FIRC divider for peripheral clocks (RM 28.3.15) ---- */
+#define SCG_FIRCDIV     REG32(SCG_BASE + 0x304u)
+#define SCG_FIRCDIV2(n) ((uint32_t)(n) << 8)    /* 001 = divide by 1 -> 48 MHz; 000 = off (the reset value) */
+
+/* ---- PCC, base 0x4006_5000 (RM chapter 29) ---- */
+#define PCC_BASE        0x40065000u
+#define PCC_LPSPI2      REG32(PCC_BASE + 0xB8u)     /* 29.6.11 */
+#define PCC_PORT(i)     REG32(PCC_BASE + 0x124u + 4u * (i))   /* PORTA..PORTE = 0x124..0x134 */
+#define PCC_CGC         (1u << 30)                  /* clock gate */
+#define PCC_PCS(n)      ((uint32_t)(n) << 24)       /* only writable while CGC = 0 */
+#define PCC_PCS_FIRCDIV2 3u                         /* 001 SOSCDIV2, 010 SIRCDIV2, 011 FIRCDIV2, 110 SPLLDIV2 (RM ch. 27 figure) */
+
+/* ---- PORT pin control, ports A..E at 0x4004_9000 + 0x1000 * i (memory map) ---- */
+#define PORT_PCR(i, n)  REG32(0x40049000u + 0x1000u * (i) + 4u * (n))
+#define PORT_MUX(n)     ((uint32_t)(n) << 8)        /* PCR bits 10:8: 1 = GPIO, 3 = LPSPI2 on PTC0/1/15 (IO signal table) */
+#define PORTA 0
+#define PORTB 1
+#define PORTC 2
+#define PORTD 3
+#define PORTE 4
+
+/* ---- GPIO, ports A..E at 0x400F_F000 + 0x40 * i (RM chapter 12) ---- */
+#define GPIO_BASE(i)    (0x400FF000u + 0x40u * (i))
+#define GPIO_PSOR(i)    REG32(GPIO_BASE(i) + 0x04u)
+#define GPIO_PCOR(i)    REG32(GPIO_BASE(i) + 0x08u)
+#define GPIO_PDDR(i)    REG32(GPIO_BASE(i) + 0x14u)
+
+/* ---- LPSPI2, base 0x4002_E000 (RM chapter 51) ---- */
+#define LPSPI2_BASE     0x4002E000u
+#define LPSPI2_CR       REG32(LPSPI2_BASE + 0x10u)
+#define LPSPI2_SR       REG32(LPSPI2_BASE + 0x14u)
+#define LPSPI2_CFGR1    REG32(LPSPI2_BASE + 0x24u)
+#define LPSPI2_CCR      REG32(LPSPI2_BASE + 0x40u)
+#define LPSPI2_FCR      REG32(LPSPI2_BASE + 0x58u)
+#define LPSPI2_FSR      REG32(LPSPI2_BASE + 0x5Cu)
+#define LPSPI2_TCR      REG32(LPSPI2_BASE + 0x60u)
+#define LPSPI2_TDR      REG32(LPSPI2_BASE + 0x64u)
+#define LPSPI_CR_MEN    (1u << 0)
+#define LPSPI_CR_RST    (1u << 1)
+#define LPSPI_CR_RTF    (1u << 8)
+#define LPSPI_CR_RRF    (1u << 9)
+#define LPSPI_SR_TCF    (1u << 10)                  /* transfer complete (idle, TX FIFO empty); write 1 to clear */
+#define LPSPI_SR_TEF    (1u << 11)
+#define LPSPI_SR_MBF    (1u << 24)                  /* module busy */
+#define LPSPI_CFGR1_MASTER (1u << 0)
+#define LPSPI_TCR_BYSW  (1u << 22)
+#define LPSPI_TCR_RXMSK (1u << 19)                  /* receive data discarded: nothing to read back */
+#define LPSPI_TCR_PRESCALE(n) ((uint32_t)(n) << 27) /* divide by 2^n */
+#define LPSPI_TCR_FRAMESZ(bits) ((uint32_t)((bits) - 1u) & 0xFFFu)
+#define LPSPI_FSR_TXCOUNT(fsr) ((fsr) & 7u)
+#define LPSPI_TXFIFO_WORDS 4u                       /* PARAM reset value 0x0000_0202: 2^2 words each way */
+
 /* ---- Cortex-M4 system registers (ARMv7-M, PPB at 0xE000_0000) ----------- */
 #define SYST_CSR        REG32(0xE000E010u)
 #define SYST_RVR        REG32(0xE000E014u)

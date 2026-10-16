@@ -3,6 +3,7 @@
 #include "aux_display.h"
 #include "can_link.h"
 #include "inputs.h"
+#include "panel_hal.h"
 #include "screens.h"
 #include "power.h"
 #include "senders.h"
@@ -11,6 +12,8 @@
 
 /* STUB main: the init order and the 10 ms task are the point; every module
  * except the clock and the tick (tick.c) is a stub. */
+
+#define AUX_RUNS_PER_TICK 12
 
 static void step(uint32_t now)
 {
@@ -31,10 +34,14 @@ static void step(uint32_t now)
     chosen_t oil = agg_pick_car_first(car.oil_kpa, senders_oil_kpa(), now, CLUSTER_CAR_BUS_TIMEOUT_MS);
 
     screen_values_t sv = { speed, rpm, battery, fuel, coolant, oil };
+    aux_display_set_imperial(cfg.units_mph);
     for (uint8_t i = 0; i < SCREEN_COUNT; i++) {
         screen_view_t view = screens_build(&SCREENS_DEFAULT[i], &sv, cfg.units_mph);
         aux_display_screen(i, &view);
     }
+    /* Send what changed, a bounded amount per tick. Each run is about 150 to 500 bytes, so 12 runs
+     * keep the (blocking, 9.6 MHz) bus time per 10 ms tick to roughly 3 to 4 ms. */
+    aux_display_poll(AUX_RUNS_PER_TICK);
 
     can_link_send_motion(speed.value, rpm.value, battery.value, speed.valid, rpm.valid,
                          battery.valid, speed.src == SRC_LOCAL);
@@ -53,7 +60,7 @@ int main(void)
     senders_init();
     inputs_init();
     can_link_init();
-    aux_display_init();
+    aux_display_init(panel_hal_board(), SCREENS_DEFAULT, can_link_settings().units_mph);
     for (;;) {
         step(now_ms());
         wait_for_tick_10ms();

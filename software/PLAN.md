@@ -33,7 +33,7 @@ Rules: AAOS source and builds stay on the distro's ext4 (never `/mnt/c`); the sm
 | A4 | input math (`inputmath.c`): pulse period to speed and RPM, lamp debounce, dimmer scaling, table lookup; host-tested (sender curves still need real data) | conversions | nothing (host tests) | **done** |
 | A5 | FlexCAN driver (CAN0 listen-only, CAN1) | frames on a bus | board + CAN adapter | 4 h + bench |
 | A6 | FTM capture, ADC, GPIO, ignition wake | real inputs | board | 4 h + bench |
-| A7 | GC9A01 driver and needle gauges on LPSPI2 | the four small gauges | board + screens | 4 h + bench |
+| A7 | GC9A01 driver and needle gauges on LPSPI2 | the four small gauges | board + screens | **done on the host** (renderer, change tracking, driver, mock-panel tests; S32K144 bus layer compiled and linked). On hardware still needs Raystar's init code, the SPI limit confirmed, MADCTL and inversion for this module |
 | A8 | STOP mode and wake, `PowerState` handshake with display/ | sleep current, wake time | board + meter | 3 h + bench |
 | A9 | sender curves from the real senders | gauge accuracy | the user's senders | measurement |
 

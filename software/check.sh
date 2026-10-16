@@ -28,6 +28,9 @@ echo "== gauges-fw: linked image"
 make -C "$HERE/gauges-fw" arm
 sh "$HERE/gauges-fw/tools/inspect_elf.sh" "$HERE/gauges-fw/build/gauges-fw.elf" | sed -n 1,12p
 
+echo "== gauges-fw: HAL pins match gauges_pins.h"
+$PY "$HERE/gauges-fw/tools/check_pins.py"
+
 echo "== vhal-bridge: host tests"
 make -C "$HERE/android/vhal-bridge" test
 

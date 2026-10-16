@@ -1,5 +1,7 @@
 #include "screens.h"
 
+#include <math.h>
+
 const screen_cfg_t SCREENS_DEFAULT[SCREEN_COUNT] = {
     { GK_FUEL,    GK_BATTERY },   /* 0 outer left  */
     { GK_SPEED,   GK_NONE    },   /* 1 inner left  */
@@ -37,7 +39,9 @@ gauge_view_t screens_gauge(gauge_kind_t kind, const screen_values_t *v, bool imp
     }
     case GK_RPM: {
         chosen_t c = v->rpm;
-        return make(kind, c, 0.0f, SCALE_RPM_MAX, c.value, "RPM", false);
+        /* shown to the nearest 10 rpm: the last digit of a tach is unreadable noise and, here,
+         * would redraw a digit on almost every update */
+        return make(kind, c, 0.0f, SCALE_RPM_MAX, floorf(c.value / 10.0f + 0.5f) * 10.0f, "RPM", false);
     }
     case GK_FUEL: {
         chosen_t c = v->fuel_pct;

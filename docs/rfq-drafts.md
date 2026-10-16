@@ -75,3 +75,16 @@ We are building a classic-car instrument cluster product and are evaluating your
 5. You list circular displays from 1 to 7 in. Do you have a high-bright circular display larger than 4.2 in (4.5 to 5 in) at 800 nits or more, with RGB, LVDS or MIPI?
 
 Our side: we will drive it from an NXP i.MX 95 module through an LVDS-to-RGB receiver, 720 x 720 at 60 Hz.
+
+## 5. Raystar: RFA401280B-AYW-DNF1 (1.28 in round GC9A01 module), firmware questions (drafted 2026-10-15, not sent)
+
+To: salescontact@raystar-optronics.com (the same contact as the order; see `gauges/build_bom.py`).
+
+We are driving four RFA401280B-AYW-DNF1 modules over 4-line SPI from an NXP S32K144. The datasheet gives the pinout and electrical limits but no initialisation sequence. Could you send:
+
+1. **The recommended GC9A01 initialisation code for this exact module**, including the undocumented registers (the 84h to 8Fh, 90h, 62h to 67h, 70h, 74h, 98h group and the EBh, BCh, BDh, BEh, DFh, E1h, EDh values), the gamma tables (F0h to F3h), the power controls (C3h, C4h, C9h) and the frame rate (E8h). We are using the values from the open-source Zephyr driver as a stand-in.
+2. **Whether the module needs display inversion (21h)** and which **MADCTL (36h)** value gives the upright, RGB-correct image with the FPC tail at the bottom.
+3. **The maximum SPI clock** you qualify (the controller allows a 10 ns write cycle; our MCU limits us to 10 MHz, but we want to know if you restrict it) and whether SDA can be driven at 3.3 V logic with VCI = 3.3 V as planned.
+4. **Reset and power-up timing**: how long RESET must be held low, and how long to wait after it and after Sleep Out (11h) before the next command and before Display On (29h). We currently use 10 ms, 120 ms and 150 ms.
+5. **Backlight**: the VLED+ and VLED- current limits and whether PWM dimming is allowed (frequency range). We switch it with a transistor and may add PWM.
+6. Whether the **TE** pin is useful for tear-free updates when writing small windows, and whether the **touch controller** (CST816D) can be left unpowered.

@@ -34,7 +34,7 @@ typedef struct {
     theme_t      theme;
     gauge_kind_t kind, secondary_kind;
 
-    /* modern theme: numbers are refreshed at most every hold_ticks calls (0 = always) */
+    /* arc themes (modern, carplay): numbers are refreshed at most every hold_ticks calls (0 = always) */
     uint8_t hold_ticks, age[2];
     float   held[2];
     bool    held_ok[2];

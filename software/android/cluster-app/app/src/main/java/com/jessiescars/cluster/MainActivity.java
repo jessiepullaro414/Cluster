@@ -43,8 +43,8 @@ import com.jessiescars.cluster.core.VehicleState;
  *   adb shell am broadcast -a com.jessiescars.cluster.CLEAR
  *
  * float extras: speed_kph, rpm, dimmer. boolean extras: night, link_dead, high_beam, brake, alt, oil,
- * phone (a phone is projecting), flip (show the gauge instead of maps), settings (open/close the list).
- * string extras (saved): no_phone (gauge|home), aspect (round|square|4:3|16:9), theme (classic|modern|0|1),
+ * phone (a phone is projecting), match_carplay (saved: the small screens take the CarPlay look while it is open), flip (show the gauge instead of maps), settings (open/close the list).
+ * string extras: phone_kind (carplay|androidauto: what the projecting phone is); (saved): no_phone (gauge|home), aspect (round|square|4:3|16:9), theme (classic|modern|carplay|0|1|2),
  * units (mph|kph); telemetry (off | host | host:port: where the development feed for the small screens goes;
  * default 10.0.2.2:5005, the PC the emulator runs on). The real source (the VHAL bridge) replaces only the fake
  * one; the views only ever see a VehicleState. There are no turn indicators: the dash has physical ones.
@@ -67,6 +67,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
 
     // centre-display state
     private boolean phoneProjecting = true;            // fake: a phone is connected
+    private boolean projectingCarPlay = true;          // fake: it is an iPhone (CarPlay), not Android Auto
     private boolean flippedToGauge;
     private Content shown;
     private boolean settingsOpen;
@@ -79,7 +80,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
             VehicleState s = DriveScenario.at(t, override);
             gauge.setState(s);
             maps.setState(s);
-            telemetry.publish(Telemetry.encode(s, settings.imperial, settings.theme));   // development feed for the small screens
+            telemetry.publish(Telemetry.encode(s, settings.imperial, settings.effectiveTheme(phoneProjecting && projectingCarPlay)));   // development feed for the small screens
             handler.postDelayed(this, TICK_MS);
         }
     };
@@ -91,6 +92,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
                 override.night = override.linkDead = override.turnLeft = override.highBeam = null;
                 override.brake = override.alternator = override.oil = null;
                 phoneProjecting = true;
+                projectingCarPlay = true;
                 flippedToGauge = false;
                 setSettingsOpen(false);
                 refreshContent();
@@ -106,6 +108,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
             if (i.hasExtra("alt")) override.alternator = i.getBooleanExtra("alt", false);
             if (i.hasExtra("oil")) override.oil = i.getBooleanExtra("oil", false);
             if (i.hasExtra("phone")) phoneProjecting = i.getBooleanExtra("phone", true);
+            if (i.hasExtra("phone_kind")) projectingCarPlay = !"androidauto".equalsIgnoreCase(String.valueOf(i.getStringExtra("phone_kind")).trim());
             if (i.hasExtra("flip")) flippedToGauge = i.getBooleanExtra("flip", false);
             if (i.hasExtra("settings")) setSettingsOpen(i.getBooleanExtra("settings", false));
             if (i.hasExtra("telemetry")) telemetry.configure(i.getStringExtra("telemetry"));
@@ -116,6 +119,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
                 settings.imperial = !(n.equals("kph") || n.equals("metric") || n.equals("km/h"));
                 changed = true;
             }
+            if (i.hasExtra("match_carplay")) { settings.matchCarPlay = i.getBooleanExtra("match_carplay", true); changed = true; }
             if (i.hasExtra("theme")) {
                 Integer th = Settings.parseTheme(i.getStringExtra("theme"));
                 if (th != null) { settings.theme = th; changed = true; }
@@ -159,13 +163,14 @@ public class MainActivity extends Activity implements SettingsView.Listener {
 
     private void loadSettings() {
         settings.theme = Settings.clampTheme(prefs.getInt("theme", 1));
+        settings.matchCarPlay = prefs.getBoolean("match_carplay", true);
         settings.imperial = prefs.getBoolean("imperial", true);
         settings.noPhone = parseEnum(NoPhone.class, prefs.getString("no_phone", null), NoPhone.GAUGE);
         settings.aspect = parseEnum(Aspect.class, prefs.getString("aspect", null), Aspect.ROUND);
     }
 
     private void saveSettings() {
-        prefs.edit().putInt("theme", settings.theme).putBoolean("imperial", settings.imperial)
+        prefs.edit().putInt("theme", settings.theme).putBoolean("match_carplay", settings.matchCarPlay).putBoolean("imperial", settings.imperial)
                 .putString("no_phone", settings.noPhone.name()).putString("aspect", settings.aspect.name()).apply();
     }
 

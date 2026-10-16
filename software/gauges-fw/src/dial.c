@@ -430,6 +430,7 @@ void dial_set_text_hold(dial_t *d, uint8_t ticks) { d->hold_ticks = ticks; }
 void dial_set_view_theme(dial_t *d, const screen_view_t *view, bool imperial, theme_t theme)
 {
     if (theme == THEME_MODERN) dial_modern_set_view(d, view, imperial);
+    else if (theme == THEME_CARPLAY) dial_carplay_set_view(d, view, imperial);
     else classic_set_view(d, view, imperial);
 }
 

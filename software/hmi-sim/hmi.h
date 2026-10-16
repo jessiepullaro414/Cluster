@@ -9,6 +9,7 @@
 // Flows:
 //   Home          click: flip between maps and gauge   long press: open Settings   turn: (the phone's focus)
 //   Settings      turn: move selection   click: edit the row (or Back)   long press: back to Home
+//   (The small screens take the CarPlay look while a phone shows CarPlay, if "With CarPlay" is on.)
 //   Edit a row    turn: change the value (theme and units apply at once to the small screens)
 //                 click: keep it   long press: cancel, restore the old value
 #pragma once
@@ -59,23 +60,25 @@ private:
 // ---- the settings -----------------------------------------------------------------------------
 
 struct Model {
-    int  theme = 1;                  // 0 classic, 1 modern (DisplaySettings.GaugeTheme)
+    int  theme = 1;                  // 0 classic, 1 modern, 2 CarPlay (DisplaySettings.GaugeTheme)
+    bool match_carplay = true;       // while CarPlay is open the small screens take the Apple look
     bool imperial = true;
     bool no_phone_home = false;      // what to show with no phone: false gauge, true home
     int  map_shape = 0;              // 0 round, 1 square, 2 4:3, 3 16:9
     int  brightness = 100;           // percent, steps of 10
     bool operator==(const Model& o) const {
-        return theme == o.theme && imperial == o.imperial && no_phone_home == o.no_phone_home &&
+        return theme == o.theme && match_carplay == o.match_carplay && imperial == o.imperial && no_phone_home == o.no_phone_home &&
                map_shape == o.map_shape && brightness == o.brightness;
     }
 };
 
-enum class Row { Theme, Units, NoPhone, MapShape, Brightness, Back, kCount };
+enum class Row { Theme, MatchCarPlay, Units, NoPhone, MapShape, Brightness, Back, kCount };
 constexpr int kRows = int(Row::kCount);
 
 inline const char* label(Row r) {
     switch (r) {
         case Row::Theme: return "Gauge theme";
+        case Row::MatchCarPlay: return "With CarPlay";
         case Row::Units: return "Units";
         case Row::NoPhone: return "No phone shows";
         case Row::MapShape: return "Map shape";
@@ -87,7 +90,8 @@ inline const char* label(Row r) {
 inline std::string value(const Model& m, Row r) {
     static const char* shapes[] = { "Round", "Square", "4:3", "16:9" };
     switch (r) {
-        case Row::Theme: return m.theme == 0 ? "Classic" : "Modern";
+        case Row::Theme: return m.theme == 0 ? "Classic" : m.theme == 1 ? "Modern" : "CarPlay";
+        case Row::MatchCarPlay: return m.match_carplay ? "Apple look" : "My theme";
         case Row::Units: return m.imperial ? "mph, F, psi" : "km/h, C, kPa";
         case Row::NoPhone: return m.no_phone_home ? "Home" : "Gauge";
         case Row::MapShape: return shapes[m.map_shape & 3];
@@ -99,7 +103,8 @@ inline std::string value(const Model& m, Row r) {
 // Change a row's value by one step (dir = +1 / -1). Enumerations wrap; brightness stops at the ends.
 inline void step(Model& m, Row r, int dir) {
     switch (r) {
-        case Row::Theme: m.theme = (m.theme + (dir > 0 ? 1 : 1)) % 2; break;               // two values: either direction flips
+        case Row::Theme: m.theme = ((m.theme + dir) % 3 + 3) % 3; break;
+        case Row::MatchCarPlay: m.match_carplay = !m.match_carplay; break;
         case Row::Units: m.imperial = !m.imperial; break;
         case Row::NoPhone: m.no_phone_home = !m.no_phone_home; break;
         case Row::MapShape: m.map_shape = ((m.map_shape + dir) % 4 + 4) % 4; break;
@@ -111,6 +116,9 @@ inline void step(Model& m, Row r, int dir) {
         default: break;
     }
 }
+
+// What the small screens show: the owner's theme, except while CarPlay is open and "With CarPlay" is on.
+inline int effective_theme(const Model& m, bool carplay_open) { return carplay_open && m.match_carplay ? 2 : m.theme; }
 
 // ---- the state machine ------------------------------------------------------------------------
 

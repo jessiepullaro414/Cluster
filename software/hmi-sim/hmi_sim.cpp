@@ -6,6 +6,7 @@
 //   hmi_sim --selftest         state machine, click detector, drawing and small-screen checks; exit code = failures
 //   hmi_sim --script "H,R,R,C,shot=a.png,C,L"
 //                              headless: R/L turn right/left, C click, H hold; shot=file.png saves the window
+// P: phone with CarPlay on/off (the small screens take the Apple look while it is open).
 // Dial -> input in the car: the PSC-360's angle (ADC) turns into R/L steps, its switch (GPIO) goes through
 // ClickDetector; both end up as hmi::Input, which is all this file's flow needs.
 #include <cmath>
@@ -122,13 +123,13 @@ struct Drive {                       // fake vehicle values for the gauges and t
 };
 
 // What the centre screen shows. The map is a placeholder for the CarPlay / Android Auto surface.
-static void draw_centre(Ops& o, const Ui& ui, const Drive& dv, float long_p, int map_phase) {
+static void draw_centre(Ops& o, const Ui& ui, const Drive& dv, float long_p, int map_phase, bool phone) {
     const Model& m = ui.model();
     const float cx = C / 2.0f, cy = C / 2.0f;
     o.add(gfx_disc(cx, cy, 240, COL_BEZEL));
     o.add(gfx_disc(cx, cy, 236, 0x000000));
     if (ui.screen() == Screen::Home) {
-        if (!ui.gauge_view()) {
+        if (phone && !ui.gauge_view()) {
             // map surface in the chosen shape
             float w = 472, h = 472, r = 236;
             if (m.map_shape == 1) { w = h = 336; r = 10; }
@@ -145,8 +146,9 @@ static void draw_centre(Ops& o, const Ui& ui, const Drive& dv, float long_p, int
             o.add(gfx_disc(cx - 40, cy + 40, 12, COL_TEXT));
             o.add(gfx_disc(cx - 40, cy + 40, 7, COL_ACC));
             float base = m.map_shape == 3 ? 100.0f : 118.0f;
-            o.text(&FONT_SMALL, "Maps (phone)  12 min  3.4 mi", int(cx), int(cy + base) , TEXT_CENTER, COL_DIM);
+            o.text(&FONT_SMALL, "CarPlay (phone)  12 min  3.4 mi", int(cx), int(cy + base) , TEXT_CENTER, COL_DIM);
         } else {
+            if (!phone && m.no_phone_home) { o.text(&FONT_MED, "Home", int(cx), int(cy + 10), TEXT_CENTER, COL_TEXT); goto hint; }
             float mph = dv.speed_kph() * (m.imperial ? 0.621371f : 1.0f);
             float frac = mph / (m.imperial ? 120.0f : 200.0f);
             if (frac > 1) frac = 1;
@@ -156,9 +158,10 @@ static void draw_centre(Ops& o, const Ui& ui, const Drive& dv, float long_p, int
             snprintf(b, sizeof b, "%d", int(mph + 0.5f));
             o.text(&FONT_BIG, b, int(cx), int(cy + 24), TEXT_CENTER, COL_TEXT);
             o.text(&FONT_MED, m.imperial ? "MPH" : "KM/H", int(cx), int(cy + 74), TEXT_CENTER, COL_DIM);
-            o.text(&FONT_SMALL, "Gauge view", int(cx), int(cy + 140), TEXT_CENTER, COL_DIM);
+            o.text(&FONT_SMALL, phone ? "Gauge view" : (m.no_phone_home ? "Home (no phone)" : "No phone"), int(cx), int(cy + 140), TEXT_CENTER, COL_DIM);
         }
-        o.text(&FONT_SMALL, "click: map / gauge    hold: settings", int(cx), 436, TEXT_CENTER, COL_DIM);
+    hint:
+        o.text(&FONT_SMALL, phone ? "click: map / gauge    hold: settings" : "hold: settings   (P: phone on)", int(cx), 436, TEXT_CENTER, COL_DIM);
     } else if (ui.screen() == Screen::Settings) {
         o.text(&FONT_SMALL, "SETTINGS", int(cx), 74, TEXT_CENTER, COL_DIM);
         int sel = int(ui.row());
@@ -189,6 +192,8 @@ static void draw_centre(Ops& o, const Ui& ui, const Drive& dv, float long_p, int
             o.text(&FONT_MED, "%", int(cx), int(cy + 70), TEXT_CENTER, COL_DIM);
         } else {
             o.text(&FONT_MED, value(m, r), int(cx), int(cy + 10), TEXT_CENTER, COL_TEXT);
+            if (r == Row::Theme && phone && m.match_carplay)
+                o.text(&FONT_SMALL, "CarPlay is open: small screens use the Apple look", int(cx), int(cy + 60), TEXT_CENTER, COL_DIM);
             for (int s = -1; s <= 1; s += 2) {          // chevrons: this value can be turned either way
                 float x = cx + s * 190.0f;
                 o.add(gfx_capsule(x - s * 6, cy - 14, x + s * 6, cy, 4, COL_ACC));
@@ -216,7 +221,9 @@ struct Rig {
     uint32_t pending_key_up = 0;           // time of a Space/Enter release waiting out X11 auto-repeat
     bool key_up_pending = false, key_down = false;
 
-    static theme_t theme_of(const Model& m) { return m.theme == 0 ? THEME_CLASSIC : THEME_MODERN; }
+    bool phone = true;                       // a phone is showing CarPlay (key P toggles it)
+    int shown_theme = -1;                    // what the small screens are set to
+    theme_t theme_of(const Model& m) const { int t = effective_theme(m, phone); return t == 0 ? THEME_CLASSIC : t == 1 ? THEME_MODERN : THEME_CARPLAY; }
 
     void init(mock_t* mk, const Model& start) {
         mock = mk;
@@ -225,11 +232,12 @@ struct Rig {
         applied = start;
         applied_valid = true;
         aux_display_init(mock_hal(mock), theme_of(start), start.imperial);
+        shown_theme = int(theme_of(start));
     }
 
     void apply_model() {
         const Model& m = ui.model();
-        if (!applied_valid || m.theme != applied.theme) aux_display_set_theme(theme_of(m));
+        if (!applied_valid || int(theme_of(m)) != shown_theme) { aux_display_set_theme(theme_of(m)); shown_theme = int(theme_of(m)); }
         if (!applied_valid || m.imperial != applied.imperial) aux_display_set_imperial(m.imperial);
         applied = m;
         applied_valid = true;
@@ -285,7 +293,7 @@ struct Rig {
         FILE* f = fopen(path.c_str(), "w");
         if (!f) return;
         const Model& m = ui.model();
-        fprintf(f, "theme=%d\nimperial=%d\nno_phone_home=%d\nmap_shape=%d\nbrightness=%d\n", m.theme, m.imperial, m.no_phone_home, m.map_shape, m.brightness);
+        fprintf(f, "theme=%d\nmatch_carplay=%d\nimperial=%d\nno_phone_home=%d\nmap_shape=%d\nbrightness=%d\n", m.theme, m.match_carplay, m.imperial, m.no_phone_home, m.map_shape, m.brightness);
         fclose(f);
     }
     static Model load(const std::string& p) {
@@ -295,7 +303,8 @@ struct Rig {
         char line[64];
         while (fgets(line, sizeof line, f)) {
             int v;
-            if (sscanf(line, "theme=%d", &v) == 1 && v >= 0 && v <= 1) m.theme = v;
+            if (sscanf(line, "theme=%d", &v) == 1 && v >= 0 && v <= 2) m.theme = v;
+            if (sscanf(line, "match_carplay=%d", &v) == 1) m.match_carplay = v != 0;
             if (sscanf(line, "imperial=%d", &v) == 1) m.imperial = v != 0;
             if (sscanf(line, "no_phone_home=%d", &v) == 1) m.no_phone_home = v != 0;
             if (sscanf(line, "map_shape=%d", &v) == 1 && v >= 0 && v <= 3) m.map_shape = v;
@@ -322,7 +331,7 @@ static void compose(Rig& r, std::vector<uint32_t>& win, const char* hud2, bool r
     if (redraw_centre || centre_rgb.empty()) {
         static Ops ops;
         ops.n = 0; ops.dropped = 0;
-        draw_centre(ops, r.ui, r.drive, r.det.long_progress(r.now), r.map_phase);
+        draw_centre(ops, r.ui, r.drive, r.det.long_progress(r.now), r.map_phase, r.phone);
         static std::vector<uint16_t> c565;
         c565.assign(size_t(C) * C, 0);
         gfx_render(ops.v, ops.n, 0, 0, C, C, c565.data(), C);
@@ -342,7 +351,7 @@ static void compose(Rig& r, std::vector<uint32_t>& win, const char* hud2, bool r
     }
     // HUD strip
     Ops h;
-    h.text(&FONT_SMALL, "dial:  wheel = turn   left button / Space = click   hold 0.6 s = long press   Q = quit", 12, 20, TEXT_LEFT, COL_DIM);
+    h.text(&FONT_SMALL, "dial:  wheel = turn   left button / Space = click   hold 0.6 s = long press   P = phone   Q = quit", 12, 20, TEXT_LEFT, COL_DIM);
     h.text(&FONT_SMALL, std::string("last: ") + r.last_event + (hud2 ? hud2 : ""), 12, 38, TEXT_LEFT, COL_TEXT);
     std::vector<uint16_t> s565(size_t(WIN_W) * HUD_H, 0);
     gfx_render(h.v, h.n, 0, 0, WIN_W, HUD_H, s565.data(), WIN_W);
@@ -392,6 +401,7 @@ static int run_script(Rig& r, const std::string& script) {
         else if (tok == "L") r.dispatch(Input::TurnLeft);
         else if (tok == "C") press_click(r);
         else if (tok == "H") press_hold(r);
+        else if (tok == "P") { r.phone = !r.phone; r.apply_model(); r.dirty = true; }
         else if (tok.rfind("shot=", 0) == 0) {
             settle(r);
             std::vector<uint32_t> win;
@@ -451,7 +461,9 @@ static int run_selftest() {
         ui.handle(Input::TurnRight);
         ui.handle(Input::TurnRight);
         ui.handle(Input::TurnRight);
-        CHECK(ui.row() == Row::NoPhone, "three steps right = No phone shows");
+        CHECK(ui.row() == Row::Units, "three steps right from Back = Units");
+        ui.handle(Input::TurnRight);
+        CHECK(ui.row() == Row::NoPhone, "one more = No phone shows");
         ui.handle(Input::Click);
         CHECK(ui.screen() == Screen::Edit, "click edits");
         ui.handle(Input::TurnRight);
@@ -475,7 +487,7 @@ static int run_selftest() {
         ui.handle(Input::Click);
         CHECK(ui.screen() == Screen::Home, "Back returns Home");
         ui.handle(Input::LongPress);
-        for (int i = 0; i < 4; i++) ui.handle(Input::TurnRight);
+        for (int i = 0; i < 5; i++) ui.handle(Input::TurnRight);
         CHECK(ui.row() == Row::Brightness, "Brightness row");
         ui.handle(Input::Click);
         for (int i = 0; i < 30; i++) ui.handle(Input::TurnRight);
@@ -497,7 +509,7 @@ static int run_selftest() {
         static std::vector<uint16_t> px;
         px.assign(size_t(C) * C, 0);
         Drive dv;
-        for (int state = 0; state < 2 + kRows + 5; state++) {
+        for (int state = 0; state < 2 + kRows + 6; state++) {
             Ui ui;
             if (state == 1) ui.handle(Input::Click);
             if (state >= 2) {
@@ -510,7 +522,7 @@ static int run_selftest() {
             for (int shape = 0; shape < (state == 0 ? 4 : 1); shape++) {
                 ui.mutable_model().map_shape = shape;
                 ops.n = 0; ops.dropped = 0;
-                draw_centre(ops, ui, dv, 0.5f, 3);
+                draw_centre(ops, ui, dv, 0.5f, 3, true);
                 char msg[80];
                 snprintf(msg, sizeof msg, "state %d shape %d fits the op list (%d ops)", state, shape, ops.n);
                 CHECK(ops.dropped == 0, msg);
@@ -529,14 +541,17 @@ static int run_selftest() {
         Rig r;
         r.path = "build/hmi_selftest_settings.txt";
         Model m;
+        m.theme = 1;
         r.init(&mock, m);
         r.frozen = true;
+        r.phone = false;                       // no CarPlay: the owner's own theme shows
+        r.apply_model();
         settle(r);
         uint32_t modern = fb_sum(mock);
         CHECK(modern != 2166136261u, "small screens drew");
         r.dispatch(Input::LongPress);          // Settings, Theme
         r.dispatch(Input::Click);              // edit
-        r.dispatch(Input::TurnRight);          // modern -> classic, live
+        r.dispatch(Input::TurnLeft);           // modern -> classic, live
         settle(r);
         uint32_t classic = fb_sum(mock);
         CHECK(classic != modern, "turning the theme changes the small screens at once");
@@ -548,6 +563,21 @@ static int run_selftest() {
         r.dispatch(Input::Click);              // keep classic
         settle(r);
         CHECK(fb_sum(mock) == classic, "keeping the change leaves classic on the screens");
+        // CarPlay open: the Apple look, whatever the owner chose, unless "With CarPlay" is off
+        r.phone = true;
+        r.apply_model();
+        settle(r);
+        uint32_t apple = fb_sum(mock);
+        CHECK(apple != classic && apple != modern, "CarPlay open shows the Apple look");
+        r.ui.mutable_model().match_carplay = false;
+        r.apply_model();
+        settle(r);
+        CHECK(fb_sum(mock) == classic, "with the option off CarPlay does not change the screens");
+        r.ui.mutable_model().match_carplay = true;
+        r.phone = false;
+        r.apply_model();
+        settle(r);
+        CHECK(fb_sum(mock) == classic, "closing CarPlay returns to the owner's theme");
         // saved settings round trip
         Model back = Rig::load(r.path);
         CHECK(back == r.ui.model(), "saved settings load back identical");
@@ -572,6 +602,7 @@ static int run_window(Rig& r) {
                 case HEV_QUIT: running = false; break;
                 case HEV_KEY:
                     if (e.key == 'q') running = false;
+                    else if (e.key == 'p') { r.phone = !r.phone; r.apply_model(); r.dirty = true; }
                     else if (e.key == HK_RIGHT || e.key == HK_UP || e.key == 'd') r.dispatch(Input::TurnRight);
                     else if (e.key == HK_LEFT || e.key == HK_DOWN || e.key == 'a') r.dispatch(Input::TurnLeft);
                     else if (e.key == HK_ESC) r.dispatch(Input::LongPress);

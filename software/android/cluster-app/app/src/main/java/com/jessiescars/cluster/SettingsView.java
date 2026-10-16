@@ -21,7 +21,7 @@ public class SettingsView extends View {
         void onClose();
     }
 
-    private static final float ROW_H = 76f, ROW_W = 500f, TOP = 178f, GAP = 10f;
+    private static final float ROW_H = 62f, ROW_W = 500f, TOP = 154f, GAP = 8f;
 
     private final Settings settings;
     private final Listener listener;

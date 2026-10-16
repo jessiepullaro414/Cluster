@@ -16,9 +16,18 @@ static const screen_cfg_t LAYOUT_MODERN[SCREEN_COUNT] = {
     { GK_COOLANT, GK_NONE    },   /* 3 outer right */
 };
 
+static const screen_cfg_t LAYOUT_CARPLAY[SCREEN_COUNT] = {
+    { GK_SPEED,   GK_FUEL    },   /* 0 outer left  */
+    { GK_RPM,     GK_NONE    },   /* 1 inner left  */
+    { GK_BATTERY, GK_OIL     },   /* 2 inner right: two rings */
+    { GK_COOLANT, GK_NONE    },   /* 3 outer right */
+};
+
 const screen_cfg_t *screens_layout(theme_t theme)
 {
-    return theme == THEME_MODERN ? LAYOUT_MODERN : SCREENS_DEFAULT;
+    if (theme == THEME_MODERN) return LAYOUT_MODERN;
+    if (theme == THEME_CARPLAY) return LAYOUT_CARPLAY;
+    return SCREENS_DEFAULT;
 }
 
 theme_t screens_theme_from_setting(uint32_t value)

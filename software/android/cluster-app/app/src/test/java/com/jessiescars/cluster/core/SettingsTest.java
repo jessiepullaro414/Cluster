@@ -22,9 +22,15 @@ public class SettingsTest {
     @Test public void everyRowCyclesAndWraps() {
         Settings s = new Settings();
         s.cycle(Row.THEME);
-        assertEquals(0, s.theme);                       // 1 wraps to 0
+        assertEquals(2, s.theme);                       // modern -> CarPlay
+        s.cycle(Row.THEME);
+        assertEquals(0, s.theme);                       // wraps to classic
         s.cycle(Row.THEME);
         assertEquals(1, s.theme);
+        s.cycle(Row.MATCH_CARPLAY);
+        assertEquals(false, s.matchCarPlay);
+        s.cycle(Row.MATCH_CARPLAY);
+        assertEquals(true, s.matchCarPlay);
         s.cycle(Row.UNITS);
         assertEquals(false, s.imperial);
         s.cycle(Row.NO_PHONE);
@@ -45,17 +51,33 @@ public class SettingsTest {
         assertEquals("Round", s.value(Row.MAP_SHAPE));
         s.imperial = false;
         assertTrue(s.value(Row.UNITS).contains("km/h"));
-        assertEquals(4, Settings.ROWS.length);
+        assertEquals(5, Settings.ROWS.length);
+    }
+
+    @Test public void carPlayLookFollowsTheProjectionUnlessTheUserOptsOut() {
+        Settings s = new Settings();
+        s.theme = 0;                                    // the user's own pick: classic
+        assertEquals(0, s.effectiveTheme(false));       // nothing projecting
+        assertEquals(Settings.THEME_CARPLAY, s.effectiveTheme(true));   // CarPlay open: Apple look
+        s.matchCarPlay = false;
+        assertEquals(0, s.effectiveTheme(true));        // opted out: keeps classic
+        assertEquals("My theme", s.value(Row.MATCH_CARPLAY));
+        s.matchCarPlay = true;
+        assertEquals("Apple look", s.value(Row.MATCH_CARPLAY));
+        assertEquals("With CarPlay", Settings.label(Row.MATCH_CARPLAY));
     }
 
     @Test public void themeNumbersAreClampedAndParsed() {
         assertEquals(0, Settings.clampTheme(-1));
         assertEquals(0, Settings.clampTheme(7));
+        assertEquals(2, Settings.clampTheme(2));
         assertEquals(1, Settings.clampTheme(1));
         assertEquals(Integer.valueOf(0), Settings.parseTheme("classic"));
         assertEquals(Integer.valueOf(1), Settings.parseTheme(" Modern "));
         assertEquals(Integer.valueOf(1), Settings.parseTheme("1"));
-        assertNull(Settings.parseTheme("2"));
+        assertEquals(Integer.valueOf(2), Settings.parseTheme("carplay"));
+        assertEquals(Integer.valueOf(2), Settings.parseTheme("2"));
+        assertNull(Settings.parseTheme("3"));
         assertNull(Settings.parseTheme("nonsense"));
         assertNull(Settings.parseTheme(null));
     }

@@ -4,14 +4,14 @@ CC      ?= gcc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 
 # Real, host-testable code (no hardware access).
-CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/dial.c src/dial_modern.c src/gc9a01.c src/aux_display.c
+CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/gc9a01.c src/aux_display.c
 # Still stubs (need the board).
 STUBS := src/senders.c src/inputs.c src/can_link.c src/power.c
 # Real code that touches registers: compiled and linked for the target, never run on the host.
 HW := src/panel_hal_s32k.c
 
 # Sources of the screen chain for tests that use the mock panel.
-SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/gfx.c src/font_data.c src/gc9a01.c src/screens.c
+SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/dial_carplay.c src/gfx.c src/font_data.c src/gc9a01.c src/screens.c
 
 .PHONY: test stubs arm-check arm preview bench harness golden golden-update golden-dump sim clean
 test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/harness_cli
@@ -37,9 +37,9 @@ build/test_gfx: test/test_gfx.c src/gfx.c src/font_data.c inc/gfx.h inc/font.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -o $@ test/test_gfx.c src/gfx.c src/font_data.c -lm
 
-build/test_dial: test/test_dial.c src/dial.c src/dial_modern.c src/gfx.c src/font_data.c src/screens.c inc/dial.h inc/gfx.h src/dial_internal.h
+build/test_dial: test/test_dial.c src/dial.c src/dial_modern.c src/dial_carplay.c src/gfx.c src/font_data.c src/screens.c inc/dial.h inc/gfx.h src/dial_internal.h
 	mkdir -p build
-	$(CC) $(CFLAGS) -o $@ test/test_dial.c src/dial.c src/dial_modern.c src/gfx.c src/font_data.c src/screens.c -lm
+	$(CC) $(CFLAGS) -o $@ test/test_dial.c src/dial.c src/dial_modern.c src/dial_carplay.c src/gfx.c src/font_data.c src/screens.c -lm
 
 build/test_gc9a01: test/test_gc9a01.c $(SCREEN) test/panel_mock.h inc/gc9a01.h inc/panel_hal.h inc/aux_display.h
 	mkdir -p build
@@ -70,7 +70,7 @@ build/preview: test/preview.c $(SCREEN) inc/aux_display.h
 # build/harness adds an X11 window; on Windows 11 the WSLg X server shows it on the desktop. The X11
 # development headers are not installed in WSL (no root), so they are unpacked privately by
 # tools/get_x11_headers.sh into ~/x11sdk; the library itself is the system's libX11.so.6.
-HARNESS_SRC := test/harness.c test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/gfx.c src/font_data.c src/gc9a01.c src/screens.c
+HARNESS_SRC := test/harness.c test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/dial_carplay.c src/gfx.c src/font_data.c src/gc9a01.c src/screens.c
 X11INC ?= $(HOME)/x11sdk/root/usr/include
 HARNESS_DEPS := $(HARNESS_SRC) test/harness_x11.h inc/aux_display.h inc/dial.h inc/gfx.h
 
@@ -98,14 +98,15 @@ golden-dump: build/harness_cli
 sim: build/harness_cli
 	./build/harness_cli --sim 60 --units-switch
 	./build/harness_cli --sim 60 --units-switch --theme modern
+	./build/harness_cli --sim 60 --units-switch --theme carplay
 
 # Counts the rendering work of typical updates (operations, not time).
 bench: build/bench_render
 	./build/bench_render
 
-build/bench_render: test/bench_render.c src/dial.c src/dial_modern.c src/gfx.c src/font_data.c src/screens.c inc/dial.h inc/gfx.h
+build/bench_render: test/bench_render.c src/dial.c src/dial_modern.c src/dial_carplay.c src/gfx.c src/font_data.c src/screens.c inc/dial.h inc/gfx.h
 	mkdir -p build
-	$(CC) $(CFLAGS) -DGFX_STATS -o $@ test/bench_render.c src/dial.c src/dial_modern.c src/gfx.c src/font_data.c src/screens.c -lm
+	$(CC) $(CFLAGS) -DGFX_STATS -o $@ test/bench_render.c src/dial.c src/dial_modern.c src/dial_carplay.c src/gfx.c src/font_data.c src/screens.c -lm
 
 # Compile-check the stubs and main on the host (no hardware access): catches
 # header and signature mistakes before an ARM toolchain exists.

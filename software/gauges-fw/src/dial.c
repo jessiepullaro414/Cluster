@@ -1,4 +1,4 @@
-#include "dial.h"
+#include "dial_internal.h"
 
 #include <math.h>
 #include <string.h>
@@ -101,6 +101,7 @@ typedef struct { op_t *ops; int n; } list_t;
 
 static bool g_overflow;
 bool dial_overflowed(void) { return g_overflow; }
+void dial_note_overflow(void) { g_overflow = true; }
 
 static void push(list_t *l, op_t o)
 {
@@ -239,6 +240,8 @@ static void push_big(list_t *l, const char *s, uint32_t color)
 
 /* ---------------------------------------------------------------- tile marking */
 
+#define mark_rect dial_mark_rect
+
 static void mark_tile(dial_t *d, int tx, int ty)
 {
     if (tx < 0 || ty < 0 || tx >= GFX_TILES || ty >= GFX_TILES) return;
@@ -251,7 +254,7 @@ static void mark_tile(dial_t *d, int tx, int ty)
     d->dirty[ty] |= (uint32_t)(1u << tx);
 }
 
-static void mark_rect(dial_t *d, int x0, int y0, int x1, int y1)       /* pixels, x1/y1 exclusive */
+void dial_mark_rect(dial_t *d, int x0, int y0, int x1, int y1)         /* pixels, x1/y1 exclusive */
 {
     if (x1 <= x0 || y1 <= y0) return;
     int tx0 = x0 < 0 ? 0 : x0 / GFX_TILE, ty0 = y0 < 0 ? 0 : y0 / GFX_TILE;
@@ -347,15 +350,16 @@ static int needle_deg_for(const gauge_view_t *g)
     return (int)lroundf(START_DEG + SWEEP_DEG * g->needle);
 }
 
-void dial_set_view(dial_t *d, const screen_view_t *view, bool imperial)
+static void classic_set_view(dial_t *d, const screen_view_t *view, bool imperial)
 {
     const gauge_view_t *p = &view->primary, *sec = &view->secondary;
 
-    bool rebuild_static = !d->built || d->kind != p->kind || d->imperial != imperial ||
+    bool rebuild_static = !d->built || d->theme != THEME_CLASSIC || d->kind != p->kind || d->imperial != imperial ||
                           d->secondary_kind != sec->kind;
     if (rebuild_static) {
         build_static(d, view, imperial);
         d->built = true;
+        d->theme = THEME_CLASSIC;
         d->kind = p->kind;
         d->secondary_kind = sec->kind;
         d->imperial = imperial;
@@ -419,6 +423,19 @@ void dial_set_view(dial_t *d, const screen_view_t *view, bool imperial)
     push_big(&l, big, bwarn ? COL_WARN : COL_DIGIT);
     if (secs[0]) push_text(&l, secs, CX, 137.0f, 2, swarn ? COL_WARN : COL_SEC);
     d->n_total = (uint8_t)l.n;
+}
+
+void dial_set_text_hold(dial_t *d, uint8_t ticks) { d->hold_ticks = ticks; }
+
+void dial_set_view_theme(dial_t *d, const screen_view_t *view, bool imperial, theme_t theme)
+{
+    if (theme == THEME_MODERN) dial_modern_set_view(d, view, imperial);
+    else classic_set_view(d, view, imperial);
+}
+
+void dial_set_view(dial_t *d, const screen_view_t *view, bool imperial)
+{
+    classic_set_view(d, view, imperial);
 }
 
 bool dial_next_run(dial_t *d, int *tile_row, int *first_col, int *n_cols)

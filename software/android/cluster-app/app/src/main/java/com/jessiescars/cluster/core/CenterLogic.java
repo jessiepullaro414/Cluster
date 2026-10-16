@@ -36,7 +36,7 @@ public final class CenterLogic {
 
     /** Shape of the rectangular CarPlay / Android Auto window inside the circle. */
     public enum Aspect {
-        SQUARE(1, 1), FOUR_THREE(4, 3), SIXTEEN_NINE(16, 9);
+        ROUND(1, 1), SQUARE(1, 1), FOUR_THREE(4, 3), SIXTEEN_NINE(16, 9);
 
         public final int w, h;
         Aspect(int w, int h) { this.w = w; this.h = h; }
@@ -44,6 +44,7 @@ public final class CenterLogic {
         public static Aspect parse(String s, Aspect fallback) {
             if (s == null) return fallback;
             switch (s.trim().toLowerCase(java.util.Locale.ROOT)) {
+                case "round": case "circle": return ROUND;
                 case "square": case "1:1": return SQUARE;
                 case "4:3": return FOUR_THREE;
                 case "16:9": return SIXTEEN_NINE;
@@ -55,9 +56,11 @@ public final class CenterLogic {
     /**
      * Largest rectangle of the given aspect that fits inside a circle of the
      * given diameter: its diagonal is the diameter. Returns {width, height}.
-     * 16:9 in a 101.5 mm circle is 88.5 x 49.8 mm (docs/mechanical-fit.md).
+     * 16:9 in a 101.5 mm circle is 88.5 x 49.8 mm (docs/mechanical-fit.md). ROUND is not a rectangle: the
+     * picture fills the circle, so the box returned is the circle's bounding square.
      */
     public static float[] inscribed(float diameter, Aspect a) {
+        if (a == Aspect.ROUND) return new float[] { diameter, diameter };      // fills the whole circle: the panel's edge crops it
         double diag = Math.hypot(a.w, a.h);
         return new float[] { (float) (diameter * a.w / diag), (float) (diameter * a.h / diag) };
     }

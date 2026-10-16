@@ -85,9 +85,9 @@ int main(void)
                 screen_values_t v;
                 float vals[6] = { 0.0f, 1.0f, 99.9f, 188.0f, 7777.0f, 888.8f };
                 v.speed_kph = v.rpm = v.battery_v = v.fuel_pct = v.coolant_c = v.oil_kpa = cv(vals[step], true);
-                screen_cfg_t cfg = { (gauge_kind_t)k, k == GK_FUEL ? GK_BATTERY : (k == GK_COOLANT ? GK_OIL : GK_NONE) };
+                screen_cfg_t cfg = { (gauge_kind_t)k, k == GK_FUEL ? GK_BATTERY : (k == GK_COOLANT ? GK_OIL : (k == GK_SPEED ? GK_FUEL : (k == GK_BATTERY ? GK_OIL : GK_NONE))) };
                 screen_view_t view = screens_build(&cfg, &v, imp);
-                dial_set_view(&d, &view, imp);
+                dial_set_view_theme(&d, &view, imp, (theme_t)(step & 1));
                 if (d.n_total > max_ops) max_ops = d.n_total;
             }
     CHECK(!dial_overflowed());
@@ -111,15 +111,17 @@ int main(void)
     /* THE property: patching only the dirty tiles gives exactly the picture a fresh full draw gives.
      * Random walks of views, every screen layout, both unit systems, valid and invalid inputs. */
     int pairs = 0, worst = 0;
-    for (int trial = 0; trial < 60; trial++) {
+    for (int trial = 0; trial < 120; trial++) {
         int s = trial % SCREEN_COUNT;
+        theme_t th = (theme_t)((trial / SCREEN_COUNT) % 2);
+        const screen_cfg_t *layout = screens_layout(th);
         bool imp = (rnd() & 1) != 0;
         static dial_t inc, ref;
         static frame_t fi, fr;
         dial_init(&inc);
         screen_values_t v = random_values();
-        screen_view_t view = screens_build(&SCREENS_DEFAULT[s], &v, imp);
-        dial_set_view(&inc, &view, imp);
+        screen_view_t view = screens_build(&layout[s], &v, imp);
+        dial_set_view_theme(&inc, &view, imp, th);
         drain(&inc, &fi);
         {
             static frame_t ft0;
@@ -134,13 +136,13 @@ int main(void)
             } else {
                 v = random_values();
             }
-            view = screens_build(&SCREENS_DEFAULT[s], &v, imp);
-            dial_set_view(&inc, &view, imp);
+            view = screens_build(&layout[s], &v, imp);
+            dial_set_view_theme(&inc, &view, imp, th);
             int tiles = drain(&inc, &fi);
             if (tiles > worst) worst = tiles;
 
             dial_init(&ref);
-            dial_set_view(&ref, &view, imp);
+            dial_set_view_theme(&ref, &view, imp, th);
             memset(&fr, 0, sizeof fr);
             drain(&ref, &fr);
             int bad = diff_visible(&fi, &fr);
@@ -153,7 +155,7 @@ int main(void)
         }
     }
     printf("dial: %d random updates reproduce a full draw exactly; largest update %d tiles\n", pairs, worst);
-    CHECK(pairs >= 600);
+    CHECK(pairs >= 1200);
 
     /* unit switch redraws the whole face */
     {
@@ -199,6 +201,93 @@ int main(void)
         CHECK(t1 < full / 2);
         CHECK(t2 == 0);
         CHECK(t3 < full);
+    }
+
+    /* switching a dial between themes (and layouts) redraws everything: the result equals a fresh draw */
+    {
+        static dial_t d, ref;
+        static frame_t f, g;
+        dial_init(&d);
+        screen_values_t v = { cv(60.0f, true), cv(3000.0f, true), cv(13.8f, true), cv(50.0f, true), cv(90.0f, true), cv(300.0f, true) };
+        for (int step = 0; step < 6; step++) {
+            theme_t th = (theme_t)(step & 1);
+            int scr = step % SCREEN_COUNT;
+            screen_view_t view = screens_build(&screens_layout(th)[scr], &v, true);
+            dial_set_view_theme(&d, &view, true, th);
+            drain(&d, &f);
+            dial_init(&ref);
+            dial_set_view_theme(&ref, &view, true, th);
+            memset(&g, 0, sizeof g);
+            drain(&ref, &g);
+            CHECK(diff_visible(&f, &g) == 0);
+        }
+        /* the same screen, same gauge kind, only the theme changes: classic speed to modern speed */
+        screen_cfg_t speed = { GK_SPEED, GK_NONE };
+        screen_view_t view = screens_build(&speed, &v, true);
+        dial_init(&d);
+        dial_set_view_theme(&d, &view, true, THEME_CLASSIC);
+        drain(&d, &f);
+        dial_set_view_theme(&d, &view, true, THEME_MODERN);
+        CHECK(dial_dirty_tiles(&d) > 400);
+        drain(&d, &f);
+        dial_init(&ref);
+        dial_set_view_theme(&ref, &view, true, THEME_MODERN);
+        memset(&g, 0, sizeof g);
+        drain(&ref, &g);
+        CHECK(diff_visible(&f, &g) == 0);
+        dial_set_view_theme(&d, &view, true, THEME_CLASSIC);          /* and back */
+        drain(&d, &f);
+        dial_init(&ref);
+        dial_set_view_theme(&ref, &view, true, THEME_CLASSIC);
+        memset(&g, 0, sizeof g);
+        drain(&ref, &g);
+        CHECK(diff_visible(&f, &g) == 0);
+    }
+
+    /* an unknown theme number from the bus falls back to the classic theme */
+    CHECK(screens_theme_from_setting(0) == THEME_CLASSIC && screens_theme_from_setting(1) == THEME_MODERN);
+    CHECK(screens_theme_from_setting(2) == THEME_CLASSIC && screens_theme_from_setting(15) == THEME_CLASSIC);
+    CHECK(screens_layout(THEME_MODERN)[0].primary == GK_SPEED && screens_layout(THEME_MODERN)[2].primary == GK_BATTERY);
+    CHECK(screens_layout(THEME_CLASSIC) == SCREENS_DEFAULT);
+
+    /* the number hold-off: the numbers of the modern theme change at most once per hold, a big jump or a warning goes through at once */
+    {
+        static dial_t d, ref;
+        static frame_t f, g;
+        dial_init(&d);
+        dial_set_text_hold(&d, 8);
+        screen_values_t v = { cv(60.0f, true), cv(3000.0f, true), cv(13.8f, true), cv(50.0f, true), cv(90.0f, true), cv(300.0f, true) };
+        screen_cfg_t speed = { GK_SPEED, GK_NONE };
+        screen_view_t view = screens_build(&speed, &v, true);
+        dial_set_view_theme(&d, &view, true, THEME_MODERN);
+        drain(&d, &f);
+        v.speed_kph.value += 3.0f;                                     /* 2 mph: the arc moves, the number waits */
+        view = screens_build(&speed, &v, true);
+        dial_set_view_theme(&d, &view, true, THEME_MODERN);
+        int moved = drain(&d, &f);
+        CHECK(moved > 0);                                              /* the arc followed */
+        int calls = 1, number_changes = 0;
+        for (; calls < 30; calls++) {
+            dial_set_view_theme(&d, &view, true, THEME_MODERN);
+            /* a text change shows as a block of tiles around the digits (middle of the face) */
+            int t = drain(&d, &f);
+            if (t > 0) number_changes++;
+        }
+        CHECK(number_changes == 1);                                    /* released once, after the hold, not on every call */
+        dial_init(&ref);
+        dial_set_view_theme(&ref, &view, true, THEME_MODERN);
+        memset(&g, 0, sizeof g);
+        drain(&ref, &g);
+        CHECK(diff_visible(&f, &g) == 0);                              /* and then it shows the current value */
+        v.speed_kph.value += 90.0f;                                    /* a big jump is not held back */
+        view = screens_build(&speed, &v, true);
+        dial_set_view_theme(&d, &view, true, THEME_MODERN);
+        drain(&d, &f);
+        dial_init(&ref);
+        dial_set_view_theme(&ref, &view, true, THEME_MODERN);
+        memset(&g, 0, sizeof g);
+        drain(&ref, &g);
+        CHECK(diff_visible(&f, &g) == 0);
     }
 
     /* an invalid input hides the needle and shows dashes */

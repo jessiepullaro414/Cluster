@@ -16,10 +16,10 @@
 #include "panel_hal.h"
 #include "screens.h"
 
-/* Reset and initialise all screens, draw the first frame of each from `layout` (values
+/* Reset and initialise all screens, draw the first frame of each in `theme` (values
  * shown as dashes), then switch the displays on. Blocks for the panel's reset and sleep-out
  * waits (about 0.3 s) plus the first full draw. */
-void aux_display_init(const panel_hal_t *hal, const screen_cfg_t layout[SCREEN_COUNT], bool imperial);
+void aux_display_init(const panel_hal_t *hal, theme_t theme, bool imperial);
 
 /* on/off only (pct 0 = off): the backlight is a plain switch. */
 void aux_display_set_backlight(bool on, uint8_t pct);
@@ -28,9 +28,16 @@ void aux_display_set_backlight(bool on, uint8_t pct);
 void aux_display_screen(uint8_t index, const screen_view_t *view);
 void aux_display_set_imperial(bool imperial);
 
+/* The look of the screens. The caller builds views from screens_layout(theme); a change redraws every screen. */
+void aux_display_set_theme(theme_t theme);
+
 /* Per-tick budget used by main.c and the harness. A run is at most 240 x 8 pixels = 3851 bytes, and a
  * tick must stay under 10 ms of bus time (9.6 MHz = 12000 bytes per 10 ms), so a budget of 8000 bytes
  * plus the one run that may cross it keeps every tick at or below about 9.9 ms. */
+/* The modern theme refreshes numbers at most every 8 calls (80 ms at the 10 ms tick): a number that changes
+ * faster cannot be read, and each refresh redraws big digits. The arcs and bars still follow every change. */
+#define AUX_TEXT_HOLD_TICKS 8
+
 #define AUX_POLL_RUNS   32
 #define AUX_POLL_BYTES  8000u
 

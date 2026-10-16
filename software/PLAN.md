@@ -65,6 +65,9 @@ Made by the user, 2026-10-14:
 Made by the user, 2026-10-15:
 4. **The centre display stays CarPlay / Android Auto maps.** Speed, rpm and the fluids move to the four small screens (default left to right: fuel + volts, **speed**, rpm, coolant + oil; `gauges-fw/inc/screens.h`, host-tested). This also keeps speed visible with Android off or asleep. With no phone connected the centre shows what the user chose, the gauge or home (`CenterLogic`, a saved setting); the dial click flips maps and gauge. The turn and warning lamps sit in the caps above and below the map window. Open: whether CarPlay accepts a square or 4:3 surface on a 720 x 720 display (unverified; the window shape is a setting, 4:3 by default, 16:9 is the safe fallback), and what "home" is on the production image.
 
+Made by the user, 2026-10-16:
+5. **The small gauges get themes the user can change.** Classic (needles) and Modern (progress arcs and bars, modelled on a reference picture the owner supplied); the choice is `DisplaySettings.GaugeTheme`, set from an on-screen settings list. **The centre map is round** (fills the circle, like the reference), and **there are no turn indicators** on any screen (the dash has physical ones).
+
 Still open, with a recommendation:
 5. **Bare-metal cooperative loop vs RTOS.** Recommend bare-metal: one 10 ms tick, interrupts only for CAN, capture and wake.
 6. **CarPlay / Android Auto licensing**: Apple's CarPlay program and Google's Android Auto receiver for AAOS both involve licences; which route and when is a business decision. Nothing in B1 to B4 depends on it.

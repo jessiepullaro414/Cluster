@@ -179,6 +179,147 @@ op_t gfx_glyph(int x, int y, char ch, int scale, uint32_t color)
     return o;
 }
 
+/* ---------------------------------------------------------------- new builders */
+
+uint32_t gfx_lerp_color(uint32_t c0, uint32_t c1, float t)
+{
+    if (t < 0.0f) t = 0.0f;
+    if (t > 1.0f) t = 1.0f;
+    uint32_t out = 0;
+    for (int sh = 16; sh >= 0; sh -= 8) {
+        float a = (float)((c0 >> sh) & 255), b = (float)((c1 >> sh) & 255);
+        out |= (uint32_t)(a + (b - a) * t + 0.5f) << sh;
+    }
+    return out;
+}
+
+static uint32_t turn_q16(float deg)
+{
+    float t = deg / 360.0f;
+    t -= floorf(t);
+    return (uint32_t)(t * 65536.0f + 0.5f) & 0xFFFFu;
+}
+
+static void arc_bbox(op_t *o, float cx, float cy, float r_in, float r_out, float a0_deg, float sweep)
+{
+    float minx = 1e9f, miny = 1e9f, maxx = -1e9f, maxy = -1e9f;
+    const float d2r = 0.017453292519943295f;
+    int steps = (int)sweep + 2;
+    for (int i = 0; i <= steps; i++) {
+        float a = (a0_deg + sweep * (float)i / (float)steps) * d2r;
+        for (int k = 0; k < 2; k++) {
+            float r = k ? r_out : r_in;
+            float x = cx + r * cosf(a), y = cy + r * sinf(a);
+            minx = fminf(minx, x);  maxx = fmaxf(maxx, x);
+            miny = fminf(miny, y);  maxy = fmaxf(maxy, y);
+        }
+    }
+    bbox_set(o, minx, miny, maxx, maxy);
+}
+
+op_t gfx_arc_gradient(float cx, float cy, float r_in, float r_out, float a0_deg, float full_deg,
+                      float visible_deg, uint32_t color0, uint32_t color1)
+{
+    op_t o;
+    memset(&o, 0, sizeof o);
+    o.kind = OP_ARCG;
+    o.color = color0;
+    if (visible_deg < 0.0f) visible_deg = 0.0f;
+    if (visible_deg > full_deg) visible_deg = full_deg;
+    o.u.arcg.cx = Q4(cx);  o.u.arcg.cy = Q4(cy);
+    o.u.arcg.rin = Q4(r_in);  o.u.arcg.rout = Q4(r_out);
+    o.u.arcg.c1 = color1;
+    o.u.arcg.a0q = (uint16_t)turn_q16(a0_deg);
+    o.u.arcg.fullq = (uint32_t)(full_deg / 360.0f * 65536.0f + 0.5f);
+    o.u.arcg.clipq = (uint32_t)(visible_deg / 360.0f * 65536.0f + 0.5f);
+    if (o.u.arcg.fullq == 0) o.u.arcg.fullq = 1;
+    arc_bbox(&o, cx, cy, r_in, r_out, a0_deg, visible_deg > 1.0f ? visible_deg : 1.0f);
+    return o;
+}
+
+op_t gfx_ticks(float cx, float cy, float r_in, float r_out, float a0_deg, float span_deg, float step_deg,
+               float thickness, uint32_t color)
+{
+    op_t o;
+    memset(&o, 0, sizeof o);
+    o.kind = OP_TICKS;
+    o.color = color;
+    float rmid = 0.5f * (r_in + r_out);
+    float pxq = 65536.0f / (6.283185307f * rmid);              /* angle units per pixel at the middle radius */
+    o.u.ticks.cx = Q4(cx);  o.u.ticks.cy = Q4(cy);
+    o.u.ticks.rin = Q4(r_in);  o.u.ticks.rout = Q4(r_out);
+    o.u.ticks.a0q = (uint16_t)turn_q16(a0_deg);
+    o.u.ticks.spanq = (uint32_t)(span_deg / 360.0f * 65536.0f + 0.5f);
+    o.u.ticks.stepq = (uint32_t)(step_deg / 360.0f * 65536.0f + 0.5f);
+    if (o.u.ticks.stepq == 0) o.u.ticks.stepq = 1;
+    o.u.ticks.hwq = (uint32_t)(thickness * 0.5f * pxq + 0.5f);
+    o.u.ticks.aaq = (uint32_t)(pxq + 0.5f);
+    if (o.u.ticks.aaq == 0) o.u.ticks.aaq = 1;
+    arc_bbox(&o, cx, cy, r_in, r_out, a0_deg - 1.0f, span_deg + 2.0f);
+    return o;
+}
+
+op_t gfx_rrect(float cx, float cy, float w, float h, float radius, float stroke, uint32_t color)
+{
+    op_t o;
+    memset(&o, 0, sizeof o);
+    o.kind = OP_RRECT;
+    o.color = color;
+    float r = fminf(radius, fminf(w, h) * 0.5f);
+    o.u.rrect.cx = Q4(cx);  o.u.rrect.cy = Q4(cy);
+    o.u.rrect.hw = Q4(w * 0.5f);  o.u.rrect.hh = Q4(h * 0.5f);
+    o.u.rrect.r = Q4(r);
+    o.u.rrect.stroke = Q4(stroke);
+    bbox_set(&o, cx - w * 0.5f, cy - h * 0.5f, cx + w * 0.5f, cy + h * 0.5f);
+    return o;
+}
+
+op_t gfx_bitmap(const font_t *f, char ch, int x, int baseline, uint32_t color)
+{
+    op_t o;
+    memset(&o, 0, sizeof o);
+    o.kind = OP_BMP;
+    o.color = color;
+    unsigned c = (unsigned char)ch;
+    if (c < f->first || c > f->last) c = ' ';
+    const fglyph_t *g = &f->glyphs[c - f->first];
+    o.u.bmp.bits = f->bits + g->off;
+    o.u.bmp.x = (int16_t)(x + g->bx);
+    o.u.bmp.y = (int16_t)(baseline + g->by);
+    o.u.bmp.w = g->w;
+    o.u.bmp.h = g->h;
+    o.x0 = o.u.bmp.x;  o.y0 = o.u.bmp.y;
+    o.x1 = (int16_t)(o.x0 + g->w);  o.y1 = (int16_t)(o.y0 + g->h);
+    return o;
+}
+
+int gfx_text_width(const font_t *f, const char *s)
+{
+    int w = 0;
+    for (; *s; s++) {
+        unsigned c = (unsigned char)*s;
+        if (c < f->first || c > f->last) c = ' ';
+        w += f->glyphs[c - f->first].adv;
+    }
+    return w;
+}
+
+int gfx_text(op_t *out, int max, const font_t *f, const char *s, int x, int baseline, text_align_t align, uint32_t color)
+{
+    int w = gfx_text_width(f, s);
+    if (align == TEXT_CENTER) x -= w / 2;
+    else if (align == TEXT_RIGHT) x -= w;
+    int n = 0;
+    for (; *s && n < max; s++) {
+        unsigned c = (unsigned char)*s;
+        if (c < f->first || c > f->last) c = ' ';
+        const fglyph_t *g = &f->glyphs[c - f->first];
+        if (g->w) out[n++] = gfx_bitmap(f, (char)c, x, baseline, color);
+        x += g->adv;
+    }
+    return n;
+}
+
 /* ---------------------------------------------------------------- coverage */
 
 /* Edge ramp is one pixel wide (Q4: +-8). All return 0..255. */
@@ -270,6 +411,96 @@ static uint32_t cov_glyph(const op_t *o, int px, int py, const uint8_t *rows)
     return ((rows[gy] >> (GFX_GLYPH_W - 1 - gx)) & 1u) ? 255u : 0u;
 }
 
+/* Angle of a pixel offset as 1/65536 of a turn, clockwise from 3 o'clock in screen coordinates (y down).
+ * An atan approximation good to about 0.2 degree: atan(z) = z * (pi/4 + 0.273 (1 - z)) on 0..1. */
+static uint32_t angle_q16(int32_t dx, int32_t dy)
+{
+    uint32_t ax = (uint32_t)(dx < 0 ? -dx : dx), ay = (uint32_t)(dy < 0 ? -dy : dy);
+    if (ax == 0 && ay == 0) return 0;
+    uint32_t hi = ax > ay ? ax : ay, lo = ax > ay ? ay : ax;
+    uint32_t z = (uint32_t)(((uint64_t)lo << 12) / hi);                     /* 0..4096 */
+    uint32_t base = (uint32_t)(((uint64_t)z * (8192u * 4096u + 2847u * (4096u - z))) >> 24);   /* 0..8192 */
+    uint32_t a = ay <= ax ? base : 16384u - base;                           /* first quadrant */
+    if (dx >= 0) return dy >= 0 ? a : (65536u - a) & 0xFFFFu;
+    return dy >= 0 ? 32768u - a : 32768u + a;
+}
+
+static uint32_t cov_arcg(const op_t *o, int32_t px, int32_t py, uint32_t *color)
+{
+    int32_t dx = px - o->u.arcg.cx, dy = py - o->u.arcg.cy;
+    int64_t d2 = (int64_t)dx * dx + (int64_t)dy * dy;
+    int32_t rin = o->u.arcg.rin, rout = o->u.arcg.rout;
+    int64_t lo = rin - 8 > 0 ? (int64_t)(rin - 8) * (rin - 8) : 0, hi = (int64_t)(rout + 8) * (rout + 8);
+    if (d2 < lo || d2 > hi) return 0;
+    uint32_t rel = (angle_q16(dx, dy) - o->u.arcg.a0q) & 0xFFFFu;
+    if (rel > o->u.arcg.clipq) return 0;
+    uint32_t t = (uint32_t)(((uint64_t)rel * 255u) / o->u.arcg.fullq);
+    if (t > 255u) t = 255u;
+    uint32_t c0 = o->color, c1 = o->u.arcg.c1, out = 0;
+    for (int sh = 16; sh >= 0; sh -= 8) {
+        int a = (int)((c0 >> sh) & 255), b = (int)((c1 >> sh) & 255);
+        out |= (uint32_t)(a + (((b - a) * (int)t + 127) / 255)) << sh;
+    }
+    *color = out;
+    int64_t full_lo = (int64_t)(rin + 8) * (rin + 8), full_hi = rout - 8 > 0 ? (int64_t)(rout - 8) * (rout - 8) : 0;
+    if (d2 >= full_lo && d2 <= full_hi) return 255;
+    STAT(gfx_stat_sqrt++);
+    int32_t d = (int32_t)gfx_isqrt((uint32_t)d2);
+    uint32_t c_in = ramp(d - (rin - 8)), c_out = ramp((rout + 8) - d);
+    return c_in < c_out ? c_in : c_out;
+}
+
+static uint32_t cov_ticks(const op_t *o, int32_t px, int32_t py)
+{
+    int32_t dx = px - o->u.ticks.cx, dy = py - o->u.ticks.cy;
+    int64_t d2 = (int64_t)dx * dx + (int64_t)dy * dy;
+    int32_t rin = o->u.ticks.rin, rout = o->u.ticks.rout;
+    int64_t lo = rin - 8 > 0 ? (int64_t)(rin - 8) * (rin - 8) : 0, hi = (int64_t)(rout + 8) * (rout + 8);
+    if (d2 < lo || d2 > hi) return 0;
+    int32_t rel = (int32_t)((angle_q16(dx, dy) - o->u.ticks.a0q) & 0xFFFFu);
+    int32_t step = (int32_t)o->u.ticks.stepq, half = step / 2;
+    if (rel > 65536 - step) rel -= 65536;                                   /* within one step before the first tick */
+    int32_t k = (rel + half) >= 0 ? (rel + half) / step : -1;
+    if (k < 0 || (uint32_t)k * (uint32_t)step > o->u.ticks.spanq + (uint32_t)step / 2u) return 0;
+    int32_t phase = rel - k * step;
+    if (phase < 0) phase = -phase;
+    int32_t aa = (int32_t)o->u.ticks.aaq, hw = (int32_t)o->u.ticks.hwq;
+    int32_t over = hw + aa / 2 - phase;                                     /* > 0 inside the ramp */
+    if (over <= 0) return 0;
+    uint32_t c = over >= aa ? 255u : (uint32_t)(over * 255 / aa);
+    /* soften the radial ends by one pixel as well */
+    int32_t d = (int32_t)gfx_isqrt((uint32_t)d2);
+    uint32_t r_in = ramp(d - (rin - 8)), r_out = ramp((rout + 8) - d);
+    uint32_t r = r_in < r_out ? r_in : r_out;
+    return c * r / 255u;
+}
+
+static uint32_t cov_rrect(const op_t *o, int32_t px, int32_t py)
+{
+    int32_t qx = (px > o->u.rrect.cx ? px - o->u.rrect.cx : o->u.rrect.cx - px) - (o->u.rrect.hw - o->u.rrect.r);
+    int32_t qy = (py > o->u.rrect.cy ? py - o->u.rrect.cy : o->u.rrect.cy - py) - (o->u.rrect.hh - o->u.rrect.r);
+    int32_t mx = qx > 0 ? qx : 0, my = qy > 0 ? qy : 0;
+    int32_t outside = (mx || my) ? (int32_t)gfx_isqrt((uint32_t)((int64_t)mx * mx + (int64_t)my * my)) : 0;
+    int32_t inside = (qx > qy ? qx : qy);
+    if (inside > 0) inside = 0;
+    int32_t d = outside + inside - o->u.rrect.r;                            /* signed distance, Q4, negative inside */
+    if (o->u.rrect.stroke == 0) return ramp(8 - d);
+    int32_t half = o->u.rrect.stroke / 2;
+    int32_t m = d + half;                                                    /* distance from the stroke's centre line */
+    if (m < 0) m = -m;
+    return ramp(half + 8 - m);
+}
+
+static uint32_t cov_bmp(const op_t *o, int px, int py)
+{
+    int lx = px - o->u.bmp.x, ly = py - o->u.bmp.y;
+    if (lx < 0 || ly < 0 || lx >= o->u.bmp.w || ly >= o->u.bmp.h) return 0;
+    int i = ly * o->u.bmp.w + lx;
+    uint8_t b = o->u.bmp.bits[i >> 1];
+    uint32_t a = (i & 1) ? (b & 0x0Fu) : (b >> 4);
+    return a * 17u;
+}
+
 /* ---------------------------------------------------------------- render */
 
 /* Can this op touch the rectangle at all? Arcs are tested against their annulus,
@@ -277,7 +508,8 @@ static uint32_t cov_glyph(const op_t *o, int px, int py, const uint8_t *rows)
 static bool op_touches(const op_t *o, int x0, int y0, int x1, int y1)
 {
     if (o->x1 <= x0 || o->x0 >= x1 || o->y1 <= y0 || o->y0 >= y1) return false;
-    if (o->kind == OP_ARC) {
+    if (o->kind == OP_ARC || o->kind == OP_ARCG || o->kind == OP_TICKS) {
+        /* cx, cy, rin, rout are the first four fields of all three ring ops */
         int32_t cx = o->u.arc.cx, cy = o->u.arc.cy;
         int32_t rx0 = x0 * 16, rx1 = x1 * 16, ry0 = y0 * 16, ry1 = y1 * 16;
         int32_t nx = cx < rx0 ? rx0 : (cx > rx1 ? rx1 : cx), ny = cy < ry0 ? ry0 : (cy > ry1 ? ry1 : cy);
@@ -317,16 +549,20 @@ void gfx_render(const op_t *ops, int n, int x0, int y0, int w, int h, uint16_t *
                 const op_t *o = &ops[sel[k]];
                 if (px < o->x0 || px >= o->x1 || py < o->y0 || py >= o->y1) continue;
                 STAT(gfx_stat_op_evals++);
-                uint32_t c;
+                uint32_t c, col = o->color;
                 switch (o->kind) {
                 case OP_ARC:     c = cov_arc(o, qx, qy); break;
                 case OP_CAPSULE: c = cov_capsule(o, qx, qy); break;
                 case OP_DISC:    c = cov_disc(o, qx, qy); break;
                 case OP_GLYPH:   c = cov_glyph(o, px, py, rows[k]); break;
+                case OP_ARCG:    c = cov_arcg(o, qx, qy, &col); break;
+                case OP_TICKS:   c = cov_ticks(o, qx, qy); break;
+                case OP_RRECT:   c = cov_rrect(o, qx, qy); break;
+                case OP_BMP:     c = cov_bmp(o, px, py); break;
                 default:         c = 0; break;
                 }
                 if (c == 0) continue;
-                int sr = (int)((o->color >> 16) & 0xFF), sg = (int)((o->color >> 8) & 0xFF), sb = (int)(o->color & 0xFF);
+                int sr = (int)((col >> 16) & 0xFF), sg = (int)((col >> 8) & 0xFF), sb = (int)(col & 0xFF);
                 if (c == 255) { r = sr; g = sg; b = sb; }
                 else {
                     int f = (int)c + 1;                         /* 2..255 -> blend factor out of 256 */

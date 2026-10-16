@@ -10,6 +10,7 @@ static dial_t g_dial[SCREEN_COUNT];
 static uint16_t g_stage[GFX_SIZE * GFX_TILE];
 static const panel_hal_t *g_hal;
 static bool g_imperial;
+static theme_t g_theme;
 static uint8_t g_next;                       /* round-robin start */
 
 void aux_display_set_backlight(bool on, uint8_t pct)
@@ -20,21 +21,25 @@ void aux_display_set_backlight(bool on, uint8_t pct)
 }
 
 void aux_display_set_imperial(bool imperial) { g_imperial = imperial; }
+void aux_display_set_theme(theme_t theme) { g_theme = theme; }
 
-void aux_display_init(const panel_hal_t *hal, const screen_cfg_t layout[SCREEN_COUNT], bool imperial)
+void aux_display_init(const panel_hal_t *hal, theme_t theme, bool imperial)
 {
     g_hal = hal;
     g_imperial = imperial;
+    g_theme = theme;
+    const screen_cfg_t *layout = screens_layout(theme);
     g_next = 0;
     gc9a01_reset(hal);
     for (uint8_t s = 0; s < SCREEN_COUNT; s++) {
         gc9a01_init(hal, s);
         dial_init(&g_dial[s]);
+        dial_set_text_hold(&g_dial[s], AUX_TEXT_HOLD_TICKS);
         screen_values_t none;                       /* every input invalid: draws dashes */
         none.speed_kph = none.rpm = none.battery_v = none.fuel_pct = none.coolant_c = none.oil_kpa
             = (chosen_t){ 0.0f, false, SRC_NONE };
         screen_view_t v = screens_build(&layout[s], &none, imperial);
-        dial_set_view(&g_dial[s], &v, imperial);
+        dial_set_view_theme(&g_dial[s], &v, imperial, theme);
     }
     hal->delay_ms(hal->ctx, GC9A01_SLEEP_OUT_WAIT_MS);          /* one wait for all four */
     /* draw everything before any display is switched on, so no frame of garbage shows */
@@ -46,7 +51,7 @@ void aux_display_init(const panel_hal_t *hal, const screen_cfg_t layout[SCREEN_C
 
 void aux_display_screen(uint8_t index, const screen_view_t *view)
 {
-    if (index < SCREEN_COUNT) dial_set_view(&g_dial[index], view, g_imperial);
+    if (index < SCREEN_COUNT) dial_set_view_theme(&g_dial[index], view, g_imperial, g_theme);
 }
 
 int aux_display_poll_budget(int max_runs, uint32_t max_bytes)

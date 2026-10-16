@@ -1,5 +1,5 @@
 /* Renders the four screens through the real driver into the mock panel and writes
- * build/screen_<n>.ppm (circle-masked). Usage: preview <preset> [metric]
+ * build/screen_<n>.ppm (circle-masked). Usage: preview <preset> [metric] [classic|modern]
  * presets: 0 cruise, 1 warnings, 2 inputs invalid, 3 idle, 4 redline */
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,8 +16,10 @@ int main(int argc, char **argv)
 {
     int preset = argc > 1 ? atoi(argv[1]) : 0;
     bool imperial = !(argc > 2 && strcmp(argv[2], "metric") == 0);
+    theme_t theme = argc > 3 && strcmp(argv[3], "modern") == 0 ? THEME_MODERN : THEME_CLASSIC;
     mock_init(&g_mock);
-    aux_display_init(mock_hal(&g_mock), SCREENS_DEFAULT, imperial);
+    aux_display_init(mock_hal(&g_mock), theme, imperial);
+    const screen_cfg_t *layout = screens_layout(theme);
 
     screen_values_t v;
     switch (preset) {
@@ -28,7 +30,7 @@ int main(int argc, char **argv)
     default: v = (screen_values_t){ ok(96.56f), ok(3500.0f), ok(13.8f), ok(68.0f), ok(90.0f), ok(350.0f) }; break;
     }
     for (uint8_t s = 0; s < SCREEN_COUNT; s++) {
-        screen_view_t view = screens_build(&SCREENS_DEFAULT[s], &v, imperial);
+        screen_view_t view = screens_build(&layout[s], &v, imperial);
         aux_display_screen(s, &view);
     }
     while (aux_display_poll(64) > 0) { }

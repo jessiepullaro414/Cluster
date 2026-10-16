@@ -33,8 +33,11 @@ static void step(uint32_t now)
 
     screen_values_t sv = { speed, rpm, battery, fuel, coolant, oil };
     aux_display_set_imperial(cfg.units_mph);
+    theme_t theme = screens_theme_from_setting(cfg.gauge_theme);
+    aux_display_set_theme(theme);
+    const screen_cfg_t *layout = screens_layout(theme);
     for (uint8_t i = 0; i < SCREEN_COUNT; i++) {
-        screen_view_t view = screens_build(&SCREENS_DEFAULT[i], &sv, cfg.units_mph);
+        screen_view_t view = screens_build(&layout[i], &sv, cfg.units_mph);
         aux_display_screen(i, &view);
     }
     /* Send what changed, a bounded amount per tick: at most 8000 bytes (plus the run that crosses the
@@ -58,7 +61,7 @@ int main(void)
     senders_init();
     inputs_init();
     can_link_init();
-    aux_display_init(panel_hal_board(), SCREENS_DEFAULT, can_link_settings().units_mph);
+    aux_display_init(panel_hal_board(), screens_theme_from_setting(can_link_settings().gauge_theme), can_link_settings().units_mph);
     for (;;) {
         step(now_ms());
         wait_for_tick_10ms();

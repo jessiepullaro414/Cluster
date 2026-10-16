@@ -37,8 +37,17 @@ public class CenterLogicTest {
         assertEquals(408f, f[1], 0.01f);
     }
 
+    @Test public void roundFillsTheCircle() {
+        float[] r = CenterLogic.inscribed(716f, Aspect.ROUND);
+        assertEquals(716f, r[0], 0.01f);
+        assertEquals(716f, r[1], 0.01f);
+        assertEquals(Aspect.ROUND, Aspect.parse("round", Aspect.SQUARE));
+        assertEquals(Aspect.ROUND, Aspect.parse("Circle", Aspect.SQUARE));
+    }
+
     @Test public void everyShapeFitsTheCircle() {
         for (Aspect a : Aspect.values()) {
+            if (a == Aspect.ROUND) continue;                        // fills the circle by design
             float[] r = CenterLogic.inscribed(680f, a);
             double corner = Math.hypot(r[0] / 2.0, r[1] / 2.0);
             assertTrue(corner <= 340.0 + 1e-3);                      // corners touch, never pass, the circle

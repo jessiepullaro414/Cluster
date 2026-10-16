@@ -143,14 +143,15 @@ int main(void)
         CHECK(cluster_power_state_unpack(bad, &u) == -1);
     }
     { /* 0x400 DisplaySettings */
-        const uint8_t vec[8] = { 0x19, 0x02, 0x7F, 0x00, 0xDC, 0x05, 0x90, 0x44 };
+        const uint8_t vec[8] = { 0x19, 0x1E, 0x3F, 0x02, 0x20, 0x03, 0x90, 0xD0 };
         cluster_display_settings_t m; memset(&m, 0, sizeof m);
         m.brightness_pct = 25;
         m.night_mode = 0;
         m.units_mph = 1;
-        m.car_profile = 127;
-        m.car_bitrate = 0;
-        m.tank_capacity_l = 150.0f;
+        m.gauge_theme = 7;
+        m.car_profile = 63;
+        m.car_bitrate = 2;
+        m.tank_capacity_l = 80.0f;
         uint8_t out[8];
         cluster_display_settings_pack(&m, 9, out);
         CHECK(same(out, vec));
@@ -159,9 +160,10 @@ int main(void)
         CHECK(u.brightness_pct == 25);
         CHECK(u.night_mode == 0);
         CHECK(u.units_mph == 1);
-        CHECK(u.car_profile == 127);
-        CHECK(u.car_bitrate == 0);
-        CHECK(NEAR(u.tank_capacity_l, 150.0f, 0.051000000000000004f));
+        CHECK(u.gauge_theme == 7);
+        CHECK(u.car_profile == 63);
+        CHECK(u.car_bitrate == 2);
+        CHECK(NEAR(u.tank_capacity_l, 80.0f, 0.051000000000000004f));
         CHECK(u.counter == 9);
         uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
         CHECK(cluster_display_settings_unpack(bad, &u) == -1);

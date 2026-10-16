@@ -18,7 +18,7 @@
 #include "gfx.h"
 #include "screens.h"
 
-#define DIAL_MAX_OPS 96
+#define DIAL_MAX_OPS 72
 
 /* True if any dial ever ran out of op slots (ops are then dropped). Tests assert it stays false. */
 bool dial_overflowed(void);
@@ -31,7 +31,13 @@ typedef struct {
 
     bool         built;
     bool         imperial;
+    theme_t      theme;
     gauge_kind_t kind, secondary_kind;
+
+    /* modern theme: numbers are refreshed at most every hold_ticks calls (0 = always) */
+    uint8_t hold_ticks, age[2];
+    float   held[2];
+    bool    held_ok[2];
 
     /* what is currently drawn, to diff against */
     bool    needle_shown, needle_warn;
@@ -44,7 +50,16 @@ typedef struct {
 
 void dial_init(dial_t *d);
 
-/* Apply a new model. Marks changed tiles dirty. Cheap when nothing changed. */
+/* Apply a new model in the given theme. Marks changed tiles dirty. Cheap when nothing changed.
+ * Switching theme redraws the whole face. */
+void dial_set_view_theme(dial_t *d, const screen_view_t *view, bool imperial, theme_t theme);
+
+/* Refresh the numbers of the modern theme at most once per `ticks` calls of dial_set_view_theme (the
+ * arc and bars still follow every change). A big jump, a change of validity or a warning goes through at once.
+ * Default 0: every change is drawn, which is what the tests of the change tracking need. */
+void dial_set_text_hold(dial_t *d, uint8_t ticks);
+
+/* The classic theme (what the first tests use). */
 void dial_set_view(dial_t *d, const screen_view_t *view, bool imperial);
 
 /* Mark the whole round face dirty (first draw, or after the panel was reset). */

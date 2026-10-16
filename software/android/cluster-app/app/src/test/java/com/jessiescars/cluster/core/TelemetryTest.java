@@ -33,8 +33,9 @@ public class TelemetryTest {
         s.turnLeft = Reading.of(1f);
         s.highBeam = Reading.of(0f);
         s.dashDimmerPct = Reading.of(70f);
-        Map<String, String> m = parse(Telemetry.encode(s, true));
+        Map<String, String> m = parse(Telemetry.encode(s, true, 1));
         assertEquals("1", m.get("imperial"));
+        assertEquals("1", m.get("theme"));
         assertEquals("90.00", m.get("speed"));               // km/h, not m/s
         assertEquals("3500", m.get("rpm"));
         assertEquals("13.84", m.get("batt"));
@@ -47,8 +48,9 @@ public class TelemetryTest {
     @Test public void unavailableReadingsAreDashesNeverStaleNumbers() {
         VehicleState s = new VehicleState();                 // everything unavailable
         s.speedMps = new Reading(25f, false);                // a number with the flag off must not leak
-        Map<String, String> m = parse(Telemetry.encode(s, false));
+        Map<String, String> m = parse(Telemetry.encode(s, false, 0));
         assertEquals("0", m.get("imperial"));
+        assertEquals("0", m.get("theme"));
         for (String k : new String[] { "speed", "rpm", "batt", "fuel", "cool", "oil", "tl", "tr", "hb", "br", "alt", "oilw", "dash", "dim" })
             assertEquals(k, "-", m.get(k));
     }
@@ -59,7 +61,7 @@ public class TelemetryTest {
             Locale.setDefault(Locale.GERMANY);               // would print "13,84"
             VehicleState s = new VehicleState();
             s.batteryV = Reading.of(13.84f);
-            String line = Telemetry.encode(s, true);
+            String line = Telemetry.encode(s, true, 1);
             assertTrue(line, line.contains("batt=13.84"));
             assertFalse(line.contains(","));
         } finally {
@@ -69,6 +71,6 @@ public class TelemetryTest {
 
     @Test public void lineIsShortEnoughForOneDatagram() {
         VehicleState s = DriveScenario.at(15f, null);
-        assertTrue(Telemetry.encode(s, true).length() < 200);
+        assertTrue(Telemetry.encode(s, true, 1).length() < 200);
     }
 }

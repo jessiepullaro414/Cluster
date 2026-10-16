@@ -23,30 +23,33 @@ import com.jessiescars.cluster.core.CenterLogic.Aspect;
 import com.jessiescars.cluster.core.CenterLogic.Content;
 import com.jessiescars.cluster.core.CenterLogic.NoPhone;
 import com.jessiescars.cluster.core.DriveScenario;
+import com.jessiescars.cluster.core.Settings;
 import com.jessiescars.cluster.core.Telemetry;
 import com.jessiescars.cluster.core.VehicleState;
 
 /**
- * The round centre display. What it shows is decided by CenterLogic:
- * CarPlay / Android Auto maps while a phone is projecting, otherwise the user's
- * choice (the gauge or home). The dial click flips between maps and the gauge.
+ * The round centre display. What it shows is decided by CenterLogic: CarPlay / Android Auto maps while a
+ * phone is projecting, otherwise the user's choice (the gauge or home). The dial click flips between maps
+ * and the gauge. A long press (or the MENU key) opens the settings list: gauge theme for the four small
+ * screens, units, what to show with no phone, and the shape of the map.
  *
  * Data comes from a fake source (core/DriveScenario) that adb can override:
  *
  *   adb shell am broadcast -a com.jessiescars.cluster.SET --ef speed_kph 120 --ez night true --ef dimmer 30
  *   adb shell am broadcast -a com.jessiescars.cluster.SET --ez phone false --es no_phone home
- *   adb shell am broadcast -a com.jessiescars.cluster.SET --es aspect 16:9 --ez flip true
+ *   adb shell am broadcast -a com.jessiescars.cluster.SET --es aspect round --ez flip true
+ *   adb shell am broadcast -a com.jessiescars.cluster.SET --es theme modern --es units kph
+ *   adb shell am broadcast -a com.jessiescars.cluster.SET --ez settings true
  *   adb shell am broadcast -a com.jessiescars.cluster.CLEAR
  *
- * float extras: speed_kph, rpm, dimmer. boolean extras: night, link_dead,
- * turn_left, high_beam, brake, alt, oil, phone (a phone is projecting), flip
- * (show the gauge instead of maps). string extras: no_phone (gauge|home, saved),
- * aspect (square|4:3|16:9, saved), units (mph|kph: units on the small screens),
- * telemetry (off | host | host:port: where the development feed for the small screens
- * goes; default 10.0.2.2:5005, the PC the emulator runs on). The real source (the VHAL
- * bridge) replaces only the fake one; the views only ever see a VehicleState.
+ * float extras: speed_kph, rpm, dimmer. boolean extras: night, link_dead, high_beam, brake, alt, oil,
+ * phone (a phone is projecting), flip (show the gauge instead of maps), settings (open/close the list).
+ * string extras (saved): no_phone (gauge|home), aspect (round|square|4:3|16:9), theme (classic|modern|0|1),
+ * units (mph|kph); telemetry (off | host | host:port: where the development feed for the small screens goes;
+ * default 10.0.2.2:5005, the PC the emulator runs on). The real source (the VHAL bridge) replaces only the fake
+ * one; the views only ever see a VehicleState. There are no turn indicators: the dash has physical ones.
  */
-public class MainActivity extends Activity {
+public class MainActivity extends Activity implements SettingsView.Listener {
     static final String ACTION_SET = "com.jessiescars.cluster.SET";
     static final String ACTION_CLEAR = "com.jessiescars.cluster.CLEAR";
     private static final long TICK_MS = 50;            // 20 updates per second
@@ -55,6 +58,7 @@ public class MainActivity extends Activity {
     private ClusterView gauge;
     private ProjectionView maps;
     private HomeView home;
+    private SettingsView settingsView;
     private SharedPreferences prefs;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -64,9 +68,9 @@ public class MainActivity extends Activity {
     // centre-display state
     private boolean phoneProjecting = true;            // fake: a phone is connected
     private boolean flippedToGauge;
-    private NoPhone noPhone = NoPhone.GAUGE;
     private Content shown;
-    private boolean imperial = true;                   // mph, F, psi on the small screens
+    private boolean settingsOpen;
+    private final Settings settings = new Settings();
     private final TelemetryPublisher telemetry = new TelemetryPublisher();
 
     private final Runnable tick = new Runnable() {
@@ -75,7 +79,7 @@ public class MainActivity extends Activity {
             VehicleState s = DriveScenario.at(t, override);
             gauge.setState(s);
             maps.setState(s);
-            telemetry.publish(Telemetry.encode(s, imperial));   // development feed for the small screens
+            telemetry.publish(Telemetry.encode(s, settings.imperial, settings.theme));   // development feed for the small screens
             handler.postDelayed(this, TICK_MS);
         }
     };
@@ -88,6 +92,7 @@ public class MainActivity extends Activity {
                 override.brake = override.alternator = override.oil = null;
                 phoneProjecting = true;
                 flippedToGauge = false;
+                setSettingsOpen(false);
                 refreshContent();
                 return;
             }
@@ -96,29 +101,31 @@ public class MainActivity extends Activity {
             if (i.hasExtra("dimmer")) override.dimmerPct = i.getFloatExtra("dimmer", 100f);
             if (i.hasExtra("night")) override.night = i.getBooleanExtra("night", false);
             if (i.hasExtra("link_dead")) override.linkDead = i.getBooleanExtra("link_dead", false);
-            if (i.hasExtra("turn_left")) override.turnLeft = i.getBooleanExtra("turn_left", false);
             if (i.hasExtra("high_beam")) override.highBeam = i.getBooleanExtra("high_beam", false);
             if (i.hasExtra("brake")) override.brake = i.getBooleanExtra("brake", false);
             if (i.hasExtra("alt")) override.alternator = i.getBooleanExtra("alt", false);
             if (i.hasExtra("oil")) override.oil = i.getBooleanExtra("oil", false);
-            if (i.hasExtra("units")) {
-                String u = i.getStringExtra("units");
-                imperial = !"kph".equalsIgnoreCase(u == null ? "" : u.trim()) && !"metric".equalsIgnoreCase(u == null ? "" : u.trim());
-            }
-            if (i.hasExtra("telemetry")) telemetry.configure(i.getStringExtra("telemetry"));
             if (i.hasExtra("phone")) phoneProjecting = i.getBooleanExtra("phone", true);
             if (i.hasExtra("flip")) flippedToGauge = i.getBooleanExtra("flip", false);
-            if (i.hasExtra("no_phone")) {
-                noPhone = NoPhone.parse(i.getStringExtra("no_phone"), noPhone);
-                prefs.edit().putString("no_phone", noPhone.name()).apply();
+            if (i.hasExtra("settings")) setSettingsOpen(i.getBooleanExtra("settings", false));
+            if (i.hasExtra("telemetry")) telemetry.configure(i.getStringExtra("telemetry"));
+            boolean changed = false;
+            if (i.hasExtra("units")) {
+                String u = i.getStringExtra("units");
+                String n = u == null ? "" : u.trim().toLowerCase(java.util.Locale.ROOT);
+                settings.imperial = !(n.equals("kph") || n.equals("metric") || n.equals("km/h"));
+                changed = true;
             }
+            if (i.hasExtra("theme")) {
+                Integer th = Settings.parseTheme(i.getStringExtra("theme"));
+                if (th != null) { settings.theme = th; changed = true; }
+            }
+            if (i.hasExtra("no_phone")) { settings.noPhone = NoPhone.parse(i.getStringExtra("no_phone"), settings.noPhone); changed = true; }
             if (i.hasExtra("aspect")) {
                 Aspect a = Aspect.parse(i.getStringExtra("aspect"), null);
-                if (a != null) {
-                    maps.setAspect(a);
-                    prefs.edit().putString("aspect", a.name()).apply();
-                }
+                if (a != null) { settings.aspect = a; changed = true; }
             }
+            if (changed) applySettings(true);
             refreshContent();
         }
     };
@@ -126,20 +133,58 @@ public class MainActivity extends Activity {
     @Override protected void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences(PREFS, MODE_PRIVATE);
-        noPhone = parseEnum(NoPhone.class, prefs.getString("no_phone", null), NoPhone.GAUGE);
+        loadSettings();
 
         gauge = new ClusterView(this);
         maps = new ProjectionView(this);
-        maps.setAspect(parseEnum(Aspect.class, prefs.getString("aspect", null), Aspect.FOUR_THREE));
         home = new HomeView(this);
+        settingsView = new SettingsView(this, settings, this);
 
         FrameLayout root = new FrameLayout(this);
         root.addView(gauge);
         root.addView(maps);
         root.addView(home);
+        root.addView(settingsView);
+        root.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
+        gauge.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
+        maps.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
+        home.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
         setContentView(root);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        applySettings(false);
         refreshContent();
+    }
+
+    // ---- settings ----
+
+    private void loadSettings() {
+        settings.theme = Settings.clampTheme(prefs.getInt("theme", 1));
+        settings.imperial = prefs.getBoolean("imperial", true);
+        settings.noPhone = parseEnum(NoPhone.class, prefs.getString("no_phone", null), NoPhone.GAUGE);
+        settings.aspect = parseEnum(Aspect.class, prefs.getString("aspect", null), Aspect.ROUND);
+    }
+
+    private void saveSettings() {
+        prefs.edit().putInt("theme", settings.theme).putBoolean("imperial", settings.imperial)
+                .putString("no_phone", settings.noPhone.name()).putString("aspect", settings.aspect.name()).apply();
+    }
+
+    private void applySettings(boolean save) {
+        maps.setAspect(settings.aspect);
+        if (save) saveSettings();
+    }
+
+    @Override public void onChanged(Settings s) {
+        applySettings(true);
+        refreshContent();
+    }
+
+    @Override public void onClose() { setSettingsOpen(false); }
+
+    private void setSettingsOpen(boolean open) {
+        settingsOpen = open;
+        settingsView.setVisibility(open ? View.VISIBLE : View.GONE);
+        if (open) settingsView.invalidate();
     }
 
     private static <E extends Enum<E>> E parseEnum(Class<E> type, String name, E fallback) {
@@ -151,16 +196,31 @@ public class MainActivity extends Activity {
     }
 
     private void refreshContent() {
-        Content c = CenterLogic.choose(phoneProjecting, flippedToGauge, noPhone);
-        if (c == shown) return;
-        shown = c;
-        gauge.setVisibility(c == Content.GAUGE ? View.VISIBLE : View.GONE);
-        maps.setVisibility(c == Content.PROJECTION ? View.VISIBLE : View.GONE);
-        home.setVisibility(c == Content.HOME ? View.VISIBLE : View.GONE);
+        Content c = CenterLogic.choose(phoneProjecting, flippedToGauge, settings.noPhone);
+        if (c != shown) {
+            shown = c;
+            gauge.setVisibility(c == Content.GAUGE ? View.VISIBLE : View.GONE);
+            maps.setVisibility(c == Content.PROJECTION ? View.VISIBLE : View.GONE);
+            home.setVisibility(c == Content.HOME ? View.VISIBLE : View.GONE);
+        }
+        settingsView.setVisibility(settingsOpen ? View.VISIBLE : View.GONE);
+        settingsView.invalidate();
     }
 
-    /** The rotary dial's click arrives as DPAD_CENTER / ENTER; with a phone projecting it flips maps and gauge. */
+    /** The rotary dial arrives as DPAD keys. In the settings list it moves and changes; otherwise a click flips maps and gauge. */
     @Override public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU) { setSettingsOpen(!settingsOpen); return true; }
+        if (settingsOpen) {
+            switch (keyCode) {
+                case KeyEvent.KEYCODE_DPAD_UP: settingsView.move(-1); return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN: settingsView.move(+1); return true;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER: settingsView.activate(); return true;
+                case KeyEvent.KEYCODE_BACK: setSettingsOpen(false); return true;
+                default: break;
+            }
+            return super.onKeyUp(keyCode, event);
+        }
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
             if (phoneProjecting) {
                 flippedToGauge = !flippedToGauge;

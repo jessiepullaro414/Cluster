@@ -22,7 +22,7 @@ import com.jessiescars.cluster.core.VehicleState;
  *   outer ring   speed, 270 degree sweep open at the bottom, with a number scale
  *   inner ring   engine speed to 7000 rpm, red from 6000
  *   centre       speed number, unit, digital rpm, battery volts
- *   top          turn arrows and high beam
+ *   top          high beam (no turn indicators: the dash has physical ones)
  *   bottom       brake, alternator and oil lamps
  */
 public class ClusterView extends View {

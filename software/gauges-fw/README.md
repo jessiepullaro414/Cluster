@@ -12,6 +12,8 @@ Target: NXP S32K144, 64-LQFP, on `../../gauges`. Pin numbers below come from the
 | `src/inputs.c` | FTM1 capture for speed (CH4) and tach (CH5), six lamp GPIOs, dimmer ADC, ignition wake | stub |
 | `src/can_link.c` | CAN0 (car bus, listen-only) and CAN1 (private link) with counter + CRC-8 from `cluster_can.h` | stub |
 | `src/gfx.c`, `inc/gfx.h` | tile renderer for the 240x240 round screens: anti-aliased arcs, capsules, discs and 5x7 glyphs from a short op list, integer inner loops, no framebuffer (one frame is 115 KB, the part has 60 KB of RAM) | **real, tested** |
+| `src/dial_modern.c` | the **modern theme**: dark navy face, thick progress arcs filling blue (to red), big proportional digits, small icons, two horizontal bars for volts and oil, modelled on the owner's reference picture | **real, tested**; styling a first pass |
+| `src/font_data.c`, `inc/font.h`, `tools/gen_font.py` | anti-aliased bitmap fonts (60 px digits, 28 px and 15 px text) generated from Inter (SIL Open Font License, `../../docs/fonts/OFL-Inter.txt`); the generated C is committed, Pillow is only needed to regenerate | generated |
 | `src/dial.c`, `inc/dial.h` | one screen's picture (scale, ticks, labels, red zones, needle, seven-segment digits, unit, small readout) built from a `screen_view_t`, and the change tracking: which 8x8 tiles differ from what is on the panel | **real, tested**; the styling is a first pass to tune with the owner |
 | `src/gc9a01.c`, `inc/gc9a01.h` | GC9A01 driver: init sequence, window, RGB565 blit | **real, tested against a mock panel**; init values partly from an open-source driver, see below |
 | `src/aux_display.c` | four screens: reset, init, first frame, then send only the changed tiles, a bounded number per tick | **real, tested** |
@@ -44,7 +46,9 @@ Verified by inspection of the linked image only (SP 0x20007000, reset vector 0x4
 
 ## The four screens (A7)
 
-What is shown where is `inc/screens.h` (default left to right: fuel + volts, speed, rpm, coolant + oil). How it is drawn is `dial.c`. Previews rendered through the real driver into the mock panel are in `docs/screens/` (`make preview PRESET=1 UNITS=metric`, then `python tools/montage.py out.png`).
+Two themes, chosen by the user (`DisplaySettings.GaugeTheme` in the protocol; the Android settings list sets it, the harness key T switches it locally). A theme brings its own layout (`screens_layout()`): **classic** is needles on 270 degree scales with seven-segment digits (fuel + volts, speed, rpm, coolant + oil); **modern** follows the reference picture (speed with fuel, rpm with coolant, volts and oil as two bars, coolant). Previews rendered through the real driver into the mock panel are in `docs/screens/` (`make preview PRESET=1 UNITS=metric THEME=modern` style: `./build/preview <preset> <imperial|metric> <classic|modern>`, then `python tools/montage.py out.png`). Unknown theme numbers show classic.
+
+![modern theme](docs/screens/modern_cruise_mph.png)
 
 **The bus is the limit.** The S32K144 datasheet limits LPSPI to 10 MHz in Run mode (quoted for Rev 13 on NXP's forum; check the current table), so the HAL runs 9.6 MHz (48 MHz FIRC / 5). At that rate a full 240x240 frame is 96 KB, 80 ms: too slow to redraw, so nothing is redrawn whole. Numbers from `make test` and `make bench` (operations counted, not timed):
 
@@ -61,7 +65,7 @@ Four screens updating 15 times a second is about 3.5 Mbit/s, roughly a third of 
 
 | Command | What it does |
 |---|---|
-| `harness` | window with the four round screens and a status area drawn with the firmware's own font. Keys: SPACE pause, D built-in drive, M manual (arrows = speed and rpm, F C O B = fuel, coolant, oil, battery, 1-6 toggle an input valid/invalid), A Android, R replay, U units, TAB zoom, S save a PNG, Q quit |
+| `harness` | window with the four round screens (T switches theme) and a status area drawn with the firmware's own font. Keys: SPACE pause, D built-in drive, M manual (arrows = speed and rpm, F C O B = fuel, coolant, oil, battery, 1-6 toggle an input valid/invalid), A Android, R replay, U units, TAB zoom, S save a PNG, Q quit |
 | `harness --udp 5005` | listen for the Android app's telemetry line (UDP); no data for 1 s shows dashes, like the firmware. `--record f` saves what arrives, `--replay f` plays it back |
 | `make golden` | 11 fixed states x 4 screens against stored checksums (`test/golden_screens.txt`). A one-bit colour change or a moved label shows up as CHANGED; look with `make golden-dump` (PNGs in `build/golden`), accept with `make golden-update` |
 | `make sim` | 60 virtual seconds of driving with unit switches: bus load, worst tick, backlog, time to redraw after a switch, and whether the panel equals the model at the end. Fails if any tick needs more than 10 ms of bus time |
@@ -71,6 +75,8 @@ Four screens updating 15 times a second is about 3.5 Mbit/s, roughly a third of 
 What the harness found that the unit tests had not (it is the loop shape and the load that matter): with the old "12 tile runs per tick" limit the screens always had tiles waiting and a unit switch could need 12.8 ms of bus time in a 10 ms tick. The scheduler now has a byte budget (`aux_display_poll_budget`, 8000 bytes per tick): steady driving keeps up (on average 1 tile waiting, 95th percentile 8), no tick exceeds 9.9 ms of bus time at 9.6 MHz, and a unit switch (about 3000 tiles) settles in 380 ms.
 
 The Android side of the feed: the app sends its vehicle state as one UDP line every 50 ms (`../android/cluster-app`, `Telemetry`), by default to `10.0.2.2:5005` (the PC); `run_harness.ps1` redirects it to WSL's address with the `telemetry` broadcast extra. In the car the data flows the other way (the gauges board is the source).
+
+**Modern theme cost.** Redrawing big digits and arc ends on every wobble of the data took 35 % of the bus, so the modern dial follows the arc in whole degrees and refreshes the numbers at most every 80 ms (`AUX_TEXT_HOLD_TICKS`; a big jump, a warning or a change of validity goes through at once): 14 % on average, 50 % peak over a simulated drive.
 
 **Verification.** The property test replays 720 random updates (all four layouts, both unit systems, valid and invalid inputs) and requires the patched panel to equal a full redraw and equal a render straight from the model; twelve deliberate breakages of the tile marking and the rasteriser are each caught. The mock panel enforces the GC9A01 protocol: chip select framing, the FEh/EFh unlock before level-3 registers, COLMOD before pixel writes, 5 ms after Sleep Out, no display-on too early, no pixels outside the window. `tools/check_vendor_block.py` re-derives the register tables from the open-source reference and compares them byte for byte; `tools/check_pins.py` checks the HAL's pins against `gauges_pins.h`.
 

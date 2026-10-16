@@ -128,7 +128,7 @@ int main(void)
     /* ---- four screens, scheduler, and the whole chain against the ground truth ---- */
     {
         mock_init(&g_mock);
-        aux_display_init(mock_hal(&g_mock), SCREENS_DEFAULT, false);
+        aux_display_init(mock_hal(&g_mock), THEME_CLASSIC, false);
         CHECK(mock_errors(&g_mock) == 0);
         CHECK(g_mock.reset_count == 1);
         CHECK(g_mock.total_delay_ms == 10 + 120 + GC9A01_SLEEP_OUT_WAIT_MS);      /* reset, then ONE sleep-out wait for all four */
@@ -213,7 +213,7 @@ int main(void)
      * panel still ends up identical to a full draw */
     {
         mock_init(&g_mock);
-        aux_display_init(mock_hal(&g_mock), SCREENS_DEFAULT, true);
+        aux_display_init(mock_hal(&g_mock), THEME_CLASSIC, true);
         screen_values_t v = { cv(96.56f, true), cv(3500.0f, true), cv(13.8f, true), cv(68.0f, true), cv(90.0f, true), cv(350.0f, true) };
         aux_display_set_imperial(false);                               /* a unit switch: every tile of every screen */
         for (uint8_t s = 0; s < SCREEN_COUNT; s++) {
@@ -257,7 +257,7 @@ int main(void)
     /* units change redraws the face with the new labels */
     {
         mock_init(&g_mock);
-        aux_display_init(mock_hal(&g_mock), SCREENS_DEFAULT, true);
+        aux_display_init(mock_hal(&g_mock), THEME_CLASSIC, true);
         screen_values_t v = { cv(96.56f, true), cv(3500.0f, true), cv(13.8f, true), cv(68.0f, true), cv(90.0f, true), cv(350.0f, true) };
         aux_display_set_imperial(false);
         screen_view_t view = screens_build(&SCREENS_DEFAULT[1], &v, false);

@@ -40,9 +40,8 @@ public final class DriveScenario {
         s.coolantC = Reading.of(Math.min(92f, 40f + 2f * t));
         s.oilKpa = Reading.of(Math.min(380f, 150f + rpm * 0.08f));
 
-        boolean blink = ((int) t) % 2 == 0;
-        boolean left = t > 18f && t < 22f && blink;
-        s.turnLeft = Reading.of(flag(o != null ? o.turnLeft : null, left));
+        // no turn indicators in the app: the dash has physical ones (the properties stay for the VHAL map)
+        s.turnLeft = Reading.of(flag(o != null ? o.turnLeft : null, false));
         s.turnRight = Reading.of(0f);
         s.highBeam = Reading.of(flag(o != null ? o.highBeam : null, false));
         s.brakeWarning = Reading.of(flag(o != null ? o.brake : null, false));

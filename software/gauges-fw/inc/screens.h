@@ -20,6 +20,10 @@
 
 #define SCREEN_COUNT 4
 
+/* The look of the four screens, chosen by the user (DisplaySettings.GaugeTheme, 4 bits). A theme brings its
+ * own layout: which gauge is on which screen. Unknown values fall back to the classic theme. */
+typedef enum { THEME_CLASSIC = 0, THEME_MODERN = 1, THEME_COUNT } theme_t;
+
 typedef enum {
     GK_NONE = 0, GK_SPEED, GK_RPM, GK_FUEL, GK_COOLANT, GK_OIL, GK_BATTERY, GK_COUNT
 } gauge_kind_t;
@@ -29,7 +33,12 @@ typedef struct { gauge_kind_t primary, secondary; } screen_cfg_t;
 /* Left to right on the board (slots U6, U7, U8, U9 in ../../gauges): outer left,
  * inner left, inner right, outer right. Speed is on the inner-left screen, the
  * one nearest a left-hand-drive driver's line of sight. */
-extern const screen_cfg_t SCREENS_DEFAULT[SCREEN_COUNT];
+extern const screen_cfg_t SCREENS_DEFAULT[SCREEN_COUNT];            /* the classic theme's layout */
+
+/* Layout of a theme. THEME_MODERN follows the reference picture: speed (+ fuel), rpm (+ coolant),
+ * volts and oil as two bars, coolant. */
+const screen_cfg_t *screens_layout(theme_t theme);
+theme_t             screens_theme_from_setting(uint32_t value);      /* clamps unknown values to classic */
 
 typedef struct {
     /* aggregate.c results: already source-selected and freshness-checked */

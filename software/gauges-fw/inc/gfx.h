@@ -17,6 +17,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "font.h"
+
 #define GFX_SIZE   240
 /* 8 x 8 tiles (30 x 30). The S32K144's LPSPI is limited to 10 MHz in Run mode (datasheet, as
  * quoted for Rev 13), so the bytes sent per update decide the frame rate: smaller tiles send
@@ -26,7 +28,7 @@
 
 #define Q4(px)     ((int32_t)((px) * 16))          /* pixels to Q4 */
 
-typedef enum { OP_ARC = 1, OP_CAPSULE, OP_DISC, OP_GLYPH } op_kind_t;
+typedef enum { OP_ARC = 1, OP_CAPSULE, OP_DISC, OP_GLYPH, OP_ARCG, OP_TICKS, OP_RRECT, OP_BMP } op_kind_t;
 
 typedef struct {
     uint8_t  kind;
@@ -38,6 +40,14 @@ typedef struct {
         struct { int32_t ax, ay, abx, aby, len2, inv, r; } cap;                 /* Q4; len2 Q8, inv = 2^32/len2 */
         struct { int32_t cx, cy, r; } disc;                                     /* Q4 */
         struct { int16_t x, y; uint8_t ch, scale; } glyph;                      /* pixels */
+        /* gradient arc: lit from a0 over clip, colour runs color -> c1 over full (angles in 1/65536 turn) */
+        struct { int32_t cx, cy, rin, rout; uint32_t c1, clipq, fullq; uint16_t a0q; } arcg;
+        /* ring of radial ticks every step over span, half width hw, one-pixel ramp aa (angle units) */
+        struct { int32_t cx, cy, rin, rout; uint32_t spanq, stepq, hwq, aaq; uint16_t a0q; } ticks;
+        /* rounded rectangle, centre and half sizes in Q4; stroke 0 = filled */
+        struct { int32_t cx, cy, hw, hh, r, stroke; } rrect;
+        /* 4-bit coverage bitmap (a font glyph) at x, y */
+        struct { const uint8_t *bits; int16_t x, y; uint8_t w, h; } bmp;
     } u;
 } op_t;
 
@@ -55,6 +65,31 @@ op_t gfx_glyph(int x, int y, char ch, int scale, uint32_t color);
 #define GFX_GLYPH_W   5
 #define GFX_GLYPH_H   7
 #define GFX_GLYPH_ADV 6                 /* advance in glyph units, including 1 unit spacing */
+
+/* Arc whose colour changes along it. The scale runs from a0 over full_deg and the colour goes
+ * color0 -> color1 across that whole scale; only the first visible_deg of it is lit (a progress
+ * bar). Ends are square: add discs for rounded ends. */
+op_t gfx_arc_gradient(float cx, float cy, float r_in, float r_out, float a0_deg, float full_deg,
+                      float visible_deg, uint32_t color0, uint32_t color1);
+/* The colour of that gradient at a position (0..1 along the full scale), for matching end caps. */
+uint32_t gfx_lerp_color(uint32_t c0, uint32_t c1, float t);
+
+/* Radial tick marks every step_deg from a0 over span_deg (both ends included), thickness in
+ * pixels measured at the middle radius, between r_in and r_out. */
+op_t gfx_ticks(float cx, float cy, float r_in, float r_out, float a0_deg, float span_deg, float step_deg,
+               float thickness, uint32_t color);
+
+/* Rounded rectangle centred on (cx, cy). stroke 0 draws it filled, otherwise as an outline. */
+op_t gfx_rrect(float cx, float cy, float w, float h, float radius, float stroke, uint32_t color);
+
+/* One anti-aliased font glyph with its pen position (x, baseline). */
+op_t gfx_bitmap(const font_t *f, char ch, int x, int baseline, uint32_t color);
+
+typedef enum { TEXT_LEFT = 0, TEXT_CENTER, TEXT_RIGHT } text_align_t;
+/* Pixel width of a string in a face. */
+int  gfx_text_width(const font_t *f, const char *s);
+/* Lay a string out into glyph ops, anchored at x on the baseline. Returns the number of ops written. */
+int  gfx_text(op_t *out, int max, const font_t *f, const char *s, int x, int baseline, text_align_t align, uint32_t color);
 
 /* ---- rendering ---- */
 

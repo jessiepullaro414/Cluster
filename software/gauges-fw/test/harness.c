@@ -45,11 +45,14 @@ typedef struct {
     float v[I_COUNT];                   /* speed km/h, rpm, V, %, degC, kPa */
     bool  ok[I_COUNT];
     bool  imperial;
+    theme_t theme;
 } inputs_t;
+
+static theme_t g_cli_theme = THEME_CLASSIC;
 
 static inputs_t inputs_default(void)
 {
-    inputs_t in = { { 0.0f, 800.0f, 13.8f, 68.0f, 90.0f, 250.0f }, { true, true, true, true, true, true }, true };
+    inputs_t in = { { 0.0f, 800.0f, 13.8f, 68.0f, 90.0f, 250.0f }, { true, true, true, true, true, true }, true, g_cli_theme };
     return in;
 }
 
@@ -95,6 +98,7 @@ static bool parse_telemetry(char *line, inputs_t *in)
         *eq = 0;
         const char *k = tok, *v = eq + 1;
         if (!strcmp(k, "imperial")) { in->imperial = v[0] == '1'; continue; }
+        if (!strcmp(k, "theme")) { in->theme = screens_theme_from_setting((uint32_t)atoi(v)); continue; }
         for (int i = 0; i < I_COUNT; i++)
             if (!strcmp(k, keys[i])) {
                 if (v[0] == '-' && v[1] == 0) in->ok[i] = false;
@@ -215,12 +219,12 @@ typedef struct {
 
 static mock_t g_mock;
 
-static void rig_init(rig_t *r, bool imperial)
+static void rig_init(rig_t *r, bool imperial, theme_t theme)
 {
     memset(r, 0, sizeof *r);
     r->mock = &g_mock;
     mock_init(&g_mock);
-    aux_display_init(mock_hal(&g_mock), SCREENS_DEFAULT, imperial);
+    aux_display_init(mock_hal(&g_mock), theme, imperial);
     r->bytes_total = g_mock.bytes_written;      /* boot traffic is counted separately */
 }
 
@@ -229,8 +233,10 @@ static void rig_tick(rig_t *r, const inputs_t *in, bool alive)
 {
     screen_values_t v = to_values(in, alive);
     aux_display_set_imperial(in->imperial);
+    aux_display_set_theme(in->theme);
+    const screen_cfg_t *layout = screens_layout(in->theme);
     for (uint8_t i = 0; i < SCREEN_COUNT; i++) {
-        screen_view_t view = screens_build(&SCREENS_DEFAULT[i], &v, in->imperial);
+        screen_view_t view = screens_build(&layout[i], &v, in->imperial);
         aux_display_screen(i, &view);
     }
     uint64_t before = g_mock.bytes_written;
@@ -253,6 +259,17 @@ static void rig_tick(rig_t *r, const inputs_t *in, bool alive)
         r->last_window_pct = r->window_bytes * 8.0 / (BUS_HZ * 0.1) * 100.0;
         if (r->last_window_pct > r->peak_window_pct) r->peak_window_pct = r->last_window_pct;
         r->window_bytes = 0; r->window_ticks = 0;
+    }
+}
+
+/* Let the picture catch up with frozen inputs: send the backlog, outlast the modern theme's number hold-off
+ * (a held number is released a few ticks later and redrawn), and send that too. */
+static void settle(rig_t *r, const inputs_t *in, bool alive)
+{
+    for (int round = 0; round < 3; round++) {
+        for (int i = 0; i < AUX_TEXT_HOLD_TICKS + 3; i++) rig_tick(r, in, alive);
+        int guard = 0;
+        while (aux_display_pending_tiles() > 0 && guard++ < 5000) rig_tick(r, in, alive);
     }
 }
 
@@ -375,7 +392,13 @@ typedef struct { const char *name; inputs_t in; } golden_state_t;
 
 static inputs_t gs(float spd, float rpm, float batt, float fuel, float cool, float oil, bool imp)
 {
-    inputs_t in = { { spd, rpm, batt, fuel, cool, oil }, { true, true, true, true, true, true }, imp };
+    inputs_t in = { { spd, rpm, batt, fuel, cool, oil }, { true, true, true, true, true, true }, imp, THEME_CLASSIC };
+    return in;
+}
+
+static inputs_t modern(inputs_t in)
+{
+    in.theme = THEME_MODERN;
     return in;
 }
 
@@ -399,6 +422,17 @@ static void golden_states(golden_state_t *out, int *n)
     ob.ok[I_BATT] = false; ob.ok[I_OIL] = false;
     out[k++] = (golden_state_t){ "secondaries_invalid", ob };
     out[k++] = (golden_state_t){ "hot_and_low_oil", gs(30, 1500, 12.0f, 25, 128, 20, true) };
+    /* the modern theme: same situations, its own layout */
+    out[k++] = (golden_state_t){ "modern_idle", modern(gs(0, 800, 13.8f, 68, 40, 150, true)) };
+    out[k++] = (golden_state_t){ "modern_cruise_mph", modern(gs(96.56f, 3500, 13.8f, 68, 90, 350, true)) };
+    out[k++] = (golden_state_t){ "modern_cruise_kph", modern(gs(96.56f, 3500, 13.8f, 68, 90, 350, false)) };
+    out[k++] = (golden_state_t){ "modern_warnings", modern(gs(143, 5200, 11.2f, 8, 116, 60, true)) };
+    out[k++] = (golden_state_t){ "modern_redline_kph", modern(gs(190, 7600, 14.2f, 40, 98, 420, false)) };
+    out[k++] = (golden_state_t){ "modern_full_scale", modern(gs(250, 9000, 16.5f, 100, 130, 700, true)) };
+    out[k++] = (golden_state_t){ "modern_zero_scale", modern(gs(0, 0, 10.0f, 0, 40, 0, false)) };
+    out[k++] = (golden_state_t){ "modern_all_invalid", modern(inv) };
+    out[k++] = (golden_state_t){ "modern_speed_invalid", modern(sp) };
+    out[k++] = (golden_state_t){ "modern_secondaries_invalid", modern(ob) };
     *n = k;
 }
 
@@ -408,8 +442,8 @@ static uint32_t golden_crc(const inputs_t *in, int screen, uint16_t *pic)
     static dial_t d;
     dial_init(&d);
     screen_values_t v = to_values(in, true);
-    screen_view_t view = screens_build(&SCREENS_DEFAULT[screen], &v, in->imperial);
-    dial_set_view(&d, &view, in->imperial);
+    screen_view_t view = screens_build(&screens_layout(in->theme)[screen], &v, in->imperial);
+    dial_set_view_theme(&d, &view, in->imperial, in->theme);
     gfx_render(d.ops, d.n_total, 0, 0, 240, 240, pic, 240);
     uint32_t crc = 0;
     for (int y = 0; y < 240; y++)
@@ -425,20 +459,20 @@ static uint32_t golden_crc(const inputs_t *in, int screen, uint16_t *pic)
 
 static int golden_run(const char *mode, const char *file, const char *dump_dir)
 {
-    static golden_state_t st[32];
+    static golden_state_t st[48];
     int n;
     golden_states(st, &n);
     static uint16_t pic[240 * 240];
     bool update = !strcmp(mode, "update");
     FILE *f = 0;
-    char names[32 * 4][64];
-    uint32_t want[32 * 4];
+    char names[48 * 4][64];
+    uint32_t want[48 * 4];
     int nwant = 0;
     if (!update) {
         f = fopen(file, "r");
         if (!f) { fprintf(stderr, "golden: cannot read %s (run with update first)\n", file); return 2; }
         char line[128];
-        while (fgets(line, sizeof line, f) && nwant < 128) {
+        while (fgets(line, sizeof line, f) && nwant < 192) {
             char nm[48]; int sc; unsigned crc;
             if (line[0] == '#') continue;
             if (sscanf(line, "%47s %d %x", nm, &sc, &crc) == 3) { snprintf(names[nwant], 64, "%s/%d", nm, sc); want[nwant++] = crc; }
@@ -509,8 +543,8 @@ static int panel_vs_model(const rig_t *r, const inputs_t *in, bool alive)
     screen_values_t v = to_values(in, alive);
     for (int s = 0; s < SCREEN_COUNT; s++) {
         dial_init(&d);
-        screen_view_t view = screens_build(&SCREENS_DEFAULT[s], &v, in->imperial);
-        dial_set_view(&d, &view, in->imperial);
+        screen_view_t view = screens_build(&screens_layout(in->theme)[s], &v, in->imperial);
+        dial_set_view_theme(&d, &view, in->imperial, in->theme);
         gfx_render(d.ops, d.n_total, 0, 0, 240, 240, truth, 240);
         bad += visible_diff(r->mock->fb[s], truth);
     }
@@ -542,7 +576,7 @@ static int run_sim(double seconds, int units_switch)
 {
     rig_t r;
     inputs_t in = inputs_default();
-    rig_init(&r, in.imperial);
+    rig_init(&r, in.imperial, in.theme);
     uint64_t boot_bytes = g_mock.bytes_written;
     int ticks = (int)(seconds * 100.0);
     int mismatches = 0, checks = 0, switch_at = -1, worst_settle = 0, switches = 0;
@@ -558,8 +592,7 @@ static int run_sim(double seconds, int units_switch)
         }
     }
     /* let the backlog drain with the inputs frozen, then compare panel with model */
-    int guard = 0;
-    while (aux_display_pending_tiles() > 0 && guard++ < 5000) rig_tick(&r, &in, true);
+    settle(&r, &in, true);
     mismatches += panel_vs_model(&r, &in, true);
     checks++;
     printf("sim: %.0f s of driving%s, boot sent %llu bytes\n", seconds, units_switch ? " with unit switches" : "",
@@ -584,17 +617,35 @@ static int run_selftest(void)
     {
         rig_t r;
         inputs_t in = inputs_default();
-        rig_init(&r, in.imperial);
+        rig_init(&r, in.imperial, in.theme);
         for (int sec = 0; sec < 30; sec += 3) {
             for (int t = 0; t < 300; t++) {
                 drive_at((float)sec + (float)t * 0.01f, &in);
                 rig_tick(&r, &in, true);
             }
-            int guard = 0;
-            while (aux_display_pending_tiles() > 0 && guard++ < 5000) rig_tick(&r, &in, true);
+            settle(&r, &in, true);
             int bad = panel_vs_model(&r, &in, true);
             if (bad) { printf("selftest: drive at %d s: %d pixels differ\n", sec, bad); failures++; }
             if (sec == 12) in.imperial = !in.imperial;
+        }
+        if (mock_errors(&g_mock)) { printf("selftest: panel protocol errors %d\n", mock_errors(&g_mock)); failures++; }
+    }
+    /* 1b. the modern theme, and a switch of theme in the middle of the drive */
+    {
+        rig_t r;
+        inputs_t in = inputs_default();
+        in.theme = THEME_MODERN;
+        rig_init(&r, in.imperial, in.theme);
+        for (int sec = 0; sec < 30; sec += 3) {
+            for (int t = 0; t < 300; t++) {
+                drive_at((float)sec + (float)t * 0.01f, &in);
+                rig_tick(&r, &in, true);
+            }
+            settle(&r, &in, true);
+            int bad = panel_vs_model(&r, &in, true);
+            if (bad) { printf("selftest: modern drive at %d s: %d pixels differ\n", sec, bad); failures++; }
+            if (sec == 9) in.theme = THEME_CLASSIC;
+            if (sec == 18) in.theme = THEME_MODERN;
         }
         if (mock_errors(&g_mock)) { printf("selftest: panel protocol errors %d\n", mock_errors(&g_mock)); failures++; }
     }
@@ -602,10 +653,11 @@ static int run_selftest(void)
     {
         rig_t r;
         inputs_t in = inputs_default();
-        rig_init(&r, true);
+        rig_init(&r, true, THEME_CLASSIC);
         drive_at(15.0f, &in);
         for (int t = 0; t < 200; t++) rig_tick(&r, &in, true);
         for (int t = 0; t < 200; t++) rig_tick(&r, &in, false);
+        settle(&r, &in, false);
         int bad = panel_vs_model(&r, &in, false);
         if (bad) { printf("selftest: dashes after loss of data: %d pixels differ\n", bad); failures++; }
         inputs_t none = in;
@@ -679,6 +731,7 @@ static void usage(void)
          "  --shot FILE [--after S] run S seconds (default 3), save the picture as PNG, exit\n"
          "  --golden check|update [FILE] [--dump DIR]   fixed states against stored checksums (default test/golden_screens.txt)\n"
          "  --sim SECONDS [--units-switch]              virtual drive: bus load, backlog, tick overruns, panel == model\n"
+         "  --theme classic|modern  the look to start in (T cycles it in the window; the Android app can choose it too)\n"
          "  --selftest             plumbing checks, no display needed\n"
          "  --x11check             open the window, show a known picture, read it back from the X server\n"
          "  --headless             never open a window");
@@ -703,6 +756,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--golden") && i + 1 < argc) { golden = argv[++i]; if (i + 1 < argc && argv[i + 1][0] != '-') golden_file = argv[++i]; }
         else if (!strcmp(a, "--dump") && i + 1 < argc) dump = argv[++i];
         else if (!strcmp(a, "--sim") && i + 1 < argc) sim = atof(argv[++i]);
+        else if (!strcmp(a, "--theme") && i + 1 < argc) { const char *t = argv[++i]; g_cli_theme = !strcmp(t, "modern") || !strcmp(t, "1") ? THEME_MODERN : THEME_CLASSIC; }
         else if (!strcmp(a, "--units-switch")) units_switch = true;
         else if (!strcmp(a, "--selftest")) selftest = true;
         else if (!strcmp(a, "--x11check")) x11check = true;
@@ -748,7 +802,7 @@ int main(int argc, char **argv)
     /* ---- interactive / shot run ---- */
     inputs_t in = inputs_default();
     rig_t rig;
-    rig_init(&rig, in.imperial);
+    rig_init(&rig, in.imperial, in.theme);
     src_t src = SRC_DRIVE;
     bool paused = false;
     int sock = udp_port > 0 ? udp_open(udp_port) : -1;
@@ -796,6 +850,7 @@ int main(int argc, char **argv)
             else if (k == 'a' || k == 'A') src = SRC_ANDROID;
             else if ((k == 'r' || k == 'R') && replay) { src = SRC_REPLAY; replay_i = 0; replay_t0 = t; }
             else if (k == 'u' || k == 'U') in.imperial = !in.imperial;
+            else if (k == 't' || k == 'T') in.theme = (theme_t)(((int)in.theme + 1) % (int)THEME_COUNT);
             else if (k >= '1' && k <= '6') in.ok[k - '1'] = !in.ok[k - '1'];
             else if (k == '\t' || k == HK_ENTER) {
                 zoom_i = (zoom_i + 1) % 3;
@@ -877,12 +932,12 @@ int main(int argc, char **argv)
                 if (!in.ok[i] || !alive) snprintf(val[i], sizeof val[i], "--");
                 else snprintf(val[i], sizeof val[i], i == I_BATT ? "%.1f" : "%.0f", in.v[i]);
             }
-            snprintf(l0, sizeof l0, "SOURCE %s%s   UNITS %s   DATA %s", SRC_NAME[src], paused ? " (PAUSED)" : "", in.imperial ? "MPH" : "KM/H",
+            snprintf(l0, sizeof l0, "SOURCE %s%s   UNITS %s   THEME %s   DATA %s", SRC_NAME[src], paused ? " (PAUSED)" : "", in.imperial ? "MPH" : "KM/H", in.theme == THEME_MODERN ? "MODERN" : "CLASSIC",
                      src == SRC_ANDROID ? (alive ? "LIVE FROM ANDROID" : (had_android ? "LOST: DASHES" : "WAITING FOR ANDROID")) : "BUILT IN");
             snprintf(l1, sizeof l1, "SPEED %s KM/H  RPM %s  BATT %s V  FUEL %s %%  COOL %s C  OIL %s KPA", val[0], val[1], val[2], val[3], val[4], val[5]);
             snprintf(l2, sizeof l2, "PANEL BUS %.1f %% (9.6 MHZ)  PEAK %.1f %%  BACKLOG %d TILES  RUNS/S %u  DATA/S %u  FRAMES/S %u",
                      rig.last_window_pct, rig.peak_window_pct, aux_display_pending_tiles(), runs_rate, rx_rate, frames_rate);
-            snprintf(l3, sizeof l3, "KEYS  SPACE PAUSE  D DRIVE  M MANUAL  A ANDROID  R REPLAY  U UNITS  TAB ZOOM  S SAVE PNG  Q QUIT");
+            snprintf(l3, sizeof l3, "KEYS  SPACE PAUSE  D DRIVE  M MANUAL  A ANDROID  R REPLAY  U UNITS  T THEME  TAB ZOOM  S SAVE PNG  Q QUIT");
             snprintf(l4, sizeof l4, "      ARROWS SPEED AND RPM   F C O B FUEL COOLANT OIL BATTERY (SMALL DOWN, CAPITAL UP)   1-6 TOGGLE AN INPUT");
             if (compose(&cv_, rig.mock, hud)) {
 #ifdef HARNESS_X11

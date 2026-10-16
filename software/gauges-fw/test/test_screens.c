@@ -24,6 +24,12 @@ static screen_values_t sample(void)
 
 int main(void)
 {
+    /* the centre flag only counts while Android is alive */
+    CHECK(screens_center_active(true, true));
+    CHECK(!screens_center_active(true, false));
+    CHECK(!screens_center_active(false, true));
+    CHECK(!screens_center_active(false, false));
+
     /* the shipped layout shows each of the six quantities exactly once, speed on a primary slot */
     int seen[GK_COUNT] = { 0 };
     for (int i = 0; i < SCREEN_COUNT; i++) {

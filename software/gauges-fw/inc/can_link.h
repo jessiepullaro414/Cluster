@@ -15,7 +15,7 @@ typedef struct {
     uint8_t brightness_pct;
     bool    night_mode, units_mph;
     uint8_t gauge_theme;             /* theme_t, DisplaySettings.GaugeTheme */
-    bool    center_shows_speed;      /* DisplaySettings.CenterShowsSpeed: speed is on the centre screen */
+    bool    center_shows_speed;      /* DisplaySettings.CenterShowsSpeed: speed is on the centre screen. NOT kept in flash: false at boot */
     uint8_t car_profile;             /* 0 none, 1 Haltech V2 */
     uint8_t car_bitrate;             /* 0 500k, 1 1M, 2 250k */
     float   tank_capacity_l;
@@ -23,7 +23,7 @@ typedef struct {
     bool    tach_enabled;
     uint8_t tach_pulses_per_rev;
     uint32_t pulses_per_mile;
-    bool    display_heartbeat_seen;
+    bool    display_heartbeat_seen;  /* true only while DisplayHeartbeat arrives within its timeout (Android is alive) */
 } display_settings_t;
 
 void       can_link_init(void);

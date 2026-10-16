@@ -17,9 +17,7 @@ wsl.exe -d $Distro -- bash -c "cd '$wslFw' && make build/harness"
 if ($LASTEXITCODE -ne 0) { throw "build failed (is ~/x11sdk there? run: wsl sh tools/get_x11_headers.sh)" }
 
 Get-Process wsl -ErrorAction SilentlyContinue | Out-Null
-wsl.exe -d $Distro -- bash -c "pkill -x harness; true" | Out-Null
-Start-Process -FilePath "wsl.exe" -WindowStyle Hidden -ArgumentList "-d", $Distro, "--", "bash", "-c",
-    "cd '$wslFw' && DISPLAY=:0 exec ./build/harness --udp $Port --record /tmp/android_feed.txt"
+Start-Process -FilePath "wsl.exe" -WindowStyle Hidden -ArgumentList "-d", $Distro, "--", "bash", "$wslFw/tools/run_harness.sh", "$Port"
 
 $ip = (wsl.exe -d $Distro -- hostname -I).Trim().Split(" ")[0]
 Write-Host "harness window started; listening on ${ip}:$Port (recording to /tmp/android_feed.txt in WSL)"

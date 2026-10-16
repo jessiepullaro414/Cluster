@@ -237,7 +237,7 @@ static void rig_tick(rig_t *r, const inputs_t *in, bool alive)
     screen_values_t v = to_values(in, alive);
     aux_display_set_imperial(in->imperial);
     aux_display_set_theme(in->theme);
-    const screen_cfg_t *layout = screens_layout_for(in->theme, in->center);
+    const screen_cfg_t *layout = screens_layout_for(in->theme, screens_center_active(in->center, alive));
     for (uint8_t i = 0; i < SCREEN_COUNT; i++) {
         screen_view_t view = screens_build(&layout[i], &v, in->imperial);
         aux_display_screen(i, &view);
@@ -595,7 +595,7 @@ static int panel_vs_model(const rig_t *r, const inputs_t *in, bool alive)
     screen_values_t v = to_values(in, alive);
     for (int s = 0; s < SCREEN_COUNT; s++) {
         dial_init(&d);
-        screen_view_t view = screens_build(&screens_layout_for(in->theme, in->center)[s], &v, in->imperial);
+        screen_view_t view = screens_build(&screens_layout_for(in->theme, screens_center_active(in->center, alive))[s], &v, in->imperial);
         dial_set_view_theme(&d, &view, in->imperial, in->theme);
         gfx_render(d.ops, d.n_total, 0, 0, 240, 240, truth, 240);
         bad += visible_diff(r->mock->fb[s], truth);
@@ -706,6 +706,32 @@ static int run_selftest(void)
             if (sec == 27) in.theme = THEME_FACTORY;
         }
         if (mock_errors(&g_mock)) { printf("selftest: panel protocol errors %d\n", mock_errors(&g_mock)); failures++; }
+    }
+    /* 1c. speed MUST come back when Android goes away: with the centre flag set, the feed stops, and the small screens
+     * show the normal layout again (a speed screen, with dashes) instead of staying without speed */
+    for (int th = 0; th < THEME_COUNT; th++) {
+        rig_t r;
+        inputs_t in = inputs_default();
+        in.theme = (theme_t)th;
+        in.center = true;
+        rig_init(&r, in.imperial, in.theme);
+        drive_at(10.0f, &in);
+        for (int t = 0; t < 100; t++) rig_tick(&r, &in, true);
+        settle(&r, &in, true);
+        int bad = panel_vs_model(&r, &in, true);
+        if (bad) { printf("selftest: theme %d with speed on the centre: %d pixels differ\n", th, bad); failures++; }
+        for (int t = 0; t < 100; t++) rig_tick(&r, &in, false);              /* Android is gone */
+        settle(&r, &in, false);
+        bad = panel_vs_model(&r, &in, false);
+        if (bad) { printf("selftest: theme %d after Android left: %d pixels differ\n", th, bad); failures++; }
+        const screen_cfg_t *lay = screens_layout_for(in.theme, screens_center_active(in.center, false));
+        bool has_speed = false;
+        for (int i = 0; i < SCREEN_COUNT; i++) has_speed |= lay[i].primary == GK_SPEED;
+        if (!has_speed) { printf("selftest: theme %d has no speed on the small screens after Android left\n", th); failures++; }
+        for (int t = 0; t < 100; t++) rig_tick(&r, &in, true);               /* and when it is back, the flag counts again */
+        settle(&r, &in, true);
+        bad = panel_vs_model(&r, &in, true);
+        if (bad) { printf("selftest: theme %d after Android returned: %d pixels differ\n", th, bad); failures++; }
     }
     /* 2. stale data goes to dashes (what the firmware does when the source stops) */
     {

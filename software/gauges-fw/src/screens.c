@@ -56,6 +56,11 @@ static const screen_cfg_t CENTER_FACTORY[SCREEN_COUNT] = {
     { GK_COOLANT, GK_NONE    },
 };
 
+bool screens_center_active(bool center_flag, bool display_alive)
+{
+    return center_flag && display_alive;
+}
+
 const screen_cfg_t *screens_layout_for(theme_t theme, bool center_shows_speed)
 {
     if (!center_shows_speed) return screens_layout(theme);

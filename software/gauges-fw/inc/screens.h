@@ -44,6 +44,10 @@ const screen_cfg_t *screens_layout(theme_t theme);
  * speed is then not repeated on the small screens, and the screen that had it takes a gauge that was not a screen of
  * its own. Classic: volts; modern and carplay: fuel; factory: volts on the ammeter-style face. */
 const screen_cfg_t *screens_layout_for(theme_t theme, bool center_shows_speed);
+/* Speed may only leave the small screens while someone is really showing it on the centre screen: the flag from Android counts
+ * only while Android is alive (its heartbeat is fresh). If Android stops, crashes, restarts or the link drops, speed is back on
+ * the small screens at once. The flag is never restored from flash at boot. */
+bool screens_center_active(bool center_flag, bool display_alive);
 theme_t             screens_theme_from_setting(uint32_t value);      /* clamps unknown values to classic */
 
 typedef struct {

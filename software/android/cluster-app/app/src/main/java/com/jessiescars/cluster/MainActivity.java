@@ -84,7 +84,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
             gauge.setState(s);
             maps.setState(s);
             // development feed for the small screens; while the centre shows the speedometer they do not repeat speed
-            telemetry.publish(Telemetry.encode(s, settings.imperial, look, shown == Content.GAUGE));
+            telemetry.publish(Telemetry.encode(s, settings.imperial, look, shown == Content.GAUGE && !settingsOpen));
             handler.postDelayed(this, TICK_MS);
         }
     };

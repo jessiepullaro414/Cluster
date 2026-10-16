@@ -44,7 +44,7 @@ A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watch
 | # | Step | Proves | Needs |
 |---|---|---|---|
 | B0 | layout and property map (`android/`) | the plan | **done** |
-| B1 | cluster app on an AAOS emulator with a fake property source; round layout, 720 px safe circle, dimmer and night mode | the UI | Android Studio AAOS emulator image |
+| B1 | cluster app on an AAOS emulator with a fake property source; round layout, 720 px safe circle, dimmer and night mode | the UI | **emulator installed 2026-10-15** (below); the app itself is not started |
 | B2 | VHAL bridge as a standalone C++ library: decode SocketCAN frames from `cluster_private.dbc`, host unit tests with the protocol test vectors | decoding and staleness | **done** (`android/vhal-bridge`; the SocketCAN reader is part of B3) |
 | B3 | wire the bridge into the AAOS vehicle HAL in `~/imx-automotive` and build | a real build | WSL tree, hours of build time |
 | B4 | rotary service (dial ADC and click to key/rotary events) | the dial | Verdin + display board |
@@ -73,3 +73,10 @@ Every register address and bit comes from the Reference Manual, not memory; stub
 1. A2: read the S32K144 Reference Manual's memory map, SCG and FlexCAN chapters (needs the RM; the sibling `manifold-pcb` / `thermo-pcb` notes show where it was fetched before), then write startup, linker script, clocks and the 10 ms tick.
 2. B1: the cluster app on the emulator with a fake property source.
 3. C1: `can_replay.py` once a CAN adapter is chosen.
+
+## 6. Android emulator (installed 2026-10-15)
+- Android Studio 2026.2.1.8 (winget `Google.AndroidStudio`), SDK in `%LOCALAPPDATA%\Android\Sdk` with command-line tools, emulator 37.2.12, platform-tools and `platforms;android-35`.
+- Image `system-images;android-35-ext15;android-automotive;x86_64` (Android 15, Google APIs, no Play Store). **Not Android 16**: Google publishes no automotive image newer than API 35 in the stable channel, while the NXP tree is `automotive-16.0.0`, so API behaviour can differ; the real target stays the EVK.
+- AVD `aaos_cluster` (device `automotive_1024p_landscape`). Verified headless boot: `sys.boot_completed`, release 15, characteristics `automotive`, `car_service` and the `IVehicle` HAL present. `cmd car_service inject-vhal-event` exists, which is the planned way to feed B1 fake properties.
+- Start: `emulator -avd aaos_cluster -no-window -no-audio -gpu swiftshader_indirect` (drop `-no-window` to see it). `sdkmanager` is a deprecated shim for Google's new Android CLI and splits package ids at `;`: quote them as `'"platforms;android-35"'` in PowerShell.
+- A round 720x720 cluster is not a stock device definition; B1 will need a secondary/distant display or a custom hardware profile.

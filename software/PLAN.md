@@ -57,20 +57,24 @@ A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watch
 3. `software/check.sh` (**done**): host firmware tests, `make arm-check`, `make arm` and the image inspection, in WSL. The protocol checks need cantools, which WSL's python3 lacks (and it has no pip), so the script prints a SKIPPED line there; run `python protocol/test_protocol.py` from Windows.
 
 
-### D. Dial HMI and Bluetooth settings (asked 2026-10-16, NOT started, after the gauge look is settled)
+### D. Dial HMI (asked 2026-10-16; decisions made, build NOT started: after the gauge look is settled)
 
-The owner wants a C or C++ model of the dial-driven human interface so the UI/UX can be worked on quickly, the way `gauges-fw/test/harness.c` does for the screens, and later wants the user to connect over Bluetooth and change further settings.
+The owner wants a C or C++ model of the dial-driven interface so the UI/UX can be worked on quickly, the way `gauges-fw/test/harness.c` does for the screens.
 
-| # | Step | Needs |
+**Decided by the owner, 2026-10-16:**
+1. **All interfacing goes through the Android (centre) screen, for every decision.** The four small screens are display only: no menus, no input handling.
+2. **Settings live in Android** (the app keeps them; the gauges board keeps a copy in flash, as the protocol already does).
+3. **Bluetooth is for Android Auto / CarPlay in the future.** It is not a settings channel: there is no phone settings app.
+4. **Dial: the Piher PSC-360 variant with the push-button click**, one part. Exact feel is not a requirement; it only has to be a workable way to navigate.
+
+What this means: the user interface is the Android app's centre display, driven by the dial's events (turn left or right, click, long press). The settings list (theme, units, no-phone screen, map shape) already exists there (`core/Settings`, `SettingsView`); the dial navigates it with DPAD keys. Open: whether a held turn or a double click is needed, which only the UX work will tell.
+
+| # | Step | State |
 |---|---|---|
-| D0 | Decide the open questions below | the owner |
-| D1 | `hmi` library in C: input events (turn left/right, click, long press, held turn), a menu tree and state machine, no drawing and no hardware, host-tested; the same code can run on the S32K144 and in the harness | D0 |
-| D2 | A simulated dial in the harness (keys and mouse wheel: wheel = turn, click, hold), so every menu flow is tried on the desktop; replayable input recordings for regression tests | D1 |
-| D3 | Drawing of the menus with the existing renderer (`gfx`, bitmap fonts), tuned for the round screens | D1 |
-| D4 | Settings model shared with Android (`Settings`: theme, units, no-phone screen, map shape, brightness, tach options, ...), one list that the dial menu, the Android settings list and the phone read and write | D1 |
-| D5 | Bluetooth: pairing, the profile, the phone side. Not designed | D0, Verdin BT/Wi-Fi module details |
-
-Open questions for D0 (nothing here is decided): (1) which screen shows the menu: the centre round display, the four small screens, or both (the small screens run C on the gauges board and keep working with Android off; the centre runs Android); (2) who owns the settings and where they live: Android with a copy in the gauges' flash (the protocol today), or the gauges board; (3) Bluetooth: classic or BLE, a custom phone app or a web page over Web Bluetooth, what may be changed without pairing, and what needs the key on; (4) the dial itself: Piher PSC-360 plus a separate click switch is the current plan (docs list a push-button variant as unconfirmed): detents or smooth, and how long is a long press. The HMI events above depend on (4).
+| D1 | A desktop UX simulator in C++ of the round centre display with a simulated dial (mouse wheel = turn, click, hold), so menu flows and layouts are tried instantly; replayable input recordings | not started |
+| D2 | Decide how the C++ UX work reaches the product: **prototype, then port to the Android app** (recommended: nothing shared, fast to iterate), or share a native core with the Android app through the NDK (one source, heavier) | open question to the owner |
+| D3 | Dial service on Android: ADC angle + click to key and rotary events (`android/rotary-service`, B4); needs the Verdin and the display board | not started (hardware) |
+| D4 | A phone connection for Android Auto / CarPlay over Bluetooth (B5), licensing first | not started |
 
 ## 3. Decisions
 Made by the user, 2026-10-14:

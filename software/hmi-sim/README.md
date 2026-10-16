@@ -11,7 +11,7 @@ turn left, turn right, click, long press. The menu flows here are a **proposal t
 
 | Where | Click | Hold (0.6 s) | Turn |
 |---|---|---|---|
-| Home | maps / gauge | open Settings | (the phone's own focus) |
+| Home | maps / gauge | open Settings | maps / gauge |
 | Settings list | edit the row (Back leaves) | back to Home | move the selection |
 | Editing a row | keep the value | cancel, restore | change the value (small screens follow live) |
 

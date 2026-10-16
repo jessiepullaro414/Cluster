@@ -72,6 +72,27 @@ public final class Settings {
         return carPlayOpen && matchCarPlay ? THEME_CARPLAY : clampTheme(theme);
     }
 
+    /** One step of a row in either direction (the dial turns both ways). Two-value rows flip. */
+    public void step(Row r, int dir) {
+        switch (r) {
+            case THEME: theme = ((clampTheme(theme) + dir) % THEME_NAMES.length + THEME_NAMES.length) % THEME_NAMES.length; break;
+            case MAP_SHAPE: {
+                Aspect[] all = Aspect.values();
+                aspect = all[((aspect.ordinal() + dir) % all.length + all.length) % all.length];
+                break;
+            }
+            default: cycle(r);
+        }
+    }
+
+    public void copyFrom(Settings o) {
+        theme = o.theme;
+        matchCarPlay = o.matchCarPlay;
+        imperial = o.imperial;
+        noPhone = o.noPhone;
+        aspect = o.aspect;
+    }
+
     public static int clampTheme(int t) {
         return t >= 0 && t < THEME_NAMES.length ? t : 0;
     }

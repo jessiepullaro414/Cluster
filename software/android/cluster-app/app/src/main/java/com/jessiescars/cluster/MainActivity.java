@@ -11,7 +11,11 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.util.Log;
+import android.view.InputDevice;
 import android.view.KeyEvent;
+import android.view.MotionEvent;
+import android.view.ViewConfiguration;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -22,6 +26,7 @@ import com.jessiescars.cluster.core.CenterLogic;
 import com.jessiescars.cluster.core.CenterLogic.Aspect;
 import com.jessiescars.cluster.core.CenterLogic.Content;
 import com.jessiescars.cluster.core.CenterLogic.NoPhone;
+import com.jessiescars.cluster.core.DialUi;
 import com.jessiescars.cluster.core.DriveScenario;
 import com.jessiescars.cluster.core.Settings;
 import com.jessiescars.cluster.core.Telemetry;
@@ -49,7 +54,7 @@ import com.jessiescars.cluster.core.VehicleState;
  * default 10.0.2.2:5005, the PC the emulator runs on). The real source (the VHAL bridge) replaces only the fake
  * one; the views only ever see a VehicleState. There are no turn indicators: the dash has physical ones.
  */
-public class MainActivity extends Activity implements SettingsView.Listener {
+public class MainActivity extends Activity implements DialUi.Host {
     static final String ACTION_SET = "com.jessiescars.cluster.SET";
     static final String ACTION_CLEAR = "com.jessiescars.cluster.CLEAR";
     private static final long TICK_MS = 50;            // 20 updates per second
@@ -72,6 +77,8 @@ public class MainActivity extends Activity implements SettingsView.Listener {
     private Content shown;
     private boolean settingsOpen;
     private final Settings settings = new Settings();
+    private final DialUi dial = new DialUi(settings, this);
+    private long dialDownAt = -1;                      // when the dial button went down, -1 when it is up
     private final TelemetryPublisher telemetry = new TelemetryPublisher();
 
     private final Runnable tick = new Runnable() {
@@ -85,6 +92,9 @@ public class MainActivity extends Activity implements SettingsView.Listener {
             maps.setState(s);
             // development feed for the small screens; while the centre shows the speedometer they do not repeat speed
             telemetry.publish(Telemetry.encode(s, settings.imperial, look, shown == Content.GAUGE && !settingsOpen));
+            if (dialDownAt >= 0 && settingsOpen) {
+                settingsView.setHoldProgress(Math.min(1f, (SystemClock.elapsedRealtime() - dialDownAt) / (float) ViewConfiguration.getLongPressTimeout()));
+            }
             handler.postDelayed(this, TICK_MS);
         }
     };
@@ -146,7 +156,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
         gauge = new ClusterView(this);
         maps = new ProjectionView(this);
         home = new HomeView(this);
-        settingsView = new SettingsView(this, settings, this);
+        settingsView = new SettingsView(this, settings, dial);
 
         FrameLayout root = new FrameLayout(this);
         root.addView(gauge);
@@ -191,6 +201,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
     @Override public void onClose() { setSettingsOpen(false); }
 
     private void setSettingsOpen(boolean open) {
+        if (open && !settingsOpen) dial.open();
         settingsOpen = open;
         settingsView.setVisibility(open ? View.VISIBLE : View.GONE);
         if (open) settingsView.invalidate();
@@ -216,28 +227,124 @@ public class MainActivity extends Activity implements SettingsView.Listener {
         settingsView.invalidate();
     }
 
-    /** The rotary dial arrives as DPAD keys. In the settings list it moves and changes; otherwise a click flips maps and gauge. */
-    @Override public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_MENU) { setSettingsOpen(!settingsOpen); return true; }
-        if (settingsOpen) {
-            switch (keyCode) {
-                case KeyEvent.KEYCODE_DPAD_UP: settingsView.move(-1); return true;
-                case KeyEvent.KEYCODE_DPAD_DOWN: settingsView.move(+1); return true;
-                case KeyEvent.KEYCODE_DPAD_CENTER:
-                case KeyEvent.KEYCODE_ENTER: settingsView.activate(); return true;
-                case KeyEvent.KEYCODE_BACK: setSettingsOpen(false); return true;
-                default: break;
-            }
-            return super.onKeyUp(keyCode, event);
+    /** Development: every key and rotary event that reaches the app is logged (adb logcat -s ClusterInput). */
+    @Override public boolean dispatchKeyEvent(KeyEvent e) {
+        Log.i("ClusterInput", "key " + KeyEvent.keyCodeToString(e.getKeyCode()) + " action=" + e.getAction() + " repeat=" + e.getRepeatCount()
+                + " source=0x" + Integer.toHexString(e.getSource()) + " device=" + e.getDeviceId());
+        return super.dispatchKeyEvent(e);
+    }
+
+    @Override public boolean dispatchGenericMotionEvent(MotionEvent e) {
+        Log.i("ClusterInput", "motion action=" + e.getActionMasked() + " source=0x" + Integer.toHexString(e.getSource())
+                + " scroll=" + e.getAxisValue(MotionEvent.AXIS_SCROLL) + " vscroll=" + e.getAxisValue(MotionEvent.AXIS_VSCROLL));
+        return super.dispatchGenericMotionEvent(e);
+    }
+
+    // ---- the dial -----------------------------------------------------------------------------------------
+    // The AAOS rotary controller delivers: rotation as KEYCODE_NAVIGATE_NEXT / PREVIOUS (or as scroll events from a
+    // rotary encoder), nudges as DPAD keys, and the button as DPAD_CENTER (a long press arrives as a repeating key).
+    // Flow (same as the desktop simulator, hmi-sim): Home: turn or click flips maps / gauge, hold opens the settings;
+    // settings: see core/DialUi.
+
+    /** +1 clockwise, -1 counter-clockwise, 0 not a turn. Nudges count as turns: one dial, two directions. */
+    private static int turnOf(int keyCode) {
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_NAVIGATE_NEXT:
+            case KeyEvent.KEYCODE_DPAD_DOWN:
+            case KeyEvent.KEYCODE_DPAD_RIGHT:
+                return +1;
+            case KeyEvent.KEYCODE_NAVIGATE_PREVIOUS:
+            case KeyEvent.KEYCODE_DPAD_UP:
+            case KeyEvent.KEYCODE_DPAD_LEFT:
+                return -1;
+            default:
+                return 0;
         }
-        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
-            if (phoneProjecting) {
-                flippedToGauge = !flippedToGauge;
-                refreshContent();
+    }
+
+    private static boolean isClick(int keyCode) {
+        return keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER;
+    }
+
+    private void turn(int dir) {
+        if (settingsOpen) {
+            dial.handle(dir > 0 ? DialUi.Event.RIGHT : DialUi.Event.LEFT);
+            settingsView.invalidate();
+        } else if (phoneProjecting) {
+            flippedToGauge = !flippedToGauge;               // turning on Home flips between the maps and the speedometer
+            refreshContent();
+        }
+    }
+
+    private void click() {
+        if (settingsOpen) {
+            dial.handle(DialUi.Event.CLICK);
+            settingsView.invalidate();
+        } else if (phoneProjecting) {
+            flippedToGauge = !flippedToGauge;
+            refreshContent();
+        }
+    }
+
+    private void longPress() {
+        if (settingsOpen) {
+            dial.handle(DialUi.Event.LONG);                 // cancels an edit, or closes the list
+            settingsView.invalidate();
+        } else {
+            setSettingsOpen(true);
+        }
+    }
+
+    @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (isClick(keyCode)) {
+            if (event.getRepeatCount() == 0) {
+                event.startTracking();                      // a long press then arrives in onKeyLongPress
+                dialDownAt = SystemClock.elapsedRealtime();
             }
             return true;
         }
+        int d = turnOf(keyCode);
+        if (d != 0) {
+            turn(d);
+            return true;
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (isClick(keyCode)) {
+            dialDownAt = -1;
+            settingsView.setHoldProgress(0f);
+            longPress();
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
+    }
+
+    @Override public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU) { setSettingsOpen(!settingsOpen); return true; }
+        if (keyCode == KeyEvent.KEYCODE_BACK && settingsOpen) { longPress(); return true; }       // back = hold: cancel, then close
+        if (isClick(keyCode)) {
+            dialDownAt = -1;
+            settingsView.setHoldProgress(0f);
+            if (event.isTracking() && !event.isCanceled()) click();                                 // not a long press
+            return true;
+        }
+        if (turnOf(keyCode) != 0) return true;
         return super.onKeyUp(keyCode, event);
+    }
+
+    /** Rotation from a rotary encoder device. Which sign is clockwise is the encoder's convention: ROTARY_CLOCKWISE_SIGN. */
+    private static final float ROTARY_CLOCKWISE_SIGN = 1f;      // UNVERIFIED on hardware: the emulator sends keys, not scroll events
+
+    @Override public boolean onGenericMotionEvent(MotionEvent e) {
+        if ((e.getSource() & InputDevice.SOURCE_ROTARY_ENCODER) != 0 && e.getActionMasked() == MotionEvent.ACTION_SCROLL) {
+            float v = e.getAxisValue(MotionEvent.AXIS_SCROLL) * ROTARY_CLOCKWISE_SIGN;
+            int n = Math.max(1, Math.round(Math.abs(v)));
+            for (int i = 0; i < n; i++) turn(v >= 0f ? +1 : -1);
+            return true;
+        }
+        return super.onGenericMotionEvent(e);
     }
 
     @Override protected void onResume() {

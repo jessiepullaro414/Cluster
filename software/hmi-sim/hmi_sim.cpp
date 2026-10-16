@@ -453,7 +453,9 @@ static int run_selftest() {
         Ui ui;
         CHECK(ui.screen() == Screen::Home && !ui.gauge_view(), "starts on Home, maps");
         ui.handle(Input::TurnRight);
-        CHECK(ui.screen() == Screen::Home, "turning on Home does nothing");
+        CHECK(ui.screen() == Screen::Home && ui.gauge_view(), "turning on Home flips maps / gauge");
+        ui.handle(Input::TurnLeft);
+        CHECK(!ui.gauge_view(), "and back");
         ui.handle(Input::Click);
         CHECK(ui.gauge_view(), "click on Home flips to gauge");
         ui.handle(Input::Click);

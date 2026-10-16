@@ -7,7 +7,7 @@
 // this file does. The flows here are a PROPOSAL to try and change, not a decision.
 //
 // Flows:
-//   Home          click: flip between maps and gauge   long press: open Settings   turn: (the phone's focus)
+//   Home          click or turn: flip between maps and gauge   long press: open Settings
 //   Settings      turn: move selection   click: edit the row (or Back)   long press: back to Home
 //   (The small screens take the CarPlay look while a phone shows CarPlay, if "With CarPlay" is on.)
 //   Edit a row    turn: change the value (theme and units apply at once to the small screens)
@@ -145,9 +145,8 @@ public:
 
 private:
     void home(Input in) {
-        if (in == Input::Click) gauge_view_ = !gauge_view_;
+        if (in == Input::Click || in == Input::TurnLeft || in == Input::TurnRight) gauge_view_ = !gauge_view_;     // turn or click flips maps / gauge
         else if (in == Input::LongPress) { screen_ = Screen::Settings; row_ = Row::Theme; }
-        // turning on Home belongs to the phone (Android Auto / CarPlay focus), not to this menu
     }
     void list(Input in) {
         int n = kRows;

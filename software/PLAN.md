@@ -56,6 +56,22 @@ A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watch
 2. Generate more of the protocol side: C decode helpers (A3) and a C++/Kotlin decode table from the same Python table, so firmware, bridge and DBC cannot drift.
 3. `software/check.sh` (**done**): host firmware tests, `make arm-check`, `make arm` and the image inspection, in WSL. The protocol checks need cantools, which WSL's python3 lacks (and it has no pip), so the script prints a SKIPPED line there; run `python protocol/test_protocol.py` from Windows.
 
+
+### D. Dial HMI and Bluetooth settings (asked 2026-10-16, NOT started, after the gauge look is settled)
+
+The owner wants a C or C++ model of the dial-driven human interface so the UI/UX can be worked on quickly, the way `gauges-fw/test/harness.c` does for the screens, and later wants the user to connect over Bluetooth and change further settings.
+
+| # | Step | Needs |
+|---|---|---|
+| D0 | Decide the open questions below | the owner |
+| D1 | `hmi` library in C: input events (turn left/right, click, long press, held turn), a menu tree and state machine, no drawing and no hardware, host-tested; the same code can run on the S32K144 and in the harness | D0 |
+| D2 | A simulated dial in the harness (keys and mouse wheel: wheel = turn, click, hold), so every menu flow is tried on the desktop; replayable input recordings for regression tests | D1 |
+| D3 | Drawing of the menus with the existing renderer (`gfx`, bitmap fonts), tuned for the round screens | D1 |
+| D4 | Settings model shared with Android (`Settings`: theme, units, no-phone screen, map shape, brightness, tach options, ...), one list that the dial menu, the Android settings list and the phone read and write | D1 |
+| D5 | Bluetooth: pairing, the profile, the phone side. Not designed | D0, Verdin BT/Wi-Fi module details |
+
+Open questions for D0 (nothing here is decided): (1) which screen shows the menu: the centre round display, the four small screens, or both (the small screens run C on the gauges board and keep working with Android off; the centre runs Android); (2) who owns the settings and where they live: Android with a copy in the gauges' flash (the protocol today), or the gauges board; (3) Bluetooth: classic or BLE, a custom phone app or a web page over Web Bluetooth, what may be changed without pairing, and what needs the key on; (4) the dial itself: Piher PSC-360 plus a separate click switch is the current plan (docs list a push-button variant as unconfirmed): detents or smooth, and how long is a long press. The HMI events above depend on (4).
+
 ## 3. Decisions
 Made by the user, 2026-10-14:
 1. **Own register layer**, written from the S32K144 Reference Manual (no NXP SDK, no login). Every address and bit is checked against the RM's register diagrams, as in `ecu-firmware`.

@@ -7,7 +7,11 @@
 
 typedef struct x11win x11win_t;
 
-typedef enum { HEV_NONE = 0, HEV_QUIT, HEV_KEY, HEV_RESIZE } hev_type_t;
+typedef enum { HEV_NONE = 0, HEV_QUIT, HEV_KEY, HEV_RESIZE,
+               HEV_KEY_UP,        /* a key was released (key = the same code as HEV_KEY) */
+               HEV_WHEEL,         /* mouse wheel: key = +1 up, -1 down */
+               HEV_MOUSE_DOWN,    /* key = button 1..3 */
+               HEV_MOUSE_UP } hev_type_t;
 
 typedef struct {
     hev_type_t type;

@@ -57,7 +57,7 @@ A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watch
 3. `software/check.sh` (**done**): host firmware tests, `make arm-check`, `make arm` and the image inspection, in WSL. The protocol checks need cantools, which WSL's python3 lacks (and it has no pip), so the script prints a SKIPPED line there; run `python protocol/test_protocol.py` from Windows.
 
 
-### D. Dial HMI (asked 2026-10-16; decisions made, build NOT started: after the gauge look is settled)
+### D. Dial HMI (asked 2026-10-16; D1 proof of concept built 2026-10-16)
 
 The owner wants a C or C++ model of the dial-driven interface so the UI/UX can be worked on quickly, the way `gauges-fw/test/harness.c` does for the screens.
 
@@ -71,8 +71,8 @@ What this means: the user interface is the Android app's centre display, driven 
 
 | # | Step | State |
 |---|---|---|
-| D1 | A desktop UX simulator in C++ of the round centre display with a simulated dial (mouse wheel = turn, click, hold), so menu flows and layouts are tried instantly; replayable input recordings | not started |
-| D2 | Decide how the C++ UX work reaches the product: **prototype, then port to the Android app** (recommended: nothing shared, fast to iterate), or share a native core with the Android app through the NDK (one source, heavier) | open question to the owner |
+| D1 | A desktop UX simulator in C++ of the round centre display with a simulated dial (mouse wheel = turn, click, hold). **Proof of concept built 2026-10-16: `hmi-sim/`** (state machine in `hmi.h`, window + scripted shots + selftest in `hmi_sim.cpp`; drives the real small-screen code). Not yet: replayable recordings, owner feedback on the flows | proof of concept done |
+| D2 | Decide how the C++ UX work reaches the product: **prototype, then port to the Android app** (the owner said "prototype then port" for this POC; flows in hmi.h are a proposal to try, port the agreed ones to `SettingsView`) | prototype-then-port chosen for the POC; port after the owner tries it |
 | D3 | Dial service on Android: ADC angle + click to key and rotary events (`android/rotary-service`, B4); needs the Verdin and the display board | not started (hardware) |
 | D4 | A phone connection for Android Auto / CarPlay over Bluetooth (B5), licensing first | not started |
 

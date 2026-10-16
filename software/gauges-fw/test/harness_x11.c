@@ -41,7 +41,7 @@ x11win_t *x11_open(int w, int h, const char *title)
     x->win = XCreateSimpleWindow(d, RootWindow(d, x->screen), 80, 80, (unsigned)w, (unsigned)h, 0,
                                  BlackPixel(d, x->screen), BlackPixel(d, x->screen));
     XStoreName(d, x->win, title);
-    XSelectInput(d, x->win, ExposureMask | KeyPressMask | StructureNotifyMask);
+    XSelectInput(d, x->win, ExposureMask | KeyPressMask | KeyReleaseMask | ButtonPressMask | ButtonReleaseMask | StructureNotifyMask);
     x->wm_delete = XInternAtom(d, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(d, x->win, &x->wm_delete, 1);
     x->gc = XCreateGC(d, x->win, 0, 0);
@@ -110,6 +110,33 @@ bool x11_poll(x11win_t *x, hev_t *out)
             if (out->type == HEV_KEY) return true;
             break;
         }
+        case KeyRelease: {
+            char buf[8];
+            KeySym ks = 0;
+            int n = XLookupString(&e.xkey, buf, sizeof buf, &ks, 0);
+            int code = 0;
+            switch (ks) {
+            case XK_Up: code = HK_UP; break;
+            case XK_Down: code = HK_DOWN; break;
+            case XK_Left: code = HK_LEFT; break;
+            case XK_Right: code = HK_RIGHT; break;
+            case XK_Escape: code = HK_ESC; break;
+            case XK_Return: code = HK_ENTER; break;
+            case XK_BackSpace: code = HK_BACKSPACE; break;
+            default: if (n == 1 && (unsigned char)buf[0] >= 32 && (unsigned char)buf[0] < 127) code = (unsigned char)buf[0]; break;
+            }
+            if (code) { out->type = HEV_KEY_UP; out->key = code; return true; }
+            break;
+        }
+        case ButtonPress:
+            if (e.xbutton.button == 4) { out->type = HEV_WHEEL; out->key = +1; return true; }
+            if (e.xbutton.button == 5) { out->type = HEV_WHEEL; out->key = -1; return true; }
+            out->type = HEV_MOUSE_DOWN; out->key = (int)e.xbutton.button;
+            return true;
+        case ButtonRelease:
+            if (e.xbutton.button == 4 || e.xbutton.button == 5) break;
+            out->type = HEV_MOUSE_UP; out->key = (int)e.xbutton.button;
+            return true;
         default:
             break;
         }

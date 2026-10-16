@@ -13,7 +13,7 @@ HW := src/panel_hal_s32k.c
 # Sources of the screen chain for tests that use the mock panel.
 SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/gfx.c src/gc9a01.c src/screens.c
 
-.PHONY: test stubs arm-check arm preview bench clean
+.PHONY: test stubs arm-check arm preview bench live clean
 test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01
 	./build/test_aggregate
 	./build/test_codec
@@ -62,6 +62,14 @@ preview: build/preview
 build/preview: test/preview.c $(SCREEN) inc/aux_display.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -Itest -o $@ test/preview.c $(SCREEN) -lm
+
+# Live host run of the real screen chain, fed with text lines on stdin (see test/screens_live.c and
+# tools/live_screens.py, which starts it and shows the screens).
+live: build/screens_live
+
+build/screens_live: test/screens_live.c $(SCREEN) inc/aux_display.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -D_POSIX_C_SOURCE=200809L -Itest -o $@ test/screens_live.c $(SCREEN) -lm
 
 # Counts the rendering work of typical updates (operations, not time).
 bench: build/bench_render

@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- Development feed of the vehicle state to the PC (UDP, see TelemetryPublisher). Not needed in
+         the car, where the data comes from the gauges board over CAN. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:label="Cluster"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"

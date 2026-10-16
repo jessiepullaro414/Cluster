@@ -23,6 +23,7 @@ import com.jessiescars.cluster.core.CenterLogic.Aspect;
 import com.jessiescars.cluster.core.CenterLogic.Content;
 import com.jessiescars.cluster.core.CenterLogic.NoPhone;
 import com.jessiescars.cluster.core.DriveScenario;
+import com.jessiescars.cluster.core.Telemetry;
 import com.jessiescars.cluster.core.VehicleState;
 
 /**
@@ -40,8 +41,10 @@ import com.jessiescars.cluster.core.VehicleState;
  * float extras: speed_kph, rpm, dimmer. boolean extras: night, link_dead,
  * turn_left, high_beam, brake, alt, oil, phone (a phone is projecting), flip
  * (show the gauge instead of maps). string extras: no_phone (gauge|home, saved),
- * aspect (square|4:3|16:9, saved). The real source (the VHAL bridge) replaces
- * only the fake one; the views only ever see a VehicleState.
+ * aspect (square|4:3|16:9, saved), units (mph|kph: units on the small screens),
+ * telemetry (off | host | host:port: where the development feed for the small screens
+ * goes; default 10.0.2.2:5005, the PC the emulator runs on). The real source (the VHAL
+ * bridge) replaces only the fake one; the views only ever see a VehicleState.
  */
 public class MainActivity extends Activity {
     static final String ACTION_SET = "com.jessiescars.cluster.SET";
@@ -63,6 +66,8 @@ public class MainActivity extends Activity {
     private boolean flippedToGauge;
     private NoPhone noPhone = NoPhone.GAUGE;
     private Content shown;
+    private boolean imperial = true;                   // mph, F, psi on the small screens
+    private final TelemetryPublisher telemetry = new TelemetryPublisher();
 
     private final Runnable tick = new Runnable() {
         @Override public void run() {
@@ -70,6 +75,7 @@ public class MainActivity extends Activity {
             VehicleState s = DriveScenario.at(t, override);
             gauge.setState(s);
             maps.setState(s);
+            telemetry.publish(Telemetry.encode(s, imperial));   // development feed for the small screens
             handler.postDelayed(this, TICK_MS);
         }
     };
@@ -95,6 +101,11 @@ public class MainActivity extends Activity {
             if (i.hasExtra("brake")) override.brake = i.getBooleanExtra("brake", false);
             if (i.hasExtra("alt")) override.alternator = i.getBooleanExtra("alt", false);
             if (i.hasExtra("oil")) override.oil = i.getBooleanExtra("oil", false);
+            if (i.hasExtra("units")) {
+                String u = i.getStringExtra("units");
+                imperial = !"kph".equalsIgnoreCase(u == null ? "" : u.trim()) && !"metric".equalsIgnoreCase(u == null ? "" : u.trim());
+            }
+            if (i.hasExtra("telemetry")) telemetry.configure(i.getStringExtra("telemetry"));
             if (i.hasExtra("phone")) phoneProjecting = i.getBooleanExtra("phone", true);
             if (i.hasExtra("flip")) flippedToGauge = i.getBooleanExtra("flip", false);
             if (i.hasExtra("no_phone")) {
@@ -176,6 +187,11 @@ public class MainActivity extends Activity {
         handler.removeCallbacks(tick);
         unregisterReceiver(debug);
         super.onPause();
+    }
+
+    @Override protected void onDestroy() {
+        telemetry.close();
+        super.onDestroy();
     }
 
     private void hideSystemBars() {

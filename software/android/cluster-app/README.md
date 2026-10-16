@@ -68,6 +68,10 @@ adb shell am broadcast -a com.jessiescars.cluster.SET --es aspect square --ez fl
 adb shell am broadcast -a com.jessiescars.cluster.CLEAR
 ```
 
+## Feeding the small gauge screens (development)
+
+`TelemetryPublisher` sends `core/Telemetry.encode(state)` (one ASCII line, km/h, rpm, V, %, degC, kPa, `-` for an unavailable reading) over UDP to `10.0.2.2:5005` every 50 ms. `../../gauges-fw/tools/live_screens.py` receives it and drives the C screen code, so the four small screens can be watched moving with the same data as the centre display. Extras on the debug broadcast: `--es units mph|kph` (units on the small screens) and `--es telemetry off|host|host:port`. Needs the `INTERNET` permission, which the car build does not need.
+
 ## Known limits
 
 - The "<" at the left edge in emulator screenshots is the stock AAOS system UI. The production image replaces SystemUI.

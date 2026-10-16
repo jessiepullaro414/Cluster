@@ -57,6 +57,18 @@ What is shown where is `inc/screens.h` (default left to right: fuel + volts, spe
 
 Four screens updating 15 times a second is about 3.5 Mbit/s, roughly a third of the bus. Tricks used: tiles are 8x8; only the tiles under the old and new needle are resent; only the digits that changed are resent; the needle moves in whole degrees; rpm is shown to the nearest 10. CPU cost per small update is about 2 to 3 ms (operation counts times an **assumed** cost per operation: not measured on hardware). The SPI transfers block the CPU; DMA would free it and is the next optimisation.
 
+**Watch them live, fed by Android.** `python tools/live_screens.py` (Windows; `--build` builds the C side in WSL first, `--demo` feeds a built-in drive with no emulator) opens http://localhost:8765 with the four round screens. The Android app (`../android/cluster-app`) sends its vehicle state as one UDP line every 50 ms to `10.0.2.2:5005` (the PC, as seen from the emulator); the script pipes it into `test/screens_live.c`, which runs the real screen code in the firmware's loop shape (10 ms tick, 12 tile runs per tick) into the mock panel, and the page shows what the four panels hold plus the bus load. With no data for one second the C side shows dashes, as the firmware would. The data direction is a development convenience: in the car the gauges board is the source and Android only reads.
+
+```
+python tools/live_screens.py --build          # first time, or after C changes
+adb shell am broadcast -a com.jessiescars.cluster.SET --ef speed_kph 120 --ef rpm 6500
+adb shell am broadcast -a com.jessiescars.cluster.SET --es units kph      # metric on the small screens
+adb shell am broadcast -a com.jessiescars.cluster.SET --ez link_dead true # Android reports no data: dashes
+adb shell am broadcast -a com.jessiescars.cluster.CLEAR
+```
+
+A frame taken while a large redraw is still being sent (a units switch touches about 760 tiles per screen) shows half-drawn digits for a few ticks; that is what the real panel would show too, and it settles in well under a second.
+
 **Verification.** The property test replays 720 random updates (all four layouts, both unit systems, valid and invalid inputs) and requires the patched panel to equal a full redraw and equal a render straight from the model; twelve deliberate breakages of the tile marking and the rasteriser are each caught. The mock panel enforces the GC9A01 protocol: chip select framing, the FEh/EFh unlock before level-3 registers, COLMOD before pixel writes, 5 ms after Sleep Out, no display-on too early, no pixels outside the window. `tools/check_vendor_block.py` re-derives the register tables from the open-source reference and compares them byte for byte; `tools/check_pins.py` checks the HAL's pins against `gauges_pins.h`.
 
 **Not verified, and why (needs hardware or Raystar):**

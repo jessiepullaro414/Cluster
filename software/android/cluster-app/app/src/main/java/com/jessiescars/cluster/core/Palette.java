@@ -8,10 +8,13 @@ package com.jessiescars.cluster.core;
  */
 public final class Palette {
     public final boolean night;
+    /** 1.0 by day; 0.2..1.0 at night following the dimmer. Multiply any other colour by this to match. */
+    public final float level;
     public final int background, track, accent, text, textDim, redline, warning, good, blue;
 
     private Palette(boolean night, int accent, int text, int textDim, int track, float level) {
         this.night = night;
+        this.level = level;
         this.background = 0xFF000000;
         this.accent = scale(accent, level);
         this.text = scale(text, level);

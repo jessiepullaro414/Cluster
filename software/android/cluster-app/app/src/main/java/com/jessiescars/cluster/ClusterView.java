@@ -3,7 +3,6 @@ package com.jessiescars.cluster;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.view.View;
@@ -35,9 +34,8 @@ public class ClusterView extends View {
     private final Paint arc = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint line = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF oval = new RectF();
-    private final Path path = new Path();
+    private final Lamps lamps = new Lamps();
 
     private VehicleState state = new VehicleState();
     private Units units = Units.MPH;
@@ -48,7 +46,6 @@ public class ClusterView extends View {
         line.setStyle(Paint.Style.STROKE);
         line.setStrokeCap(Paint.Cap.BUTT);
         text.setTextAlign(Paint.Align.CENTER);
-        fill.setStyle(Paint.Style.FILL);
         setBackgroundColor(0xFF000000);
         setOnClickListener(v -> {                       // tap toggles the units
             units = units == Units.MPH ? Units.KPH : Units.MPH;
@@ -171,40 +168,10 @@ public class ClusterView extends View {
 
     private void drawTop(Canvas c, Palette p, VehicleState v) {
         // Kept inside the rpm ring (inner edge at radius about 215 from the centre).
-        if (v.turnLeft.on()) arrow(c, 296f, 214f, -1, p.good);
-        if (v.turnRight.on()) arrow(c, 424f, 214f, +1, p.good);
-        if (v.highBeam.on()) pill(c, 360f, 214f, "HI", p.blue, 56f);
+        lamps.drawTop(c, p, v, C, 214f, 64f);
     }
 
     private void drawLamps(Canvas c, Palette p, VehicleState v) {
-        if (v.brakeWarning.on()) pill(c, 268f, 628f, "BRAKE", p.redline, 92f);
-        if (v.alternatorWarning.on()) pill(c, 360f, 628f, "ALT", p.redline, 74f);
-        if (v.oilWarning.on()) pill(c, 452f, 628f, "OIL", p.redline, 74f);
-    }
-
-    /** Solid arrow centred on (x, y) pointing left (dir -1) or right (+1). */
-    private void arrow(Canvas c, float x, float y, int dir, int color) {
-        fill.setColor(color);
-        path.reset();
-        path.moveTo(x + dir * 26f, y);
-        path.lineTo(x - dir * 4f, y - 26f);
-        path.lineTo(x - dir * 4f, y - 10f);
-        path.lineTo(x - dir * 26f, y - 10f);
-        path.lineTo(x - dir * 26f, y + 10f);
-        path.lineTo(x - dir * 4f, y + 10f);
-        path.lineTo(x - dir * 4f, y + 26f);
-        path.close();
-        c.drawPath(path, fill);
-    }
-
-    /** Lit warning lamp: solid rounded plate with dark lettering. */
-    private void pill(Canvas c, float x, float y, String label, int color, float w) {
-        fill.setColor(color);
-        oval.set(x - w / 2f, y - 18f, x + w / 2f, y + 18f);
-        c.drawRoundRect(oval, 10f, 10f, fill);
-        text.setColor(0xFF000000);
-        text.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        text.setTextSize(22f);
-        c.drawText(label, x, y + 8f, text);
+        lamps.drawWarnings(c, p, v, C, 628f);
     }
 }

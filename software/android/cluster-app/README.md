@@ -1,8 +1,21 @@
-# cluster-app (B1: UI on the emulator, fake data source)
+# cluster-app (B1: centre display on the emulator, fake data source)
 
 Full-screen round instrument UI for the centre display. The target is a 720 x 720 round panel (TSD TST040HDBC-42, 101.5 mm active, 180 ppi); the view draws in a 720 px design space inside a circle of radius 340, so nothing important is in the cropped corners.
 
-## What it shows
+## Centre display modes (decision 2026-10-15)
+
+The centre is **CarPlay / Android Auto maps**; speed, rpm and fluids are on the four small screens (`../../gauges-fw/inc/screens.h`). `core/CenterLogic` decides what the round screen shows:
+
+| Phone projecting | Dial click | No-phone setting | Shows |
+|---|---|---|---|
+| yes | no | any | maps window (`ProjectionView`, placeholder content) |
+| yes | flipped | any | the gauge below |
+| no | n/a | gauge | the gauge below |
+| no | n/a | home | home (placeholder) |
+
+The maps window is the largest rectangle of the chosen aspect inside a 680 px safe circle: 4:3 is 544 x 408 px (default), square 481 x 481, 16:9 590 x 332. The lamps (turn, high beam, brake, alternator, oil) sit in the caps above and below it. Whether CarPlay accepts a square or 4:3 surface is **unverified**; no projection exists yet (B5), only the geometry and the placeholder.
+
+## The gauge (what it shows)
 
 | Area | Content |
 |---|---|
@@ -14,7 +27,7 @@ Full-screen round instrument UI for the centre display. The target is a 720 x 72
 | Night | headlights on (`DashLightsOn`) switches to an amber palette whose brightness follows `DashDimmerPct` (20 % to 100 %). This scales what the app draws; the panel backlight is a separate platform setting |
 | No data | link lost: every reading becomes `--`, and "NO DATA" shows. A stale value is never shown |
 
-Screenshots from the emulator are in `../emulator/shots/`.
+Screenshots from the emulator are in `../emulator/shots/` (`maps_*`, `flipped_gauge`, `nophone_*` for the centre modes).
 
 ## Layout
 
@@ -50,6 +63,8 @@ Screenshot the main display (the emulator has two, so name it; without `-d` adb 
 adb shell am broadcast -a com.jessiescars.cluster.SET --ef speed_kph 120 --ef rpm 6400 --ez night true --ef dimmer 30
 adb shell am broadcast -a com.jessiescars.cluster.SET --ez turn_left true --ez high_beam true --ez brake true --ez alt true --ez oil true
 adb shell am broadcast -a com.jessiescars.cluster.SET --ez link_dead true
+adb shell am broadcast -a com.jessiescars.cluster.SET --ez phone false --es no_phone home   # no phone; saved choice gauge|home
+adb shell am broadcast -a com.jessiescars.cluster.SET --es aspect square --ez flip true      # window shape (saved); flip = show the gauge
 adb shell am broadcast -a com.jessiescars.cluster.CLEAR
 ```
 

@@ -3,6 +3,7 @@
 #include "aux_display.h"
 #include "can_link.h"
 #include "inputs.h"
+#include "screens.h"
 #include "power.h"
 #include "senders.h"
 #include "tick.h"
@@ -29,10 +30,11 @@ static void step(uint32_t now)
     chosen_t coolant = agg_pick_car_first(car.coolant_c, senders_coolant_c(), now, CLUSTER_CAR_BUS_TIMEOUT_MS);
     chosen_t oil = agg_pick_car_first(car.oil_kpa, senders_oil_kpa(), now, CLUSTER_CAR_BUS_TIMEOUT_MS);
 
-    aux_display_gauge(0, fuel, 0.0f, 100.0f);
-    aux_display_gauge(1, oil, 0.0f, 700.0f);
-    aux_display_gauge(2, coolant, 40.0f, 130.0f);
-    aux_display_gauge(3, battery, 10.0f, 16.0f);
+    screen_values_t sv = { speed, rpm, battery, fuel, coolant, oil };
+    for (uint8_t i = 0; i < SCREEN_COUNT; i++) {
+        screen_view_t view = screens_build(&SCREENS_DEFAULT[i], &sv, cfg.units_mph);
+        aux_display_screen(i, &view);
+    }
 
     can_link_send_motion(speed.value, rpm.value, battery.value, speed.valid, rpm.valid,
                          battery.valid, speed.src == SRC_LOCAL);

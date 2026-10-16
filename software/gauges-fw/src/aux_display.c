@@ -5,5 +5,5 @@
  * buffer, backlight via the BL_EN switch (gauges/ Q2). */
 void aux_display_init(void) {}
 void aux_display_set_backlight(bool on, uint8_t pct) { (void)on; (void)pct; }
-void aux_display_gauge(uint8_t index, chosen_t v, float lo, float hi)
-{ (void)index; (void)v; (void)lo; (void)hi; }
+void aux_display_screen(uint8_t index, const screen_view_t *view)
+{ (void)index; (void)view; }

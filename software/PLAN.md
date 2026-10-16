@@ -62,9 +62,12 @@ Made by the user, 2026-10-14:
 2. **Debug probe: SEGGER J-Link.** Before buying, confirm in SEGGER's supported-device list that it covers the S32K144, and match the cable to `gauges/` J2, a Tag-Connect TC2030 footprint (our symbol has SWDIO on pin 1 and SWCLK on pin 3: check that against the Tag-Connect pinout and the J-Link's 10-pin Cortex layout, which is not the same connector).
 3. **Android platform: the user will buy one NXP 19x19 EVK; until it arrives the emulator is the platform.** B1 and B2 therefore target the emulator and host tests first.
 
+Made by the user, 2026-10-15:
+4. **The centre display stays CarPlay / Android Auto maps.** Speed, rpm and the fluids move to the four small screens (default left to right: fuel + volts, **speed**, rpm, coolant + oil; `gauges-fw/inc/screens.h`, host-tested). This also keeps speed visible with Android off or asleep. With no phone connected the centre shows what the user chose, the gauge or home (`CenterLogic`, a saved setting); the dial click flips maps and gauge. The turn and warning lamps sit in the caps above and below the map window. Open: whether CarPlay accepts a square or 4:3 surface on a 720 x 720 display (unverified; the window shape is a setting, 4:3 by default, 16:9 is the safe fallback), and what "home" is on the production image.
+
 Still open, with a recommendation:
-4. **Bare-metal cooperative loop vs RTOS.** Recommend bare-metal: one 10 ms tick, interrupts only for CAN, capture and wake.
-5. **CarPlay / Android Auto**: Apple's CarPlay program and Google's Android Auto receiver for AAOS both involve licences; which route and when is a business decision. Nothing in B1 to B4 depends on it.
+5. **Bare-metal cooperative loop vs RTOS.** Recommend bare-metal: one 10 ms tick, interrupts only for CAN, capture and wake.
+6. **CarPlay / Android Auto licensing**: Apple's CarPlay program and Google's Android Auto receiver for AAOS both involve licences; which route and when is a business decision. Nothing in B1 to B4 depends on it.
 
 ## 4. Verification discipline (same as the hardware)
 Every register address and bit comes from the Reference Manual, not memory; stubs say so. Host tests for every pure function; `make arm-check` must stay clean with `-Werror`; any message layout comes from the generated header, never retyped. Measure, then claim.

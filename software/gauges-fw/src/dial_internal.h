@@ -39,4 +39,6 @@ void dial_apply_dynamic(dial_t *d, const op_t *fresh, int n_fresh, bool rebuilt)
 void dial_modern_set_view(dial_t *d, const screen_view_t *view, bool imperial);
 /* The CarPlay-inspired theme. */
 void dial_carplay_set_view(dial_t *d, const screen_view_t *view, bool imperial);
+/* The factory theme: printed faces of the 1966 Mustang gauges (face.h) with a needle drawn over them. */
+void dial_factory_set_view(dial_t *d, const screen_view_t *view, bool imperial);
 #endif

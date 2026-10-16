@@ -223,7 +223,7 @@ struct Rig {
 
     bool phone = true;                       // a phone is showing CarPlay (key P toggles it)
     int shown_theme = -1;                    // what the small screens are set to
-    theme_t theme_of(const Model& m) const { int t = effective_theme(m, phone); return t == 0 ? THEME_CLASSIC : t == 1 ? THEME_MODERN : THEME_CARPLAY; }
+    theme_t theme_of(const Model& m) const { int t = effective_theme(m, phone); return t == 0 ? THEME_CLASSIC : t == 1 ? THEME_MODERN : t == 2 ? THEME_CARPLAY : THEME_FACTORY; }
 
     void init(mock_t* mk, const Model& start) {
         mock = mk;
@@ -303,7 +303,7 @@ struct Rig {
         char line[64];
         while (fgets(line, sizeof line, f)) {
             int v;
-            if (sscanf(line, "theme=%d", &v) == 1 && v >= 0 && v <= 2) m.theme = v;
+            if (sscanf(line, "theme=%d", &v) == 1 && v >= 0 && v <= 3) m.theme = v;
             if (sscanf(line, "match_carplay=%d", &v) == 1) m.match_carplay = v != 0;
             if (sscanf(line, "imperial=%d", &v) == 1) m.imperial = v != 0;
             if (sscanf(line, "no_phone_home=%d", &v) == 1) m.no_phone_home = v != 0;

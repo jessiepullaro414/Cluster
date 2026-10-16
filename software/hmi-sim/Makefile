@@ -3,7 +3,7 @@ FW := ../gauges-fw
 CXX ?= g++
 CC  ?= gcc
 X11INC ?= $(HOME)/x11sdk/root/usr/include
-CSRC := $(FW)/src/gfx.c $(FW)/src/font_data.c $(FW)/src/dial.c $(FW)/src/dial_modern.c $(FW)/src/dial_carplay.c $(FW)/src/aux_display.c \
+CSRC := $(FW)/src/gfx.c $(FW)/src/font_data.c $(FW)/src/face.c $(FW)/src/face_data.c $(FW)/src/dial.c $(FW)/src/dial_modern.c $(FW)/src/dial_carplay.c $(FW)/src/dial_factory.c $(FW)/src/aux_display.c \
         $(FW)/src/gc9a01.c $(FW)/src/screens.c $(FW)/test/panel_mock.c
 COBJ := $(patsubst $(FW)/%.c,build/%.o,$(CSRC))
 INC := -I$(FW)/inc -I$(FW)/test -I../../protocol -I.

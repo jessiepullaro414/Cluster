@@ -23,8 +23,16 @@ static const screen_cfg_t LAYOUT_CARPLAY[SCREEN_COUNT] = {
     { GK_COOLANT, GK_NONE    },   /* 3 outer right */
 };
 
+static const screen_cfg_t LAYOUT_FACTORY[SCREEN_COUNT] = {
+    { GK_FUEL,    GK_BATTERY },   /* 0 outer left: fuel, with the volts as a small readout */
+    { GK_SPEED,   GK_NONE    },   /* 1 inner left */
+    { GK_OIL,     GK_NONE    },   /* 2 inner right */
+    { GK_COOLANT, GK_NONE    },   /* 3 outer right */
+};
+
 const screen_cfg_t *screens_layout(theme_t theme)
 {
+    if (theme == THEME_FACTORY) return LAYOUT_FACTORY;
     if (theme == THEME_MODERN) return LAYOUT_MODERN;
     if (theme == THEME_CARPLAY) return LAYOUT_CARPLAY;
     return SCREENS_DEFAULT;

@@ -22,7 +22,7 @@
 
 /* The look of the four screens, chosen by the user (DisplaySettings.GaugeTheme, 4 bits). A theme brings its
  * own layout: which gauge is on which screen. Unknown values fall back to the classic theme. */
-typedef enum { THEME_CLASSIC = 0, THEME_MODERN = 1, THEME_CARPLAY = 2, THEME_COUNT } theme_t;
+typedef enum { THEME_CLASSIC = 0, THEME_MODERN = 1, THEME_CARPLAY = 2, THEME_FACTORY = 3, THEME_COUNT } theme_t;
 
 typedef enum {
     GK_NONE = 0, GK_SPEED, GK_RPM, GK_FUEL, GK_COOLANT, GK_OIL, GK_BATTERY, GK_COUNT
@@ -37,7 +37,8 @@ extern const screen_cfg_t SCREENS_DEFAULT[SCREEN_COUNT];            /* the class
 
 /* Layout of a theme. THEME_MODERN follows the reference picture: speed (+ fuel), rpm (+ coolant),
  * volts and oil as two bars, coolant. THEME_CARPLAY (Apple-inspired, for use next to a CarPlay screen): speed (+ fuel),
- * rpm, volts and oil as two concentric rings, coolant. */
+ * rpm, volts and oil as two concentric rings, coolant. THEME_FACTORY (the 1966 Mustang's own gauges): fuel (+ volts),
+ * speed, oil, temperature; there is no tachometer on the stock cluster. */
 const screen_cfg_t *screens_layout(theme_t theme);
 theme_t             screens_theme_from_setting(uint32_t value);      /* clamps unknown values to classic */
 

@@ -8,7 +8,7 @@ import com.jessiescars.cluster.core.CenterLogic.NoPhone;
  * values and how a row cycles, so it can be unit tested and shared with the dial's rotary navigation.
  *
  * theme: the look of the four small gauge screens; the number is the one the gauges board understands
- * (DisplaySettings.GaugeTheme in protocol/cluster_can.h: 0 classic needles, 1 modern arcs, 2 CarPlay-inspired rings).
+ * (DisplaySettings.GaugeTheme in protocol/cluster_can.h: 0 classic needles, 1 modern arcs, 2 CarPlay-inspired rings, 3 factory 1966 Mustang look).
  *
  * matchCarPlay: while a phone is projecting CarPlay, the small screens switch to the CarPlay-inspired theme whatever
  * the user's own choice is, and go back afterwards. Android Auto and "no phone" use the user's theme.
@@ -16,7 +16,7 @@ import com.jessiescars.cluster.core.CenterLogic.NoPhone;
 public final class Settings {
     public enum Row { THEME, MATCH_CARPLAY, UNITS, NO_PHONE, MAP_SHAPE }
 
-    public static final String[] THEME_NAMES = { "Classic", "Modern", "CarPlay" };
+    public static final String[] THEME_NAMES = { "Classic", "Modern", "CarPlay", "Factory" };
     public static final int THEME_CARPLAY = 2;
 
     public int theme = 1;                       // modern, like the reference picture

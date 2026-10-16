@@ -17,6 +17,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "face.h"
 #include "font.h"
 
 #define GFX_SIZE   240
@@ -28,7 +29,7 @@
 
 #define Q4(px)     ((int32_t)((px) * 16))          /* pixels to Q4 */
 
-typedef enum { OP_ARC = 1, OP_CAPSULE, OP_DISC, OP_GLYPH, OP_ARCG, OP_TICKS, OP_RRECT, OP_BMP } op_kind_t;
+typedef enum { OP_ARC = 1, OP_CAPSULE, OP_DISC, OP_GLYPH, OP_ARCG, OP_TICKS, OP_RRECT, OP_BMP, OP_IMG } op_kind_t;
 
 typedef struct {
     uint8_t  kind;
@@ -48,6 +49,8 @@ typedef struct {
         struct { int32_t cx, cy, hw, hh, r, stroke; } rrect;
         /* 4-bit coverage bitmap (a font glyph) at x, y */
         struct { const uint8_t *bits; int16_t x, y; uint8_t w, h; } bmp;
+        /* a printed face (face.h) over the whole panel; opaque; at most one per list */
+        struct { const face_t *face; } img;
     } u;
 } op_t;
 
@@ -84,6 +87,9 @@ op_t gfx_rrect(float cx, float cy, float w, float h, float radius, float stroke,
 
 /* One anti-aliased font glyph with its pen position (x, baseline). */
 op_t gfx_bitmap(const font_t *f, char ch, int x, int baseline, uint32_t color);
+
+/* A printed 240 x 240 face as the bottom layer of a list. */
+op_t gfx_image(const face_t *f);
 
 typedef enum { TEXT_LEFT = 0, TEXT_CENTER, TEXT_RIGHT } text_align_t;
 /* Pixel width of a string in a face. */

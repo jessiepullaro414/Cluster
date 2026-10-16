@@ -3,6 +3,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "gfx.h"
+#include "face.h"
+
+static int face_corner_index(const face_t *f)
+{
+    uint8_t row[GFX_SIZE];
+    face_decode_row(f, 2, GFX_SIZE, row);
+    return row[2];
+}
 
 static int failures;
 #define CHECK(c) do { if (!(c)) { printf("FAIL line %d: %s\n", __LINE__, #c); failures++; } } while (0)
@@ -274,6 +282,38 @@ int main(void)
         op_t ops[2] = { gfx_disc(100.0f, 100.0f, 30.0f, 0xFF0000), gfx_disc(100.0f, 100.0f, 10.0f, 0x0000FF) };
         render_all(ops, 2);
         CHECK(buf[100 * GFX_SIZE + 100] == 0x001F && buf[100 * GFX_SIZE + 120] == 0xF800);
+    }
+
+    /* printed faces: every face decodes to the pixels the generator checksummed, and the image op draws them */
+    for (int f = 0; f < FACE_COUNT; f++) {
+        uint32_t crc = ~0u;
+        uint8_t row[GFX_SIZE];
+        for (int y = 0; y < GFX_SIZE; y++) {
+            face_decode_row(FACE_LIST[f], y, GFX_SIZE, row);
+            for (int x = 0; x < GFX_SIZE; x++) {
+                crc ^= row[x];
+                for (int k = 0; k < 8; k++) crc = (crc >> 1) ^ (0xEDB88320u & (uint32_t)-(int32_t)(crc & 1u));
+            }
+        }
+        CHECK(~crc == FACE_CHECKS[f]);
+        /* a partial decode is the start of the full one */
+        uint8_t part[GFX_SIZE], full[GFX_SIZE];
+        face_decode_row(FACE_LIST[f], 100, 77, part);
+        face_decode_row(FACE_LIST[f], 100, GFX_SIZE, full);
+        CHECK(memcmp(part, full, 77) == 0);
+        /* the image op: whole frame vs a narrow run of tiles */
+        op_t img[2] = { gfx_image(FACE_LIST[f]), gfx_disc(120.0f, 120.0f, 6.0f, 0xFF0000) };
+        render_all(img, 2);
+        static uint16_t whole2[GFX_SIZE * GFX_SIZE];
+        memcpy(whole2, buf, sizeof whole2);
+        uint16_t strip[3 * GFX_TILE * GFX_TILE];
+        gfx_render(img, 2, 96, 112, 3 * GFX_TILE, GFX_TILE, strip, 3 * GFX_TILE);
+        int same = 1;
+        for (int y = 0; y < GFX_TILE; y++)
+            for (int x = 0; x < 3 * GFX_TILE; x++) same &= strip[y * 3 * GFX_TILE + x] == whole2[(112 + y) * GFX_SIZE + 96 + x];
+        CHECK(same);
+        CHECK(whole2[120 * GFX_SIZE + 120] == 0xF800);                              /* ops over the face are painted over it */
+        CHECK(whole2[2 * GFX_SIZE + 2] == gfx_rgb565(FACE_LIST[f]->pal[face_corner_index(FACE_LIST[f])]));
     }
 
     if (failures) { printf("%d failure(s)\n", failures); return 1; }

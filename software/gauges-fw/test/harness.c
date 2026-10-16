@@ -408,6 +408,12 @@ static inputs_t carplay(inputs_t in)
     return in;
 }
 
+static inputs_t factory(inputs_t in)
+{
+    in.theme = THEME_FACTORY;
+    return in;
+}
+
 static void golden_states(golden_state_t *out, int *n)
 {
     int k = 0;
@@ -450,6 +456,17 @@ static void golden_states(golden_state_t *out, int *n)
     out[k++] = (golden_state_t){ "carplay_all_invalid", carplay(inv) };
     out[k++] = (golden_state_t){ "carplay_speed_invalid", carplay(sp) };
     out[k++] = (golden_state_t){ "carplay_secondaries_invalid", carplay(ob) };
+    /* the factory theme */
+    out[k++] = (golden_state_t){ "factory_idle", factory(gs(0, 800, 13.8f, 68, 40, 150, true)) };
+    out[k++] = (golden_state_t){ "factory_cruise_mph", factory(gs(96.56f, 3500, 13.8f, 68, 90, 350, true)) };
+    out[k++] = (golden_state_t){ "factory_cruise_kph", factory(gs(96.56f, 3500, 13.8f, 68, 90, 350, false)) };
+    out[k++] = (golden_state_t){ "factory_warnings", factory(gs(143, 5200, 11.2f, 8, 116, 60, true)) };
+    out[k++] = (golden_state_t){ "factory_redline_kph", factory(gs(190, 7600, 14.2f, 40, 98, 420, false)) };
+    out[k++] = (golden_state_t){ "factory_full_scale", factory(gs(250, 9000, 16.5f, 100, 130, 700, true)) };
+    out[k++] = (golden_state_t){ "factory_zero_scale", factory(gs(0, 0, 10.0f, 0, 40, 0, false)) };
+    out[k++] = (golden_state_t){ "factory_all_invalid", factory(inv) };
+    out[k++] = (golden_state_t){ "factory_speed_invalid", factory(sp) };
+    out[k++] = (golden_state_t){ "factory_secondaries_invalid", factory(ob) };
     *n = k;
 }
 
@@ -665,6 +682,7 @@ static int run_selftest(void)
             if (sec == 12) in.theme = THEME_CLASSIC;
             if (sec == 18) in.theme = THEME_MODERN;
             if (sec == 24) in.theme = THEME_CARPLAY;
+            if (sec == 27) in.theme = THEME_FACTORY;
         }
         if (mock_errors(&g_mock)) { printf("selftest: panel protocol errors %d\n", mock_errors(&g_mock)); failures++; }
     }
@@ -750,7 +768,7 @@ static void usage(void)
          "  --shot FILE [--after S] run S seconds (default 3), save the picture as PNG, exit\n"
          "  --golden check|update [FILE] [--dump DIR]   fixed states against stored checksums (default test/golden_screens.txt)\n"
          "  --sim SECONDS [--units-switch]              virtual drive: bus load, backlog, tick overruns, panel == model\n"
-         "  --theme classic|modern|carplay  the look to start in (T cycles it in the window; the Android app can choose it too)\n"
+         "  --theme classic|modern|carplay|factory  the look to start in (T cycles it in the window; the Android app can choose it too)\n"
          "  --selftest             plumbing checks, no display needed\n"
          "  --x11check             open the window, show a known picture, read it back from the X server\n"
          "  --headless             never open a window");
@@ -775,7 +793,7 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--golden") && i + 1 < argc) { golden = argv[++i]; if (i + 1 < argc && argv[i + 1][0] != '-') golden_file = argv[++i]; }
         else if (!strcmp(a, "--dump") && i + 1 < argc) dump = argv[++i];
         else if (!strcmp(a, "--sim") && i + 1 < argc) sim = atof(argv[++i]);
-        else if (!strcmp(a, "--theme") && i + 1 < argc) { const char *t = argv[++i]; g_cli_theme = !strcmp(t, "carplay") || !strcmp(t, "2") ? THEME_CARPLAY : (!strcmp(t, "modern") || !strcmp(t, "1") ? THEME_MODERN : THEME_CLASSIC); }
+        else if (!strcmp(a, "--theme") && i + 1 < argc) { const char *t = argv[++i]; g_cli_theme = !strcmp(t, "factory") || !strcmp(t, "3") ? THEME_FACTORY : !strcmp(t, "carplay") || !strcmp(t, "2") ? THEME_CARPLAY : (!strcmp(t, "modern") || !strcmp(t, "1") ? THEME_MODERN : THEME_CLASSIC); }
         else if (!strcmp(a, "--units-switch")) units_switch = true;
         else if (!strcmp(a, "--selftest")) selftest = true;
         else if (!strcmp(a, "--x11check")) x11check = true;
@@ -951,7 +969,7 @@ int main(int argc, char **argv)
                 if (!in.ok[i] || !alive) snprintf(val[i], sizeof val[i], "--");
                 else snprintf(val[i], sizeof val[i], i == I_BATT ? "%.1f" : "%.0f", in.v[i]);
             }
-            snprintf(l0, sizeof l0, "SOURCE %s%s   UNITS %s   THEME %s   DATA %s", SRC_NAME[src], paused ? " (PAUSED)" : "", in.imperial ? "MPH" : "KM/H", in.theme == THEME_CARPLAY ? "CARPLAY" : (in.theme == THEME_MODERN ? "MODERN" : "CLASSIC"),
+            snprintf(l0, sizeof l0, "SOURCE %s%s   UNITS %s   THEME %s   DATA %s", SRC_NAME[src], paused ? " (PAUSED)" : "", in.imperial ? "MPH" : "KM/H", in.theme == THEME_FACTORY ? "FACTORY" : in.theme == THEME_CARPLAY ? "CARPLAY" : (in.theme == THEME_MODERN ? "MODERN" : "CLASSIC"),
                      src == SRC_ANDROID ? (alive ? "LIVE FROM ANDROID" : (had_android ? "LOST: DASHES" : "WAITING FOR ANDROID")) : "BUILT IN");
             snprintf(l1, sizeof l1, "SPEED %s KM/H  RPM %s  BATT %s V  FUEL %s %%  COOL %s C  OIL %s KPA", val[0], val[1], val[2], val[3], val[4], val[5]);
             snprintf(l2, sizeof l2, "PANEL BUS %.1f %% (9.6 MHZ)  PEAK %.1f %%  BACKLOG %d TILES  RUNS/S %u  DATA/S %u  FRAMES/S %u",

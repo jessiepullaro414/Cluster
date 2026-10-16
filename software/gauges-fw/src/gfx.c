@@ -274,6 +274,16 @@ op_t gfx_rrect(float cx, float cy, float w, float h, float radius, float stroke,
     return o;
 }
 
+op_t gfx_image(const face_t *f)
+{
+    op_t o;
+    memset(&o, 0, sizeof o);
+    o.kind = OP_IMG;
+    o.u.img.face = f;
+    o.x0 = 0;  o.y0 = 0;  o.x1 = GFX_SIZE;  o.y1 = GFX_SIZE;
+    return o;
+}
+
 op_t gfx_bitmap(const font_t *f, char ch, int x, int baseline, uint32_t color)
 {
     op_t o;
@@ -501,6 +511,13 @@ static uint32_t cov_bmp(const op_t *o, int px, int py)
     return a * 17u;
 }
 
+static uint32_t cov_img(const op_t *o, int px, int py, const uint8_t *line, uint32_t *color)
+{
+    (void)py;
+    *color = o->u.img.face->pal[line[px - o->x0] & 15u];
+    return 255;
+}
+
 /* ---------------------------------------------------------------- render */
 
 /* Can this op touch the rectangle at all? Arcs are tested against their annulus,
@@ -537,9 +554,19 @@ void gfx_render(const op_t *ops, int n, int x0, int y0, int w, int h, uint16_t *
         }
     }
 
+    int img_k = -1;                                  /* the face, if the list has one */
+    for (int k = 0; k < m; k++)
+        if (ops[sel[k]].kind == OP_IMG) { img_k = k; break; }
+    uint8_t img_line[GFX_SIZE];
+
     for (int y = 0; y < h; y++) {
         int py = y0 + y;
         int32_t qy = py * 16 + 8;
+        bool img_row = false;
+        if (img_k >= 0 && py >= 0 && py < GFX_SIZE) {
+            int xe = x0 + w > GFX_SIZE ? GFX_SIZE : x0 + w;
+            if (xe > 0) { face_decode_row(ops[sel[img_k]].u.img.face, py, xe, img_line); img_row = true; }
+        }
         for (int x = 0; x < w; x++) {
             int px = x0 + x;
             int32_t qx = px * 16 + 8;
@@ -559,6 +586,7 @@ void gfx_render(const op_t *ops, int n, int x0, int y0, int w, int h, uint16_t *
                 case OP_TICKS:   c = cov_ticks(o, qx, qy); break;
                 case OP_RRECT:   c = cov_rrect(o, qx, qy); break;
                 case OP_BMP:     c = cov_bmp(o, px, py); break;
+                case OP_IMG:     c = img_row ? cov_img(o, px, py, img_line, &col) : 0; break;
                 default:         c = 0; break;
                 }
                 if (c == 0) continue;

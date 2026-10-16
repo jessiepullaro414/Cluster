@@ -44,7 +44,7 @@ import com.jessiescars.cluster.core.VehicleState;
  *
  * float extras: speed_kph, rpm, dimmer. boolean extras: night, link_dead, high_beam, brake, alt, oil,
  * phone (a phone is projecting), match_carplay (saved: the small screens take the CarPlay look while it is open), flip (show the gauge instead of maps), settings (open/close the list).
- * string extras: phone_kind (carplay|androidauto: what the projecting phone is); (saved): no_phone (gauge|home), aspect (round|square|4:3|16:9), theme (classic|modern|carplay|0|1|2),
+ * string extras: phone_kind (carplay|androidauto: what the projecting phone is); (saved): no_phone (gauge|home), aspect (round|square|4:3|16:9), theme (classic|modern|carplay|factory|0..3),
  * units (mph|kph); telemetry (off | host | host:port: where the development feed for the small screens goes;
  * default 10.0.2.2:5005, the PC the emulator runs on). The real source (the VHAL bridge) replaces only the fake
  * one; the views only ever see a VehicleState. There are no turn indicators: the dash has physical ones.

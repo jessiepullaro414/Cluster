@@ -111,7 +111,7 @@ int main(void)
     /* THE property: patching only the dirty tiles gives exactly the picture a fresh full draw gives.
      * Random walks of views, every screen layout, both unit systems, valid and invalid inputs. */
     int pairs = 0, worst = 0;
-    for (int trial = 0; trial < 180; trial++) {
+    for (int trial = 0; trial < 240; trial++) {
         int s = trial % SCREEN_COUNT;
         theme_t th = (theme_t)((trial / SCREEN_COUNT) % THEME_COUNT);
         const screen_cfg_t *layout = screens_layout(th);
@@ -209,7 +209,7 @@ int main(void)
         static frame_t f, g;
         dial_init(&d);
         screen_values_t v = { cv(60.0f, true), cv(3000.0f, true), cv(13.8f, true), cv(50.0f, true), cv(90.0f, true), cv(300.0f, true) };
-        for (int step = 0; step < 9; step++) {
+        for (int step = 0; step < 12; step++) {
             theme_t th = (theme_t)(step % THEME_COUNT);
             int scr = step % SCREEN_COUNT;
             screen_view_t view = screens_build(&screens_layout(th)[scr], &v, true);
@@ -246,9 +246,12 @@ int main(void)
 
     /* an unknown theme number from the bus falls back to the classic theme */
     CHECK(screens_theme_from_setting(0) == THEME_CLASSIC && screens_theme_from_setting(1) == THEME_MODERN);
-    CHECK(screens_theme_from_setting(2) == THEME_CARPLAY && screens_theme_from_setting(3) == THEME_CLASSIC && screens_theme_from_setting(15) == THEME_CLASSIC);
+    CHECK(screens_theme_from_setting(2) == THEME_CARPLAY && screens_theme_from_setting(3) == THEME_FACTORY &&
+          screens_theme_from_setting(4) == THEME_CLASSIC && screens_theme_from_setting(15) == THEME_CLASSIC);
     CHECK(screens_layout(THEME_MODERN)[0].primary == GK_SPEED && screens_layout(THEME_MODERN)[2].primary == GK_BATTERY);
     CHECK(screens_layout(THEME_CLASSIC) == SCREENS_DEFAULT);
+    CHECK(screens_layout(THEME_FACTORY)[0].primary == GK_FUEL && screens_layout(THEME_FACTORY)[1].primary == GK_SPEED &&
+          screens_layout(THEME_FACTORY)[2].primary == GK_OIL && screens_layout(THEME_FACTORY)[3].primary == GK_COOLANT);
     CHECK(screens_layout(THEME_CARPLAY)[0].primary == GK_SPEED && screens_layout(THEME_CARPLAY)[2].primary == GK_BATTERY &&
           screens_layout(THEME_CARPLAY)[2].secondary == GK_OIL);
 

@@ -431,6 +431,7 @@ void dial_set_view_theme(dial_t *d, const screen_view_t *view, bool imperial, th
 {
     if (theme == THEME_MODERN) dial_modern_set_view(d, view, imperial);
     else if (theme == THEME_CARPLAY) dial_carplay_set_view(d, view, imperial);
+    else if (theme == THEME_FACTORY) dial_factory_set_view(d, view, imperial);
     else classic_set_view(d, view, imperial);
 }
 

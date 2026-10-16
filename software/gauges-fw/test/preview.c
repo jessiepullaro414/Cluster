@@ -1,5 +1,5 @@
 /* Renders the four screens through the real driver into the mock panel and writes
- * build/screen_<n>.ppm (circle-masked). Usage: preview <preset> [metric] [classic|modern|carplay]
+ * build/screen_<n>.ppm (circle-masked). Usage: preview <preset> [metric] [classic|modern|carplay|factory]
  * presets: 0 cruise, 1 warnings, 2 inputs invalid, 3 idle, 4 redline */
 #include <stdio.h>
 #include <stdlib.h>
@@ -19,6 +19,7 @@ int main(int argc, char **argv)
     theme_t theme = THEME_CLASSIC;
     if (argc > 3 && strcmp(argv[3], "modern") == 0) theme = THEME_MODERN;
     if (argc > 3 && strcmp(argv[3], "carplay") == 0) theme = THEME_CARPLAY;
+    if (argc > 3 && strcmp(argv[3], "factory") == 0) theme = THEME_FACTORY;
     mock_init(&g_mock);
     aux_display_init(mock_hal(&g_mock), theme, imperial);
     const screen_cfg_t *layout = screens_layout(theme);

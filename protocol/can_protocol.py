@@ -133,7 +133,7 @@ PRIVATE = [
              S("NightMode", 1, 0, 0, 1, "", 8, 1, rx=G),
              S("UnitsMph", 1, 0, 0, 1, "", 9, 1, rx=G),
              S("GaugeTheme", 1, 0, 0, 15, "", 10, 4, rx=G,
-               doc="look of the four small screens: 0 classic needles, 1 modern arcs, 2 CarPlay-inspired rings; "
+               doc="look of the four small screens: 0 classic needles, 1 modern arcs, 2 CarPlay-inspired rings, 3 factory 1966 look; "
                    "an unknown value shows classic"),
              S("CarProfile", 1, 0, 0, 255, "", 16, 8, rx=G,
                doc="0 none, 1 Haltech V2"),

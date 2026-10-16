@@ -24,6 +24,8 @@ public class SettingsTest {
         s.cycle(Row.THEME);
         assertEquals(2, s.theme);                       // modern -> CarPlay
         s.cycle(Row.THEME);
+        assertEquals(3, s.theme);                       // -> factory
+        s.cycle(Row.THEME);
         assertEquals(0, s.theme);                       // wraps to classic
         s.cycle(Row.THEME);
         assertEquals(1, s.theme);
@@ -70,14 +72,16 @@ public class SettingsTest {
     @Test public void themeNumbersAreClampedAndParsed() {
         assertEquals(0, Settings.clampTheme(-1));
         assertEquals(0, Settings.clampTheme(7));
-        assertEquals(2, Settings.clampTheme(2));
+        assertEquals(3, Settings.clampTheme(3));
+        assertEquals(0, Settings.clampTheme(4));
         assertEquals(1, Settings.clampTheme(1));
         assertEquals(Integer.valueOf(0), Settings.parseTheme("classic"));
         assertEquals(Integer.valueOf(1), Settings.parseTheme(" Modern "));
         assertEquals(Integer.valueOf(1), Settings.parseTheme("1"));
         assertEquals(Integer.valueOf(2), Settings.parseTheme("carplay"));
         assertEquals(Integer.valueOf(2), Settings.parseTheme("2"));
-        assertNull(Settings.parseTheme("3"));
+        assertEquals(Integer.valueOf(3), Settings.parseTheme("factory"));
+        assertNull(Settings.parseTheme("4"));
         assertNull(Settings.parseTheme("nonsense"));
         assertNull(Settings.parseTheme(null));
     }

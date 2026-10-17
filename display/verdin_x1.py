@@ -4,12 +4,11 @@ Functional banking of the Verdin iMX95 X1 connector for schematic capture.
 Ported from fascia-pcb's own verdin_x1.py (same real Verdin iMX95 SoM,
 same 260-pin X1 connector - the hardware doesn't change between boards).
 The banking RULES below are cluster-pcb/display's own, not fascia's:
-this board is a dedicated bar-display carrier with no touch controller
-and no audio codec, so the USB and I2S_1 (audio) signal families that
-fascia's own board bank D routes to actually get *used* are, on this
-board, genuinely unused - moved to bank E (NoConnect) rather than kept
-in D, where an unwired pin would show up as permanent unexplained ERC
-noise instead of a real, documented NoConnect.
+this board has no touch controller, but since 2026-10-16 it DOES carry an
+audio codec (I2S_1 + I2C_1) and a USB 2.0 host port (USB_2), so those
+signal families are banked into D with CAN. The USB_2 SuperSpeed pairs and
+the module-specific USB1_TX1/RX1 pairs are still genuinely unused and stay
+in bank E (NoConnect).
 
 A 260-pin connector cannot be drawn as one symbol - at 2.54 mm pitch a
 single block would be ~330 mm tall, taller than any sheet this project
@@ -28,8 +27,8 @@ datasheet's own ordering:
     A  power and ground
     B  control, sequencing and debug
     C  display - the DSI link to the SN65DSI85-Q1, plus backlight control
-    D  communications this board uses - CAN to ecu-pcb (and the sensor
-       companion board's own CAN, once that lands)
+    D  communications this board uses - CAN to ecu-pcb/gauges, I2S_1 and
+       I2C_1 to the audio codec, the USB_2 host port
     E  everything this board does not use, which gets NoConnect items
 
 Bank E is not filler. Per this project's KiCad notes, a deliberately
@@ -47,11 +46,14 @@ _RULES = [
     ("A", r"^(GND|VCC|VCC_BACKUP|PWR_1V8_MOCI|PMIC_PGOOD)$"),
     ("B", r"^(CTRL_|JTAG_|TAMPER)"),
     ("C", r"^(DSI_1_|I2C_2_DSI|PWM_3_DSI|GPIO_9_DSI|GPIO_10_DSI)"),
-    # This board has no touch controller and no audio codec - unlike
-    # fascia-pcb, USB_ and I2S_1_ genuinely fall through to the unused
-    # bank (E) here rather than being routed to D. Only CAN is real
-    # communications traffic on this board.
-    ("D", r"^CAN_1_"),
+    # Communications this board uses: CAN to ecu-pcb/gauges, the audio codec's
+    # I2S_1 + I2C_1 (2026-10-16: wireless Android Auto / CarPlay need sound),
+    # and the USB_2 host port (USB 2.0 pair, VBUS enable, over-current).
+    # USB_2 is the Verdin host-only port; USB_1 stays on the bench header J13.
+    # USB_2's SuperSpeed lanes and the MSP USB1_TX1/RX1 pairs stay unused (bank
+    # E): the port is USB 2.0 only, which is all a phone or a projection dongle
+    # needs.
+    ("D", r"^(CAN_1_|I2S_1_|I2C_1_|USB_2_D_|USB_2_EN$|USB_2_OC#$)"),
     # Everything else is unused by this board.
     ("E", r".*"),
 ]
@@ -60,7 +62,7 @@ UNIT_NAMES = {
     "A": "Power and ground",
     "B": "Control, sequencing and debug",
     "C": "Display - DSI to bridge, backlight control",
-    "D": "Communications - CAN to ecu-pcb / sensor companion",
+    "D": "Communications - CAN, audio I2S/I2C, USB_2 host",
     "E": "Unused on this board (no-connect)",
 }
 
@@ -155,21 +157,27 @@ def verify():
         problems.append(f"display bank wrong: missing {sorted(expected_c - got_c)}, "
                         f"unexpected {sorted(got_c - expected_c)}")
 
-    # This board has no touch controller or audio codec, unlike fascia-pcb -
-    # so assert the OPPOSITE of fascia's own check: USB and I2S_1 must land
-    # in the unused bank (E), not the comms bank (D), which should carry
-    # only CAN.
+    # Bank D is exactly CAN_1, I2C_1, I2S_1 and the USB_2 USB 2.0 pins; the
+    # USB_2 SuperSpeed lanes and USB1_TX1/RX1 must stay in the unused bank.
     names_d = {name for _, name in b["D"]}
     names_e = {name for _, name in b["E"]}
-    for should_be_unused in ("I2S_1_BCLK", "I2S_1_SYNC", "I2S_1_D_OUT",
-                             "I2S_1_D_IN", "I2S_1_MCLK",
-                             "USB_2_D_N", "USB_2_D_P",
-                             "USB_2_SSTX_P", "USB_2_SSRX_P",
-                             "USB1_TX1_P", "USB1_RX1_P"):
+    expected_d = {20, 22,                      # CAN_1 TX/RX
+                  12, 14,                      # I2C_1 SDA/SCL
+                  30, 32, 34, 36, 38,          # I2S_1 BCLK/SYNC/D_OUT/D_IN/MCLK
+                  181, 183, 185, 187}          # USB_2 D-/D+/EN/OC#
+    got_d = {pin for pin, _ in b["D"]}
+    if got_d != expected_d:
+        problems.append(f"comms bank wrong: missing {sorted(expected_d - got_d)}, "
+                        f"unexpected {sorted(got_d - expected_d)}")
+    for should_be_unused in ("USB_2_SSTX_P", "USB_2_SSTX_N", "USB_2_SSRX_P",
+                             "USB_2_SSRX_N", "USB1_TX1_P", "USB1_RX1_P",
+                             "I2S_2_BCLK", "USB_1_D_P", "USB_1_D_N"):
         if should_be_unused not in names_e:
             problems.append(f"{should_be_unused} should be in the unused "
                             f"bank on this board, is not")
-    for needed in ("CAN_1_TX", "CAN_1_RX"):
+    for needed in ("CAN_1_TX", "CAN_1_RX", "I2S_1_BCLK", "I2S_1_SYNC",
+                   "I2S_1_D_OUT", "I2S_1_D_IN", "I2S_1_MCLK", "I2C_1_SDA",
+                   "I2C_1_SCL", "USB_2_D_P", "USB_2_D_N", "USB_2_EN", "USB_2_OC#"):
         if needed not in names_d:
             problems.append(f"{needed} should be in the comms bank, is not")
 

@@ -42,6 +42,14 @@ the panel datasheet's pin table and drawing disagree on which FPC pins
 carry +6.5 V vs -6.5 V (hedged with open solder jumpers JP1/JP2), and
 its FPC connector (Hirose FH26, 0.3 mm) is inferred, not named.
 
+AUDIO AND USB HOST ADDED 2026-10-16: the owner required wireless Android Auto
+and CarPlay with sound, so the touchscreen-era audio and USB subsystems this
+header says were removed came back in a smaller form - build_audio() (TAC5112-Q1
+codec, 3.3 V AVDD LDO, stereo balanced line-out, one electret microphone input,
+ESD, and a reserved DNP access point for Apple's MFi coprocessor) and
+build_usb_host() (USB-C host port on Verdin USB_2 behind a TPS2557-Q1 VBUS
+switch). See docs/audio-and-usb.md.
+
 What IS final at this stage:
   - all 260 X1 pins exist, banked into 5 units by verdin_x1.py (this
     board's own banking - CAN only in the comms bank, no touch/audio)
@@ -86,8 +94,11 @@ OUT_PRO = os.path.join(HERE, "ClusterDisplay.kicad_pro")
 # running off a fixed sheet is invisible in the editor and only shows on
 # a real fixed-size export, so main() checks every placement against the
 # sheet bounds.
-PAPER = "A0"
-SHEET_W, SHEET_H = 1189.0, 841.0
+# 2026-10-16: the audio and USB host blocks need more room than A0 had left, so
+# the sheet is a custom 1600 x 841 mm page (A0 height, wider); everything that
+# was on the A0 sheet keeps its coordinates.
+PAPER = "User"
+SHEET_W, SHEET_H = 1600.0, 841.0
 
 GRID = 1.27
 PITCH = 2.54          # pin-to-pin spacing down a symbol side
@@ -158,6 +169,23 @@ X1_NETS = {
     "UART_3_RXD": "UART_RXD", "UART_3_TXD": "UART_TXD",
     "USB_1_D_P": "USB_DP", "USB_1_D_N": "USB_DN",
     "USB_1_VBUS": "USB_VBUS", "USB_1_ID": "USB_ID",
+    # Audio (2026-10-16): Verdin I2S_1 in controller mode (the module drives
+    # BCLK and SYNC) to the TAC5112-Q1 codec, which is the target. Module
+    # D_OUT is the codec's DIN and module D_IN is the codec's DOUT. I2S_1_MCLK
+    # (pin 38) is deliberately unused: the codec's PLL locks to BCLK. All 1.8 V
+    # I/O (module abs max 2.1 V), no level shifters needed. I2C_1 carries the
+    # codec's control port and the reserved MFi coprocessor access point.
+    "I2S_1_BCLK": "I2S_BCLK", "I2S_1_SYNC": "I2S_FSYNC",
+    "I2S_1_D_OUT": "I2S_DIN", "I2S_1_D_IN": "I2S_DOUT",
+    "I2C_1_SDA": "I2C1_SDA", "I2C_1_SCL": "I2C1_SCL",
+    # USB_2 is the Verdin host-only port (datasheet section 5.17): USB 2.0
+    # pair, VBUS enable and over-current flag (both through the module's GPIO
+    # expander, 1.8 V). It has no VBUS sense pin, which a host does not need.
+    "USB_2_D_P": "USB2_DP", "USB_2_D_N": "USB2_DN",
+    "USB_2_EN": "USB2_EN", "USB_2_OC#": "USB2_OC_N",
+    # Reserved GPIO for Apple's MFi authentication coprocessor reset (TBD:
+    # polarity and level come from Apple's MFi documentation).
+    "GPIO_2": "MFI_RST_N",
 }
 
 # X1 pins this board deliberately does not use, outside the unused bank.
@@ -171,6 +199,7 @@ X1_NC = {
     "TAMPER0", "TAMPER1",    # SoC tamper detect, unused here
     "PWR_1V8_MOCI",          # the carrier makes its own 1.8 V
     "PMIC_PGOOD",            # module-side power good, not used by us
+    "I2S_1_MCLK",            # the audio codec's PLL locks to BCLK; no MCLK pin
 }
 
 
@@ -328,10 +357,11 @@ def build_pwr_flag(net):
 # ---------------------------------------------------------------------------
 sch = Schematic.create_new()
 sch.paper.paperSize = PAPER
+sch.paper.width, sch.paper.height = SHEET_W, SHEET_H
 sch.uuid = U()
 
 
-def place(lib_id, ref, value, x, y, unit=1, hide_ref=False, body_h=None):
+def place(lib_id, ref, value, x, y, unit=1, hide_ref=False, body_h=None, dnp=False):
     """
     Place a symbol instance.
 
@@ -347,6 +377,8 @@ def place(lib_id, ref, value, x, y, unit=1, hide_ref=False, body_h=None):
         libraryNickname=lib_id.split(":")[0], entryName=lib_id.split(":")[1],
         position=Position(x, y, 0), unit=unit, inBom=True, onBoard=True,
         uuid=U())
+    if dnp:
+        inst.dnp = True
     src = lib_symbols[lib_id]
     for i, p in enumerate(src.properties):
         if body_h is not None and i in (0, 1):
@@ -495,7 +527,7 @@ def rail(net):
     return rail_syms[net]
 
 
-def place_part(lib_id, ref, value, x, y, nets):
+def place_part(lib_id, ref, value, x, y, nets, dnp=False):
     """
     Place a part and terminate every one of its pins.
 
@@ -503,7 +535,7 @@ def place_part(lib_id, ref, value, x, y, nets):
     to None, gets a real NoConnect item rather than being left dangling -
     same rule the unused X1 pins follow.
     """
-    place(lib_id, ref, value, x, y, body_h=generic_heights[lib_id])
+    place(lib_id, ref, value, x, y, body_h=generic_heights[lib_id], dnp=dnp)
     for num, name, etype in generic_pins[lib_id]:
         dx, dy = generic_offsets[(lib_id, num)]
         px, py = snap(x + dx), snap(y - dy)
@@ -1353,6 +1385,259 @@ def build_control(x0, y0, usable_h):
     flow(c, "C39", "100n", {"1": "VBACKUP", "2": "GND"})
 
 
+def build_audio(x0, y0, usable_h):
+    """
+    Audio path (2026-10-16): stereo line-out plus one microphone, for Siri,
+    calls and navigation prompts from wireless Android Auto / CarPlay.
+
+    Codec: TI TAC5112-Q1 (AEC-Q100 Grade 1, WQFN-32 5x5 mm, datasheet
+    SLASFC2A read in full; parts.py has the pin table and GOTCHAs). It
+    replaces fascia-pcb's PCM3168A-Q1 + two SN74AXC4T245-Q1 level shifters +
+    two-FET I2C translator + 3.3 V logic rail: its IOVDD runs from the 1.8 V
+    rail the module already needs, so I2S and I2C connect straight to the
+    Verdin (module I/O is 1.8 V, abs max 2.1 V), and the PLL locks to BCLK so
+    there is no MCLK. Only AVDD needs 3.3 V (U10, a second TLV767-Q1) because
+    at AVDD 1.8 V the line output halves to 1 Vrms and MICBIAS tops out at
+    1.375 V.
+
+    Analog:
+      * Line-out: OUT1 = left, OUT2 = right, both differential (2 Vrms at
+        AVDD 3.3 V). Each leg passes 100 ohm (isolation from cable
+        capacitance) and a 4.7 uF DC-blocking capacitor (the codec outputs sit
+        on a DC common-mode level; a head unit's AUX input is AC coupled, but
+        a pop at power-up is avoided) before the TPD4E05U06-Q1 ESD array and
+        J14. Load must be 600 ohm or more (datasheet Table 8-1).
+        BALANCED to UNBALANCED: for a normal stereo AUX input wire L+ to the
+        left centre pin, R+ to the right, GND to the sleeve and LEAVE L- AND R-
+        UNCONNECTED (never to ground: they are driven outputs). That gives
+        about 1 Vrms per channel, the usual AUX level. A true balanced input
+        takes all four.
+      * Microphone: a 2-wire electret on J15 (bias+signal, return, shield).
+        MICBIAS (2.75 V once software sets it, 5 mA max) feeds MIC_P through
+        2.2 kohm; the return is held to ground by 100 ohm; both legs AC-couple
+        (1 uF) into IN1P/IN1M so the return tap cancels ground noise.
+      * IN2 is unused (inputs left open); GPIO1/GPIO2/GPO1/GPI1 are unused.
+    Decoupling per Figure 8-1: 10 uF + 100 nF on AVDD, DREG and IOVDD, 1 uF on
+    VREF and MICBIAS. ADDR to ground = I2C address 0x50.
+
+    Software must (datasheet section 8.3): wait 2 ms after power-up, set
+    IOVDD_IO_MODE first, then wake the part and enable MICBIAS; the supply
+    ramps slower than 0.1 V/us and wait 100 ms between power cycles.
+
+    MFi: J16 reserves an access point (I2C_1 SDA/SCL, a reset GPIO) for the
+    Apple MFi authentication coprocessor wireless CarPlay needs. It is DNP and
+    TBD: no Apple part is chosen, the part and its supply voltage come from
+    Apple's MFi programme, and the reserved GPIO polarity is unknown.
+    """
+    r, c = f"{LIB}:R", f"{LIB}:C"
+    c0805 = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
+    u_ldo = f"{LIB}:TLV767-Q1"
+    u_cod = build_generic_symbol(f"{LIB}:TAC5112-Q1", "U", "TAC5112-Q1",
+                                 parts.TAC5112_Q1)
+    u_esd = build_generic_symbol(f"{LIB}:TPD4E05U06-Q1", "U", "TPD4E05U06-Q1",
+                                 parts.TPD4E05U06_Q1)
+    conn_lo = build_generic_symbol(
+        f"{LIB}:CONN_LINEOUT", "J", "Line-out",
+        [(1, "L_P", "passive"), (2, "L_N", "passive"), (3, "R_P", "passive"),
+         (4, "R_N", "passive"), (5, "GND", "passive")])
+    conn_mic = build_generic_symbol(
+        f"{LIB}:CONN_MIC", "J", "Mic",
+        [(1, "MIC_P", "passive"), (2, "MIC_N", "passive"), (3, "GND", "passive")])
+    conn_mfi = build_generic_symbol(
+        f"{LIB}:CONN_MFI", "J", "MFi access",
+        [(1, "SDA", "passive"), (2, "SCL", "passive"),
+         (3, "RST_N", "passive"), (4, "GND", "passive")])
+
+    COL_W, ROW_H = 80.0, 26.0
+    cur = {"col": 0, "y": y0}
+
+    def flow(lib, ref, value, nets, dnp=False):
+        h = generic_heights[lib]
+        need = max(ROW_H, h + 12.0)
+        if cur["y"] + need > y0 + usable_h:
+            cur["col"] += 1
+            cur["y"] = y0
+        place_part(lib, ref, value,
+                   x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets, dnp=dnp)
+        cur["y"] += need
+
+    # --- 3.3 V analog supply (AVDD only) --------------------------------
+    # TLV767-Q1 (SBVS381A): VFB = 0.8 V, so 316 k / 100 k gives 0.8 x 4.16 =
+    # 3.33 V (AVDD window 3.0-3.6 V); divider current 8 uA, above the 5 uA
+    # below which the datasheet wants a feed-forward capacitor. Gated by
+    # CTRL_PWR_EN_MOCI like the 1.8 V rail, so both come up together.
+    flow(u_ldo, "U10", "TLV767-Q1 (3.3 V audio AVDD)", {
+        "IN": "+5V", "OUT": "+3V3", "FB": "FB_3V3",
+        "GND": "GND", "GND2": "GND", "EN": "PWR_EN_MOCI",
+        "NC1": None, "NC2": None, "EP": "GND",
+    })
+    flow(c0805, "C64", "10u CIN", {"1": "+5V", "2": "GND"})
+    flow(c0805, "C65", "10u COUT", {"1": "+3V3", "2": "GND"})
+    flow(r, "R59", "316k 1% FB top", {"1": "+3V3", "2": "FB_3V3"})
+    flow(r, "R60", "100k FB bot", {"1": "FB_3V3", "2": "GND"})
+
+    # --- codec ------------------------------------------------------------
+    flow(u_cod, "U9", "TAC5112-Q1", {
+        "VSS1": "GND", "VSS2": "GND", "VSS3": "GND", "VSS4": "GND",
+        "VSSI1": "GND", "VSSI2": "GND", "VSSI3": "GND", "VSSI4": "GND",
+        "EP": "GND",
+        "AVDD": "+3V3", "IOVDD": "+1V8", "DREG": "CODEC_DREG",
+        "VREF": "CODEC_VREF", "MICBIAS": "CODEC_MICBIAS",
+        "BCLK": "I2S_BCLK", "FSYNC": "I2S_FSYNC",
+        "DIN": "I2S_DIN", "DOUT": "I2S_DOUT",
+        "SCL": "I2C1_SCL", "SDA": "I2C1_SDA", "ADDR": "GND",
+        "GPIO1": None, "GPIO2": None, "GPO1": None, "GPI1": None,
+        "IN1P": "MIC_IN_P", "IN1M": "MIC_IN_N", "IN2P": None, "IN2M": None,
+        "OUT1P": "AOUT_L_P", "OUT1M": "AOUT_L_N",
+        "OUT2P": "AOUT_R_P", "OUT2M": "AOUT_R_N",
+    })
+    flow(c0805, "C66", "10u AVDD", {"1": "+3V3", "2": "GND"})
+    flow(c, "C67", "100n AVDD", {"1": "+3V3", "2": "GND"})
+    flow(c0805, "C68", "10u DREG", {"1": "CODEC_DREG", "2": "GND"})
+    flow(c, "C69", "100n DREG", {"1": "CODEC_DREG", "2": "GND"})
+    flow(c0805, "C70", "10u IOVDD", {"1": "+1V8", "2": "GND"})
+    flow(c, "C71", "100n IOVDD", {"1": "+1V8", "2": "GND"})
+    flow(c, "C72", "1u VREF", {"1": "CODEC_VREF", "2": "GND"})
+    flow(c, "C73", "1u MICBIAS", {"1": "CODEC_MICBIAS", "2": "GND"})
+    # I2C_1 has no pull-ups on the module (datasheet Table 32 lists none), so
+    # they live here, to the 1.8 V rail the module's I/O uses.
+    flow(r, "R61", "2.2k I2C1 SDA pull-up", {"1": "I2C1_SDA", "2": "+1V8"})
+    flow(r, "R62", "2.2k I2C1 SCL pull-up", {"1": "I2C1_SCL", "2": "+1V8"})
+
+    # --- microphone -------------------------------------------------------
+    flow(r, "R63", "2.2k mic bias", {"1": "CODEC_MICBIAS", "2": "MIC_P"})
+    flow(r, "R64", "100R mic return", {"1": "MIC_N", "2": "GND"})
+    flow(c, "C74", "1u mic AC couple", {"1": "MIC_P", "2": "MIC_IN_P"})
+    flow(c, "C75", "1u mic AC couple", {"1": "MIC_N", "2": "MIC_IN_N"})
+    flow(u_esd, "U13", "TPD4E05U06-Q1 mic ESD", {
+        "CH1": "MIC_P", "CH2": "MIC_N", "CH3": None, "CH4": None,
+        "GND1": "GND", "GND2": "GND",
+        "NC1": None, "NC2": None, "NC3": None, "NC4": None})
+    flow(conn_mic, "J15", "JST XH B3B-XH-A electret microphone (2-wire + shield)", {
+        "MIC_P": "MIC_P", "MIC_N": "MIC_N", "GND": "GND"})
+
+    # --- line-out -----------------------------------------------------------
+    for (rr, cc, leg) in (("R65", "C76", "L_P"), ("R66", "C77", "L_N"),
+                          ("R67", "C78", "R_P"), ("R68", "C79", "R_N")):
+        flow(r, rr, "100R line-out series",
+             {"1": f"AOUT_{leg}", "2": f"AOUT_{leg}_R"})
+        flow(c0805, cc, "4.7u line-out DC block",
+             {"1": f"AOUT_{leg}_R", "2": f"LINE_{leg}"})
+    flow(u_esd, "U12", "TPD4E05U06-Q1 line-out ESD", {
+        "CH1": "LINE_L_P", "CH2": "LINE_L_N", "CH3": "LINE_R_P", "CH4": "LINE_R_N",
+        "GND1": "GND", "GND2": "GND",
+        "NC1": None, "NC2": None, "NC3": None, "NC4": None})
+    flow(conn_lo, "J14", "JST XH B5B-XH-A balanced line-out L/R", {
+        "L_P": "LINE_L_P", "L_N": "LINE_L_N", "R_P": "LINE_R_P",
+        "R_N": "LINE_R_N", "GND": "GND"})
+
+    # --- reserved MFi coprocessor access point ------------------------------
+    flow(conn_mfi, "J16", "MFi coprocessor access I2C_1 + reset (TBD, DNP)", {
+        "SDA": "I2C1_SDA", "SCL": "I2C1_SCL", "RST_N": "MFI_RST_N", "GND": "GND"},
+        dnp=True)
+
+
+def build_usb_host(x0, y0, usable_h):
+    """
+    USB-C host port on Verdin USB_2 (2026-10-16): a wired phone, and a
+    wireless-projection adapter dongle as the fallback if native wireless
+    Android Auto / CarPlay cannot be licensed.
+
+    USB_2 is the Verdin host-only port; USB_1 (OTG, recovery) stays on the
+    bench header J13. USB 2.0 only: the SuperSpeed lanes stay unused (a phone
+    or dongle negotiates USB 2.0 on a USB 2.0 receptacle).
+
+    VBUS: TPS2557-Q1 current-limited switch from +5V, enabled by USB_2_EN (1.8 V
+    is above the 1.1 V EN threshold), FAULT back to USB_2_OC# through a pull-up
+    to 1.8 V. RILIM = 61.9 kohm gives 1.61 / 1.805 / 1.98 A (min / typ / max,
+    datasheet table) - above the 1.5 A advertised on CC, so a charging phone
+    is never current-limited before it should be. That is deliberately not
+    3 A: the 5 V buck is shared with the whole carrier. VBUS carries 100 uF of
+    hybrid polymer (the one polymer part already verified on this board;
+    USB 2.0 cites 120 uF per downstream port, so this is 17 % under) plus a
+    5 V TVS (SMAJ5.0A) because a hot-plugged cable can ring above the
+    switch's 7 V absolute maximum.
+
+    CC: this port is a downstream-facing port, so each CC pin carries an Rp
+    pull-up; 22 kohm +/-5 % to +5V advertises 1.5 A (USB Type-C Table 4-24:
+    56 k default, 22 k 1.5 A, 10 k 3 A). Both CC1 and CC2 carry one because
+    the plug is reversible. No PD, no alternate mode; SBU lines unused.
+
+    ESD: a TPD4E05U06-Q1 array covers D+, D- and both CC pins. The shield
+    goes straight to ground.
+
+    The GCT USB4105 receptacle has D+ on both A6 and B6 and D- on both A7 and
+    B7 (a 16-pin USB 2.0 part), so those pairs are tied together.
+    """
+    r, c = f"{LIB}:R", f"{LIB}:C"
+    c0805 = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
+    cpol = build_generic_symbol(f"{LIB}:CP_HYBRID", "C", "C", PASSIVE_PINS)
+    tvs = build_generic_symbol(f"{LIB}:TVS_SMA", "D", "TVS", PASSIVE_PINS)
+    u_sw = build_generic_symbol(f"{LIB}:TPS2557-Q1", "U", "TPS2557-Q1",
+                                parts.TPS2557_Q1)
+    u_esd = build_generic_symbol(f"{LIB}:TPD4E05U06-Q1", "U", "TPD4E05U06-Q1",
+                                 parts.TPD4E05U06_Q1)
+    usbc_pins = [(n, f"{n}_{role}", "passive") for n, role in
+                 (("A1", "GND"), ("A4", "VBUS"), ("A5", "CC1"), ("A6", "DP"),
+                  ("A7", "DN"), ("A8", "SBU1"), ("A9", "VBUS"), ("A12", "GND"),
+                  ("B1", "GND"), ("B4", "VBUS"), ("B5", "CC2"), ("B6", "DP"),
+                  ("B7", "DN"), ("B8", "SBU2"), ("B9", "VBUS"), ("B12", "GND"))]
+    usbc_pins.append(("SH", "SHIELD", "passive"))
+    conn_usb = build_generic_symbol(f"{LIB}:CONN_USBC", "J", "USB-C host",
+                                    usbc_pins)
+
+    COL_W, ROW_H = 80.0, 26.0
+    cur = {"col": 0, "y": y0}
+
+    def flow(lib, ref, value, nets):
+        h = generic_heights[lib]
+        need = max(ROW_H, h + 12.0)
+        if cur["y"] + need > y0 + usable_h:
+            cur["col"] += 1
+            cur["y"] = y0
+        place_part(lib, ref, value,
+                   x0 + cur["col"] * COL_W, cur["y"] + h / 2, nets)
+        cur["y"] += need
+
+    flow(u_sw, "U11", "TPS2557-Q1", {
+        "IN1": "+5V", "IN2": "+5V", "OUT1": "USB2_VBUS", "OUT2": "USB2_VBUS",
+        "EN": "USB2_EN", "ILIM": "USB2_ILIM", "FAULT": "USB2_OC_N",
+        "GND": "GND", "EP": "GND"})
+    # USB_2_EN comes from the module's GPIO expander (PCAL6416AHF), whose reset
+    # state for this pin lists no pull (USB_1_EN lists a pull-down, USB_2_EN does
+    # not), so hold the switch off until software enables the port.
+    flow(r, "R73", "100k USB EN pull-down", {"1": "USB2_EN", "2": "GND"})
+    flow(r, "R69", "61.9k 1% USB ILIM (1.6-2.0 A)", {"1": "USB2_ILIM", "2": "GND"})
+    flow(r, "R70", "100k FAULT pull-up to +1V8", {"1": "USB2_OC_N", "2": "+1V8"})
+    flow(c, "C80", "100n USB switch IN", {"1": "+5V", "2": "GND"})
+    flow(c0805, "C81", "10u USB switch IN", {"1": "+5V", "2": "GND"})
+    flow(cpol, "C82", "100u 35V hybrid polymer VBUS (Panasonic EEH-ZA1V101P)",
+         {"1": "USB2_VBUS", "2": "GND"})
+    flow(tvs, "D8", "SMAJ5.0A VBUS TVS", {"1": "USB2_VBUS", "2": "GND"})
+    flow(r, "R71", "22k Rp CC1 (1.5 A, +/-5 percent or better)", {"1": "USB2_CC1", "2": "+5V"})
+    flow(r, "R72", "22k Rp CC2 (1.5 A, +/-5 percent or better)", {"1": "USB2_CC2", "2": "+5V"})
+    flow(u_esd, "U14", "TPD4E05U06-Q1 USB ESD", {
+        "CH1": "USB2_DP", "CH2": "USB2_DN", "CH3": "USB2_CC1", "CH4": "USB2_CC2",
+        "GND1": "GND", "GND2": "GND",
+        "NC1": None, "NC2": None, "NC3": None, "NC4": None})
+    flow(conn_usb, "J17", "GCT USB4105-GF-A USB-C 2.0 host receptacle", {
+        # Only the A9/B4 VBUS contact pair is wired. The A4/B9 pair sits on the
+        # far side of the D+/D-/CC escape and the autorouter could not cross it
+        # (it failed on that link in every run): every Type-C plug ties all four
+        # of its VBUS pins together, so either receptacle pair carries the
+        # current, here 1.5 A across two contacts (Type-C contact rating 1.25 A
+        # each). Deviation from "connect all four": a 3 A port would need the
+        # link added, on B.Cu through two vias. See docs/audio-and-usb.md. The pair
+        # sits on its own net (USB2_VBUS_L) because its two pads share one spot,
+        # and two netless overlapping pads are a DRC clearance error.
+        "A1_GND": "GND", "A4_VBUS": "USB2_VBUS_L", "A5_CC1": "USB2_CC1",
+        "A6_DP": "USB2_DP", "A7_DN": "USB2_DN", "A8_SBU1": None,
+        "A9_VBUS": "USB2_VBUS", "A12_GND": "GND",
+        "B1_GND": "GND", "B4_VBUS": "USB2_VBUS", "B5_CC2": "USB2_CC2",
+        "B6_DP": "USB2_DP", "B7_DN": "USB2_DN", "B8_SBU2": None,
+        "B9_VBUS": "USB2_VBUS_L", "B12_GND": "GND", "SHIELD": "GND"})
+
+
 def main():
     x1_lib = build_x1_symbol()
     gnd_lib = rail("GND")
@@ -1438,6 +1723,9 @@ def main():
     build_control(60.0, 60.0, 280.0)
     build_panel_bias(920.0, 60.0, 330.0)
     build_panel_backlight(920.0, 400.0, 400.0)
+    # New area to the right of everything that was on the A0 sheet.
+    build_audio(1100.0, 40.0, 780.0)
+    build_usb_host(1470.0, 40.0, 780.0)
 
     # Neither rail has a regulator on the sheet yet, so nothing drives
     # them and ERC's power_pin_not_driven fires. Assert they come from

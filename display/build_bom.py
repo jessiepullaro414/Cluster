@@ -43,6 +43,13 @@ sibling board's own BOM.
     / TSW-104-07-G-S). Wire gauge and final harness routing are still
     unknown, so the harness-side pigtails (DTM06-3S) are a same-family
     assumption, not a measured requirement.
+  * AUDIO AND USB HOST (added 2026-10-16): U9 TAC5112-Q1, U11 TPS2557-Q1 and
+    U12-U14 TPD4E05U06-Q1 carry the orderable names from their datasheets'
+    own orderable-addendum tables (all "Active Production"); J14/J15 are JST
+    XH and J17 is the GCT USB4105-GF-A (PATTERN suffixes flagged); D8 SMAJ5.0A
+    is multi-source with its AEC-Q101 listing unchecked; J16 is a reserved,
+    DNP, TBD pad set for Apple's MFi coprocessor (no part chosen on purpose).
+    See docs/audio-and-usb.md.
   * PASSIVES are specified parametrically - value, package, and the
     AEC-Q200 requirement - same real reasoning as every sibling board.
   * LIVE PRICING AND STOCK ARE NOT INCLUDED.
@@ -77,7 +84,7 @@ MPN = {
     # distributor listings (the -Q1 names are families, not orderable).
     "LM74930-Q1":   ("LM74930QRGERQ1", "TI", "Automotive ideal-diode surge stopper w/ circuit breaker + OV clamp, VQFN-24 RGE (datasheet SNOSDF6); TI lists it Active/Production", "AEC-Q100 Grade 1"),
     "LM61460-Q1":   ("LM61460AASQRJRRQ1", "TI", "Automotive 3-36V 6A low-EMI synchronous buck, main +5V rail, VQFN-HR-14 RJR (datasheet SNVSB70F). LM61460 is a FAMILY of three adjustable variants: AAS (auto light-load mode + spread spectrum, chosen), AAN (auto, no spread spectrum), AFS (forced-PWM + spread spectrum). AAS was picked for EMI; use AFS if PFM ripple at light load is a problem. Not yet bench-verified", "AEC-Q100 (TI -Q1 suffix)"),
-    "TLV767-Q1":    ("TLV76701QWDRBRQ1", "TI", "Automotive 16V/1A adjustable LDO, +1V8 Verdin I/O rail, VSON-8 DRB with wettable flanks (datasheet SBVS381A); 01 = adjustable, QW = wettable-flank automotive", "AEC-Q100 (TI -Q1 suffix)"),
+    "TLV767-Q1":    ("TLV76701QWDRBRQ1", "TI", "Automotive 16V/1A adjustable LDO, two on this board: U3 = +1V8 Verdin I/O rail, U10 = +3V3 audio codec AVDD (divider 316k/100k), VSON-8 DRB with wettable flanks (datasheet SBVS381A); 01 = adjustable, QW = wettable-flank automotive", "AEC-Q100 (TI -Q1 suffix)"),
     "TCAN1044V-Q1": ("TCAN1044VDRQ1", "TI", "Automotive CAN FD transceiver w/ 1.8V I/O support (V variant is load-bearing - see parts.py), SOIC-8 D (datasheet SLLSF17D)", "AEC-Q100 Grade 1"),
     # Panel rails/backlight for the TSD TST040HDBC-42 (2026-09-30) - see
     # build_schematic.py's build_panel_bias()/build_panel_backlight().
@@ -90,6 +97,12 @@ MPN = {
     "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)", "AEC-Q101"),
     "SJ3":          ("(no part - PCB footprint only)", "-", "3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel's +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py", "n/a"),
     "PMEG6010ELRX": ("PMEG6010ELRX", "Nexperia", "Boost rectifier Schottky, 60V/1A, SOD-123W", "AEC-Q101"),
+    # Audio and USB host (2026-10-16). Orderable names are the "Active
+    # Production" rows of each datasheet's own orderable-addendum table.
+    "TAC5112-Q1":   ("TAC5112WQRTVRQ1", "TI", "Automotive low-power stereo audio codec (2-ch ADC, 2-ch DAC), 1.8 V I/O, AVDD 1.8/3.3 V, I2S/TDM, I2C, WQFN-32 RTV 5x5 mm (datasheet SLASFC2A, Active Production, 3000-piece reel; the Q1 datasheet is a separate document from the TAC5112 non-automotive one)", "AEC-Q100 Grade 1"),
+    "TPS2557-Q1":   ("TPS2557QDRBRQ1", "TI", "Automotive adjustable current-limited power switch, active-HIGH enable, USB host VBUS, S-PVSON-8 DRB (datasheet SLVSC97B, Active Production; the active-low sibling is TPS2556-Q1, do NOT substitute)", "AEC-Q100"),
+    "TPD4E05U06-Q1": ("TPD4E05U06QDQARQ1", "TI", "Automotive 4-channel ESD array, 0.5 pF, 5.5 V, IEC 61000-4-2 +/-12 kV, USON-10 DQA 2.5x1.0 mm (datasheet SLVSCO7C, Active Production). Used on the USB D+/D-/CC lines, the four line-out legs and the microphone pair", "AEC-Q101"),
+    "SMAJ5.0A":     ("SMAJ5.0A (multi-source; PATTERN - choose an AEC-Q101 listed variant at order time)", "Littelfuse / Vishay / Bourns", "400 W SMA 5 V TVS, 6.4 V min breakdown, on USB VBUS: a hot-plugged cable can ring above the TPS2557-Q1's 7 V absolute maximum. The AEC-Q101 qualification of a specific vendor's SMAJ5.0A was not checked", "AEC-Q101 (confirm)"),
 
     # Real parts chosen 2026-09-28, selected against LM74930-Q1's own
     # datasheet MOSFET-selection section (60V VDS w/ single TVS, >=15V
@@ -110,6 +123,10 @@ BOARD_SIDE_CONNECTORS = {
     "J2": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end: sealed Deutsch DTM06-3S (TE) pigtail, as on gauges/", "-"),
     "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/'s J7 uses. This is the display<->gauges<->ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail", "-"),
     "J8": ("TSW-108-07-G-S", "Samtec", "1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness", "-"),
+    "J14": ("B5B-XH-A(LF)(SN)", "JST", "5-circuit XH 2.50 mm vertical header, balanced stereo line-out: L+, L-, R+, R-, GND. Mating: XHP-5 housing with SXH-001T-P0.6 crimps. PATTERN: ordering suffix (LF)(SN) is JST's lead-free tin variant, confirm in the cart. Deliberately a different family from the KK 254 headers so audio cannot be mated to the CAN or dial headers", "-"),
+    "J15": ("B3B-XH-A(LF)(SN)", "JST", "3-circuit XH 2.50 mm vertical header, 2-wire electret microphone: bias+signal, return, shield. Mating: XHP-3 housing with SXH-001T-P0.6 crimps. PATTERN: confirm the ordering suffix in the cart", "-"),
+    "J17": ("USB4105-GF-A", "GCT", "USB Type-C 2.0 16-pin receptacle, top-mount horizontal (the part KiCad's USB_C_Receptacle_GCT_USB4105-xx-A_16P footprint is drawn for; its tags list USB4105-GF-A). Host port on Verdin USB_2 with a TPS2557-Q1 VBUS switch. A panel-mount USB-C extension cable carries it to a console or glovebox port", "-"),
+    "J16": ("(not populated - no coprocessor chosen)", "Apple MFi programme (TBD)", "RESERVED, DO NOT POPULATE: 1x4 0.1 in pad set (I2C_1 SDA, I2C_1 SCL, reset GPIO, GND) for Apple's MFi authentication coprocessor, which wireless CarPlay needs (iAP2). The part is only available through Apple's MFi programme, so no part number, supply voltage or reset polarity is specified here. TBD", "TBD"),
     "J12": ("TSW-103-07-G-S", "Samtec", "1x3 0.100in gold-finish pin header, A55 console UART_3 (1.8 V logic: use a 1.8 V USB-serial adapter or a level shifter) - bench and service use only", "-"),
     "J13": ("TSW-105-07-G-S", "Samtec", "1x5 0.100in gold-finish pin header, USB_1 (VBUS, D-, D+, ID, GND) for flashing/adb bring-up - bench use only, keep the cable short (USB 2.0 high speed over an uncontrolled header)", "-"),
     "J9": ("TSW-104-07-G-S", "Samtec", "1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness", "-"),
@@ -292,7 +309,8 @@ def build():
         if any(p["ref"] == ref for p in parts):
             matched.add(ref)
             pkg = next(p["package"] for p in parts if p["ref"] == ref)
-            cat = "Electromechanical" if ref == "F1" else "Connectors"
+            cat = ("Electromechanical" if ref == "F1" else
+                   "Reserved (DNP, TBD)" if ref == "J16" else "Connectors")
             lines.append((cat, mpn, mfr, desc, pkg, 1, ref, qual))
             if ref == "F1":
                 lines.append(("Electromechanical", "0297005.WXNV", "Littelfuse",
@@ -415,7 +433,8 @@ def build():
                       collapse_refs(refs), "AEC-Q200"))
 
     order = {"Semiconductors": 0, "Electromechanical": 1, "Connectors": 2,
-             "Companion parts (ordered separately)": 3, "Passives": 4, "Needs real part selection": 5}
+             "Companion parts (ordered separately)": 3, "Reserved (DNP, TBD)": 3.5,
+             "Passives": 4, "Needs real part selection": 5}
     lines.sort(key=lambda r: (order[r[0]], -r[5], r[1]))
     return parts, lines
 

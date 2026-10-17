@@ -239,7 +239,11 @@ def run_freerouting(quiet=False):
 # actually converges: keep the first clean result, and if none of the
 # attempts is clean, keep the best one and say so loudly rather than leaving
 # a silently-incomplete board behind.
-MAX_ROUTE_ATTEMPTS = 6
+# 2026-10-17: with the audio and USB blocks the autorouter usually stops at the
+# same 1 unrouted connection however often it restarts in place, but a fresh
+# pipeline pass (new board, new random seed) often clears it, so the in-place
+# retries were cut from 6 to 2 and the whole-pipeline retries raised.
+MAX_ROUTE_ATTEMPTS = 2
 
 
 def route_until_clean():
@@ -384,7 +388,12 @@ def add_and_fill_zones():
     # Two independent load-add-fill-save cycles, each in its own process,
     # sidesteps it entirely: the second cycle loads the file the first cycle
     # already saved (with its zone intact) and adds/fills only the new one.
-    for net_name, layer_name in [("GND", "In1_Cu"), ("+5V", "In2_Cu")]:
+    # 2026-10-17: a GND pour on the back layer too. Where many signal vias pack
+    # together (the audio block) their 1 mm clearance holes cut In1 into islands,
+    # and a GND via that sits in an island is not connected to the rest of the
+    # plane (KiCad reported 3-4 unconnected GND items per run). Every GND via
+    # also lands on B.Cu, whose pour ties the islands back together.
+    for net_name, layer_name in [("GND", "In1_Cu"), ("+5V", "In2_Cu"), ("GND", "B_Cu")]:
         run_kicad_python(f"Add + fill {net_name} zone ({layer_name})", f'''
 import pcbnew
 board = pcbnew.LoadBoard({PCB!r})
@@ -623,7 +632,7 @@ for w in sorted(hist, reverse=True):
 # real_unconnected_count()'s own comment) - when it's wrong, no amount
 # of retrying FreeRouting alone fixes it, since route_until_clean()
 # already believed it succeeded and stopped.
-MAX_PIPELINE_ATTEMPTS = 3
+MAX_PIPELINE_ATTEMPTS = 12
 
 
 def regenerate_unrouted_board():

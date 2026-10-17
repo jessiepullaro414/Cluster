@@ -48,7 +48,7 @@ A2 was done from the Reference Manual (SRAM ECC zero-fill before any read, watch
 | B2 | VHAL bridge as a standalone C++ library: decode SocketCAN frames from `cluster_private.dbc`, host unit tests with the protocol test vectors | decoding and staleness | **done** (`android/vhal-bridge`; the SocketCAN reader is part of B3) |
 | B3 | wire the bridge into the AAOS vehicle HAL in `~/imx-automotive` and build | a real build | WSL tree, hours of build time |
 | B4 | rotary service (dial ADC and click to key/rotary events) | the dial | Verdin + display board |
-| B5 | CarPlay / Android Auto viewport inside the circle | the phone projection | licensing decisions (below) |
+| B5 | CarPlay / Android Auto viewport inside the circle, **wireless**, with sound | the phone projection | licensing decisions (below). Hardware is on display/ since 2026-10-16: TAC5112-Q1 audio (line-out + mic), a USB-C host port, the WB module's Wi-Fi/Bluetooth, and a reserved DNP MFi access point (`docs/audio-and-usb.md`). The hardware does not solve the licence |
 | B6 | suspend-to-RAM and wake on ignition | wake time | Verdin module, System Manager port |
 
 ### C. Test rig and tooling
@@ -74,7 +74,7 @@ What this means: the user interface is the Android app's centre display, driven 
 | D1 | A desktop UX simulator in C++ of the round centre display with a simulated dial (mouse wheel = turn, click, hold). **Proof of concept built 2026-10-16: `hmi-sim/`** (state machine in `hmi.h`, window + scripted shots + selftest in `hmi_sim.cpp`; drives the real small-screen code). Not yet: replayable recordings, owner feedback on the flows | proof of concept done |
 | D2 | Decide how the C++ UX work reaches the product: **prototype, then port to the Android app** (the owner said "prototype then port" for this POC; flows in hmi.h are a proposal to try, port the agreed ones to `SettingsView`) | prototype-then-port chosen for the POC; port after the owner tries it |
 | D3 | Dial service on Android: ADC angle + click to key and rotary events (`android/rotary-service`, B4); needs the Verdin and the display board | not started (hardware) |
-| D4 | A phone connection for Android Auto / CarPlay over Bluetooth (B5), licensing first | not started |
+| D4 | A phone connection for Android Auto / CarPlay, wireless (Bluetooth to pair, Wi-Fi for the picture) or by USB, plus audio via the codec (B5), licensing first | not started (hardware drawn, unbuilt and untested) |
 
 ## 3. Decisions
 Made by the user, 2026-10-14:
@@ -88,9 +88,12 @@ Made by the user, 2026-10-15:
 Made by the user, 2026-10-16:
 5. **The small gauges get themes the user can change.** Classic (needles) and Modern (progress arcs and bars, modelled on a reference picture the owner supplied); the choice is `DisplaySettings.GaugeTheme`, set from an on-screen settings list. **The centre map is round** (fills the circle, like the reference), and **there are no turn indicators** on any screen (the dash has physical ones).
 
+Made by the user, 2026-10-16 (hardware):
+6. **Wireless Android Auto and CarPlay are required, with sound**, and display/ gets both an audio path and a production USB host port. Done in the design: the TAC5112-Q1 codec (stereo line-out, balanced, and one microphone) on Verdin I2S_1 + I2C_1, a USB-C host port on USB_2 (1.5 A, also for a wireless-projection dongle as the fallback), the module's own Wi-Fi/Bluetooth (antennas and keep-out are a mechanical note, not a board feature) and a reserved, DNP, TBD access point for Apple's MFi coprocessor. Board 151.9 -> 169.3 mm wide, same height. **Still a business gate (B5): Apple's MFi programme for CarPlay and Google's Android Auto receiver terms.** Software to write: the codec bring-up (IOVDD_IO_MODE first, MICBIAS), the audio routing in the image, and the USB port enable (`USB_2_EN`). See `docs/audio-and-usb.md`.
+
 Still open, with a recommendation:
-5. **Bare-metal cooperative loop vs RTOS.** Recommend bare-metal: one 10 ms tick, interrupts only for CAN, capture and wake.
-6. **CarPlay / Android Auto licensing**: Apple's CarPlay program and Google's Android Auto receiver for AAOS both involve licences; which route and when is a business decision. Nothing in B1 to B4 depends on it.
+7. **Bare-metal cooperative loop vs RTOS.** Recommend bare-metal: one 10 ms tick, interrupts only for CAN, capture and wake.
+8. **CarPlay / Android Auto licensing**: Apple's CarPlay program and Google's Android Auto receiver for AAOS both involve licences; which route and when is a business decision. Nothing in B1 to B4 depends on it.
 
 ## 4. Verification discipline (same as the hardware)
 Every register address and bit comes from the Reference Manual, not memory; stubs say so. Host tests for every pure function; `make arm-check` must stay clean with `-Werror`; any message layout comes from the generated header, never retyped. Measure, then claim.

@@ -641,12 +641,32 @@ def _widest_corridor(boxes, left, right, top, bottom):
     return max(gaps, key=lambda g: g[1] - g[0])
 
 
-_corr_left, _corr_right = _widest_corridor(thru_hole_boxes, SAFE_LEFT, SAFE_RIGHT,
-                                            SAFE_TOP, SAFE_BOTTOM)
+# 2026-10-16: with the audio/USB parts the widest corridor over the FULL safe
+# height shrank to ~21 mm, too narrow for the gauge and wordmark, which only
+# need clear space over their own height. So search for the largest gauge
+# whose whole stack (gauge + wordmark, about 2R + 34 mm tall, 2R + 12 mm wide)
+# fits in a window with no through-hole pad, on a 1 mm grid.
+def _find_art_window():
+    for rr in range(int(min(40.0, safe_h * 0.30)), 11, -1):
+        w, h = 2 * rr + 12.0, 2 * rr + 8.0 + 26.0
+        if w > SAFE_RIGHT - SAFE_LEFT or h > SAFE_BOTTOM - SAFE_TOP:
+            continue
+        x = SAFE_LEFT
+        while x + w <= SAFE_RIGHT + 1e-9:
+            y = SAFE_TOP
+            while y + h <= SAFE_BOTTOM + 1e-9:
+                if not _overlaps(x, y, x + w, y + h, thru_hole_boxes):
+                    return rr, x, y, w
+                y += 1.0
+            x += 1.0
+    raise RuntimeError("no clear window for the back-silk art")
+
+
+_ART_R, _art_x, _art_y, _corr_w = _find_art_window()
+_corr_left, _corr_right = _art_x, _art_x + _corr_w
 _corr_cx = (_corr_left + _corr_right) / 2
-_corr_w = _corr_right - _corr_left
-print(f"Widest real clear corridor: x={_corr_left:.1f}-{_corr_right:.1f} "
-      f"({_corr_w:.1f}mm wide)")
+print(f"Back-art window: x={_corr_left:.1f}-{_corr_right:.1f}, y from {_art_y:.1f} "
+      f"({_corr_w:.1f}mm wide, gauge R={_ART_R}mm)")
 
 # Gauge on top, wordmark stacked below it, both centered in the real
 # corridor - sized from whichever of corridor width / safe height is
@@ -664,9 +684,9 @@ print(f"Widest real clear corridor: x={_corr_left:.1f}-{_corr_right:.1f} "
 # verification bboxes are computed from the real target (_corr_cx) here
 # so they agree with where the art actually lands.
 DRAW_CX = _corr_cx
-GAUGE_R = min(_corr_w / 2 - 6.0, safe_h * 0.30, 40.0)
+GAUGE_R = float(_ART_R)
 GAUGE_CX = 2 * board_cx - DRAW_CX
-GAUGE_CY = SAFE_TOP + GAUGE_R + 6.0
+GAUGE_CY = _art_y + GAUGE_R + 6.0
 START_DEG, END_DEG = 225.0, -45.0
 N_TICKS = 9
 S = GAUGE_R / 42.0  # same proportional-scaling fix the original board's
@@ -687,7 +707,7 @@ def _gauge_bbox():
 
 
 def _wordmark_bbox():
-    return (_DRAW_WORD_CX - _word_w / 2, _word_top, _DRAW_WORD_CX + _word_w / 2, SAFE_BOTTOM)
+    return (_DRAW_WORD_CX - _word_w / 2, _word_top, _DRAW_WORD_CX + _word_w / 2, _art_y + 2 * GAUGE_R + 8.0 + 26.0)
 
 
 _gx0, _gy0, _gx1, _gy1 = _gauge_bbox()
@@ -768,7 +788,7 @@ _gr_text("x1000 RPM", _polar(GAUGE_CX, GAUGE_CY, GAUGE_R * 0.45, 270),
 _gr_text("CLUSTER", (_word_cx, _word_top + 7.0), size=min(9.0, _word_w * 0.19),
           thickness=1.3, bold=True)
 _gr_text("ANDROID DISPLAY CARRIER", (_word_cx, _word_top + 15.5),
-          size=2.2, thickness=0.3)
+          size=min(2.2, _word_w / 21.0), thickness=0.3)
 _gr_text("JESSIE'S CARS", (_word_cx, _word_top + 21.0), size=1.9, thickness=0.26)
 
 print(f"Added tach-face + CLUSTER wordmark art to B.SilkS "
@@ -860,7 +880,9 @@ for ref, (dx, dy) in ref_label_pos.items():
     # 0603: only ICs, connectors, the fuse holder and jumpers keep silkscreen
     # labels; passives and small transistors carry theirs on F.Fab (still in
     # the assembly drawing and the BOM, just not printed on the board).
-    label_layer = "F.SilkS" if ref[0] in "UJF" else "F.Fab"
+    # The tiny TVS arrays and the USB switch sit among 0603s with no room for
+    # a printed label either (2026-10-16).
+    label_layer = "F.SilkS" if (ref[0] in "UJF" and ref not in ("U11", "U12", "U13", "U14")) else "F.Fab"
     new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "{label_layer}") '
            f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)

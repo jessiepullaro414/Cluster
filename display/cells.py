@@ -171,6 +171,90 @@ CELLS = {
         anchor="J10",
         order=["R49", "C39"],
         pulls={}),
+    # --- Audio and USB host (2026-10-16) --------------------------------
+    # 3.3 V AVDD LDO, kept as its own small cell so the floorplan can put it
+    # beside the codec.
+    "LDO3V3": dict(
+        anchor="U10",
+        order=["C64", "C65", "R59", "R60"],
+        pulls={
+            "C64": {"+5V": pull("U10", [8], 4)},
+            "C65": {"+3V3": pull("U10", [1], 4)},
+            "R59": {"FB_3V3": pull("U10", [3], 4)},
+            "R60": {"FB_3V3": pull("U10", [3], 4)},
+        }),
+    # Codec with its decoupling (datasheet Figure 8-1 / layout guidance 8.4.1:
+    # supply capacitors close to the pins, VREF and MICBIAS capacitors with a
+    # direct ground return), the microphone input network and the line-out
+    # series resistors and DC-blocking capacitors at the OUT pins.
+    "AUDIO": dict(
+        anchor="U9",
+        anchor_gap=3.5,
+        order=["C66", "C67", "C68", "C69", "C70", "C71", "C72", "C73",
+               "R63", "C74", "C75", "R64", "R61", "R62",
+               "R65", "R66", "R67", "R68", "C76", "C77", "C78", "C79"],
+        pulls={
+            "C66": {"+3V3": pull("U9", [31], 4)},
+            "C67": {"+3V3": pull("U9", [31], 4)},
+            "C68": {"CODEC_DREG": pull("U9", [2], 4)},
+            "C69": {"CODEC_DREG": pull("U9", [2], 4)},
+            "C70": {"+1V8": pull("U9", [7], 4)},
+            "C71": {"+1V8": pull("U9", [7], 4)},
+            "C72": {"CODEC_VREF": pull("U9", [32], 5)},
+            "C73": {"CODEC_MICBIAS": pull("U9", [17], 5)},
+            "R63": {"CODEC_MICBIAS": pull("U9", [17], 2)},
+            "C74": {"MIC_IN_P": pull("U9", [18], 4)},
+            "C75": {"MIC_IN_N": pull("U9", [19], 4)},
+            "R61": {"I2C1_SDA": pull("U9", [10], 2)},
+            "R62": {"I2C1_SCL": pull("U9", [9], 2)},
+            "R65": {"AOUT_L_P": pull("U9", [28], 4)},
+            "R66": {"AOUT_L_N": pull("U9", [27], 4)},
+            "R67": {"AOUT_R_P": pull("U9", [29], 4)},
+            "R68": {"AOUT_R_N": pull("U9", [30], 4)},
+            "C76": {"AOUT_L_P_R": pull("R65", [2], 3)},
+            "C77": {"AOUT_L_N_R": pull("R66", [2], 3)},
+            "C78": {"AOUT_R_P_R": pull("R67", [2], 3)},
+            "C79": {"AOUT_R_N_R": pull("R68", [2], 3)},
+        }),
+    # External audio connectors with their ESD arrays right at the connector
+    # (TI: place the array as close to the connector as possible).
+    "AOUT": dict(
+        anchor="J14",
+        order=["U12", "J15", "U13"],
+        pulls={
+            "U12": {"LINE_L_P": pull("J14", [1], 4), "LINE_L_N": pull("J14", [2], 4),
+                    "LINE_R_P": pull("J14", [3], 4), "LINE_R_N": pull("J14", [4], 4)},
+            "U13": {"MIC_P": pull("J15", [1], 4), "MIC_N": pull("J15", [2], 4)},
+        }),
+    # Reserved MFi coprocessor access point (DNP header), by itself.
+    "MFI": dict(anchor="J16", order=[], pulls={}),
+    # USB-C host port. The receptacle sits on the board edge, with the edge
+    # 3.1 mm below its origin (GCT USB4105 footprint "PCB Edge" line), so every
+    # other part stays above y = 2.6 mm in the cell frame. The cell is kept
+    # narrow (26 mm) and tall (up to 26 mm above the receptacle origin, which
+    # the bottom strip's height allows) because the bottom strip's WIDTH is what
+    # sets the board width.
+    "USBC": dict(
+        anchor="J17",
+        order=["U14", "D8", "C82", "U11", "R69", "R70", "R73", "C80", "C81", "R71", "R72"],
+        keepin=(-13.0, -26.0, 13.0, 2.6),
+        anchor_gap=3.5,
+        pulls={
+            "U14": {"USB2_DP": pull("J17", ["A6", "B6"], 4),
+                    "USB2_DN": pull("J17", ["A7", "B7"], 4),
+                    "USB2_CC1": pull("J17", ["A5"], 3),
+                    "USB2_CC2": pull("J17", ["B5"], 3)},
+            "D8": {"USB2_VBUS": pull("J17", ["A9", "B4"], 3)},
+            "C82": {"USB2_VBUS": pull("J17", ["A9", "B4"], 2)},
+            "U11": {"USB2_VBUS": pull("J17", ["A9", "B4"], 4)},
+            "R69": {"USB2_ILIM": pull("U11", [5], 4)},
+            "R70": {"USB2_OC_N": pull("U11", [8], 3)},
+            "R73": {"USB2_EN": pull("U11", [4], 3)},
+            "C80": {"+5V": pull("U11", [2, 3], 4)},
+            "C81": {"+5V": pull("U11", [2, 3], 4)},
+            "R71": {"USB2_CC1": pull("J17", ["A5"], 2)},
+            "R72": {"USB2_CC2": pull("J17", ["B5"], 2)},
+        }),
 }
 
 
@@ -198,7 +282,7 @@ if __name__ == "__main__":
     missing = set(info) - used
     print("parts not in any cell:", sorted(missing))
     n = len(res)
-    fig, axes = plt.subplots(3, 5, figsize=(26, 15))
+    fig, axes = plt.subplots(4, 5, figsize=(26, 20))
     for ax, (name, (placed, bbox)) in zip(axes.flat, res.items()):
         w, h = bbox[2] - bbox[0], bbox[3] - bbox[1]
         print(f"{name:10s} {len(placed):3d} parts  {w:5.1f} x {h:5.1f} mm")

@@ -25,7 +25,7 @@ Checked against JLCPCB's published 4-layer capabilities (min trace/space 0.09 mm
 
 ## Board sizes
 
-- display/: about 152 x 102 mm.
+- display/: 169.3 x 101.8 mm (was 151.9 x 101.8 before the audio and USB host blocks, 2026-10-16: wider, not taller).
 - gauges/: 447 x 56 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
 
 ## What is still unconfirmed (could force a respin of display/)
@@ -33,6 +33,8 @@ Checked against JLCPCB's published 4-layer capabilities (min trace/space 0.09 mm
 1. The panel FPC connector (Hirose FH26-39S-0.3SHW) is inferred from the panel datasheet; the datasheet names no connector. Ask TSD (draft in `docs/rfq-drafts.md`).
 2. The panel's +/-6.5 V pin polarity is contradictory in its datasheet; the board has open solder jumpers JP1/JP2 for either answer.
 3. The Verdin wake-pin polarity is unstated; the circuit assumes a software-selectable edge.
+4. USB-C receptacle J17 (GCT USB4105-GF-A): its four ground pads sit 0.194 mm from its two NPTH locating pegs (0.25 mm KiCad default; this is GCT's own land pattern). Check the board house's NPTH-to-copper rule or run its DFM check. DRC reports it as `hole_clearance` x4 (accepted category).
+5. The TAC5112-Q1 audio codec, the USB switch and the audio/USB connectors are drawn from datasheets but untested; see docs/audio-and-usb.md for the list. The Apple MFi coprocessor access point J16 is DNP and TBD.
 
 gauges/ has no open hardware question other than the AutoMeter sender wiring (assumed harness-powered, signal and ground only).
 

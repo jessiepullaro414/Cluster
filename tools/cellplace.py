@@ -62,15 +62,21 @@ class Part:
 
 
 def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
-               allowed_rot=None, verbose=False):
+               allowed_rot=None, verbose=False, keepin=None, anchor_gap=None):
     """parts: ref -> Part. anchor: ref placed at the origin. order: refs in
     placement order. net_weight: net -> weight (nets not listed use
     default_weight; GND-like nets should be listed low). pulls:
     ref -> {net: (target_ref, [pad numbers], weight)} overrides the default
     "nearest already-placed pad on that net" target for that part's net.
     allowed_rot: ref -> tuple of rotations (default all four).
+    keepin: optional (x0, y0, x1, y1) in the cell frame (anchor at the origin);
+    every placed part's bounding box must lie inside it. Used for a connector
+    that sits on a board edge, so nothing else lands beyond that edge.
+    anchor_gap: clearance kept around the anchor part (default ANCHOR_GAP), raised
+    for a fine-pitch part or connector that needs escape room for its wiring.
     Returns {ref: (ox, oy, rot)} and the cell bbox."""
     pulls = pulls or {}
+    a_gap = ANCHOR_GAP if anchor_gap is None else anchor_gap
     allowed_rot = allowed_rot or {}
     placed = {anchor: (0.0, 0.0, 0)}
     abs_pads = {}        # net -> list of (x, y, ref) of already-placed pads
@@ -86,7 +92,7 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
     def add_box(ref):
         ox, oy, a = placed[ref]
         x0, y0, x1, y1 = parts[ref].rbbox(a)
-        g = ANCHOR_GAP if ref == anchor else GAP
+        g = a_gap if ref == anchor else GAP
         boxes.append((ox + x0 - g, oy + y0 - g, ox + x1 + g, oy + y1 + g))
 
     add_box(anchor)
@@ -119,6 +125,9 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
         x0, y0, x1, y1 = parts[ref].rbbox(a)
         X, Y = np.meshgrid(xs, ys)
         ok = np.ones_like(X, dtype=bool)
+        if keepin is not None:
+            kx0, ky0, kx1, ky1 = keepin
+            ok &= (X + x0 >= kx0) & (X + x1 <= kx1) & (Y + y0 >= ky0) & (Y + y1 <= ky1)
         for bx0, by0, bx1, by1 in boxes:
             hit = ((X + x1 > bx0) & (X + x0 < bx1) & (Y + y1 > by0) & (Y + y0 < by1))
             ok &= ~hit
@@ -196,7 +205,8 @@ def plan_cells(parts, cells, net_weight):
             assert m in parts, f"{m} in cell {name} is not a schematic part"
             seen.add(m)
         result[name] = place_cell(parts, c["anchor"], c["order"], net_weight,
-                                  pulls=c["pulls"], allowed_rot=c.get("rot"))
+                                  pulls=c["pulls"], allowed_rot=c.get("rot"),
+                                  keepin=c.get("keepin"), anchor_gap=c.get("anchor_gap"))
     return result, seen
 
 

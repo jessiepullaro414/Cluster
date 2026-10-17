@@ -23,7 +23,7 @@ SCH = {"gauges": os.path.join(ROOT, "gauges", "ClusterGauges.kicad_sch"),
        "display": os.path.join(ROOT, "display", "ClusterDisplay.kicad_sch")}
 # connectors that leave the board on a harness (bench headers are listed but marked)
 OFFBOARD = {
-    "gauges": {"J1": "12 V / GND / ignition (DTM06-3S)", "J7": "car CAN + 3 senders (DTM06-5S)", "J8": "private CAN link to display/",
+    "gauges": {"J1": "12 V / GND / ignition (DTM06-3S pigtail)", "J7": "car CAN + 3 senders (DTM06-6S pigtail)", "J8": "private CAN link to display/",
                "J9": "Hall speed sender", "J10": "6 lamp inputs + dimmer", "J11": "tach", "J2": "SWD Tag-Connect (bench)"},
     "display": {"J2": "12 V / GND / ignition", "J3": "private CAN link to gauges/", "J11": "rotary dial + click",
                 "J8": "JTAG (bench)", "J9": "buttons (bench)", "J12": "A55 console UART (bench)", "J13": "USB OTG (bench)", "J10": "RTC cell"},

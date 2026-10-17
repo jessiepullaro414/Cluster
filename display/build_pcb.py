@@ -868,7 +868,10 @@ TRUNK_WIDTH_LADDER = [1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
 # The converter switch nodes carry the inductor's full peak current in short
 # hot loops, so they are widened too (the autorouter routes everything at
 # 0.2 mm and widen_trunks() fattens what has room). REVIEW FIX 2026-10-04.
-TRUNK_NETS = ["+12V_PROT", "SW_5V", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW"]
+# REVIEW FIX 2026-10-17 (docs/electrical-review.md D-02): the battery path ahead of and through the LM74930 (VBAT_IN from
+# J2 to the fuse, VBAT_F, the sense node SENSE_OUT and the common-source node COMMON) carries the same 2-2.6 A as
+# +12V_PROT but was left at the 0.2 mm routing width; it is widened like +12V_PROT wherever there is room.
+TRUNK_NETS = ["+12V_PROT", "VBAT_IN", "VBAT_F", "SENSE_OUT", "COMMON", "SW_5V", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW"]
 
 board.to_file(PCB)
 print("Wrote", PCB)

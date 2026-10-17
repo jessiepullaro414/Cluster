@@ -409,7 +409,9 @@ CORE_ZONES = [
     ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8", "D31"]),
     ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "R87", "R88", "J7", "D28", "D29", "D30"]),
     ("AUX BL SWITCH", ["Q2", "R10", "R11", "R86"]),
-    ("SENSORS", ["R19", "R20", "C31", "D15",   # battery-voltage divider: next to the ADC, not out at the battery gauge
+    # D33 (+3V3 clamp) sits with the sender pull-ups whose fault current it absorbs; in the LDO cell it repacked the
+    # power zone so tightly that the LM74930 corner no longer routed (review 2026-10-17).
+    ("SENSORS", ["D33", "R19", "R20", "C31", "D15",   # battery-voltage divider: next to the ADC, not out at the battery gauge
                  "R16", "R17", "R18", "C28", "C29", "C30", "R55", "R56", "R57",
                  "D12", "D13", "D14"]),
 ]

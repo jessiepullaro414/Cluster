@@ -468,7 +468,9 @@ FOOTPRINTS = {
     "R":    "Resistor_SMD:R_0603_1608Metric",
     "C":    "Capacitor_SMD:C_0603_1608Metric",
     "L":    "Inductor_SMD:L_1210_3225Metric",
-    "TVS":  "Diode_SMD:D_SMB",
+    # REVIEW FIX 2026-10-17 (docs/electrical-review.md D-01): D1 is ordered as an SMCJ33A (1500 W, DO-214AB / SMC),
+    # so it needs the SMC land pattern; the D_SMB footprint it had fits only a 600 W SMBJ-class part.
+    "TVS":  "Diode_SMD:D_SMC",
     # Real part MF-RG500 (5.0A hold, matching F1's own real "5A" target -
     # see build_schematic.py's own comment on F1). MF-RG300 (3.0A hold)
     # was the wrong footprint AND the wrong real part - Bourns' MF-RG

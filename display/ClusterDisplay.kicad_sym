@@ -538,7 +538,7 @@
     (property "Value" "TVS" (id 1) (at 0.0 0.0 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Footprint" "Diode_SMD:D_SMB" (id 2) (at 0.0 0.0 0)
+    (property "Footprint" "Diode_SMD:D_SMC" (id 2) (at 0.0 0.0 0)
       (effects (font (size 1.27 1.27)) hide)
     )
     (property "Datasheet" "" (id 3) (at 0.0 0.0 0)

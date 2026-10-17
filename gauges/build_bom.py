@@ -101,18 +101,25 @@ MPN = {
     "TCAN1044V-Q1": ("TCAN1044VDRQ1", "TI", "Automotive CAN FD transceiver w/ VIO pin, SOIC-8 - private CAN1 link to display/ (same part as display/'s transceiver; datasheet SLLSF17D)", "AEC-Q100 Grade 1"),
     "CSL0902ET1C": ("CSL0902ET1C", "ROHM", "Green chip LED with lens, 1.6 x 0.8 x 1.24 mm, 527 nm, 900-1800 mcd at 20 mA (1200 typ), VF 2.6/3.4/3.8 V at 20 mA, 30 mA max, VR 5 V; the physical turn-signal arrows behind the faceplate (ROHM data sheet CSL0902ET1(C) Rev.007; orderable code as listed by Digi-Key, Farnell and element14, confirm the reel suffix at order time)", "AEC-Q102"),
     "SM24CANB-02HTG": ("SM24CANB-02HTG", "Littelfuse", "Dual bidirectional 24 V TVS array, SOT-23, pins 1 and 2 each to common pin 3 (datasheet Rev. 10/09/17: VRWM 24 V, VBR 26.7 V min, VC 34 V at 1 A, 30 pF, +-30 kV IEC 61000-4-2); AEC-Q101. Protects the car CAN bus (D28), the private CAN link (D31), the sender wires (D29, D30) and the Hall speed wire (D32) at their connectors", "AEC-Q101"),
+    "SZMMSZ3V6T1G": ("SZMMSZ3V6T1G", "onsemi", "3.6 V 500 mW zener, SOD-123, clamps the +3V3 rail when a sender wire is shorted to battery with the car off (distributor listing: Zzt 90 ohm max, 5 uA at 1 V; AEC-Q101). The onsemi datasheet was not retrievable during the review: confirm leakage at 3.3 V and 85 C and the dynamic impedance at 30 mA before ordering", "AEC-Q101"),
     "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8)", "AEC-Q101"),
 }
 
 # Real harness pigtail connectors (the cable-side mate for J1/J7's own
 # real board-side footprints below) - real, separately-orderable items,
 # but NOT their own board placement (nothing on the schematic/PCB IS a
-# DTM06-2S/5S footprint - the board side is the Phoenix/Molex part
+# DTM06 footprint - the board side is the Phoenix/Molex part
 # below), so these are appended as extra lines the same way the fuse
 # element is, not matched through the placement-coverage token loop.
+# HARNESS DECIDED 2026-10-17 (docs/harness.md, which also lists contacts, crimps, wire and tools): DTM06 plugs on
+# the car end of short pigtails, nothing sealed on the board. There is no 5-way DTM, so J7 uses the 6-way with one
+# cavity sealed. J8 is an in-dash KK 254 cable to display/ J3 with no DTM.
 HARNESS_PIGTAILS = [
-    ("DTM06-3S", "TE Connectivity (Deutsch DTM series)", "3-position sealed harness pigtail connector, 12V input + GND + ignition - mates with J1's own board-side terminal block (rev B: was 2-position before the ignition wire was added)", "J1"),
-    ("DTM06-5S", "TE Connectivity (Deutsch DTM series)", "5-position sealed harness pigtail connector: CAN0_H/L + 3x sender input - mates with J7's own board-side header", "J7"),
+    ("DTM06-3S + WM-3S", "TE Connectivity (DEUTSCH DTM)", "3-way plug and wedge on the car end of J1's 20 AWG GXL power pigtail (12V, GND, ignition); the pigtail is ferruled into J1's screw terminal. Contacts 0462-201-20141 (size 20)", "J1"),
+    ("DTM06-6S + WM-6S", "TE Connectivity (DEUTSCH DTM)", "6-way plug and wedge on the car end of J7's 22 AWG pigtail (CAN0 H/L as a twisted pair, fuel, oil, coolant senders); no 5-way DTM exists, so one cavity takes a sealing plug (0413-204-2005, confirm)", "J7"),
+    ("DTM06-2S + WM-2S", "TE Connectivity (DEUTSCH DTM)", "2-way plug and wedge on the car end of J9's 22 AWG pigtail (Hall speed signal, GND)", "J9"),
+    ("DTM06-08SA + WM-8S", "TE Connectivity (DEUTSCH DTM)", "8-way plug and wedge on the car end of J10's 22 AWG pigtail (six lamps, GND, dimmer feed); check that WM-8S fits the DTM 8-way", "J10"),
+    ("DTM06-2S + WM-2S", "TE Connectivity (DEUTSCH DTM)", "2-way plug and wedge on the car end of J11's 22 AWG pigtail (tach signal, GND)", "J11"),
 ]
 
 # Real board-side connector part numbers that pair with the pigtails
@@ -120,9 +127,9 @@ HARNESS_PIGTAILS = [
 # just described by the schematic Value string, so they get their own
 # BOM lines keyed by REFERENCE rather than by Value-token match.
 BOARD_SIDE_CONNECTORS = {
-    "J1": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm screw terminal block, board side of the 12V input + ignition pigtail (rev B: was 2-position)", "-"),
-    "J7": ("22-27-2051", "Molex", "5-position KK 254 (2.54mm) header, board side of the CAN0+sender pigtail", "-"),
-    "J8": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, private CAN1 link to display/ (CAN1_H / CAN1_L / GND); mating housing and crimps are separate Molex KK 254 parts", "-"),
+    "J1": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm screw terminal block, board side of the 12V input + ignition pigtail: 20 AWG GXL ferruled into the terminal (26-14 AWG), DTM06-3S plug on the car end (docs/harness.md)", "-"),
+    "J7": ("22-27-2051", "Molex", "5-position KK 254 (2.54mm) header, board side of the CAN0+sender pigtail: 22 AWG GXL in a 22-01-3057 housing with 08-50-0113/0114 crimps (22-30 AWG), DTM06-6S plug on the car end", "-"),
+    "J8": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, private CAN1 link to display/ J3 (CAN1_H / CAN1_L / GND): a short in-dash cable, 22 AWG twisted pair + ground, KK 254 housing 22-01-3037 at both ends, no DTM", "-"),
     "J10": ("22-27-2081", "Molex", "8-circuit KK 254 (2.54mm) vertical header: six 12 V-active indicator-lamp inputs (left turn, right turn, high beam, brake, alternator, oil), ground, and the dash-dimmer feed (instrument-lamp rheostat output); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J11": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, tach input (signal + ground), ECU/coil-driver tach output; coil-negative use on a points ignition is not validated", "-"),
     "J9": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, Hall speed sender input (signal + ground); the sender is powered from the car harness, not from this board", "-"),
@@ -293,7 +300,7 @@ def build():
 
     for (tok, package), refs in groups.items():
         mpn, mfr, desc, qual = MPN[tok]
-        cat = "Connectors" if tok in ("DTM06-2S", "DTM06-5S", "Tag-Connect") else \
+        cat = "Connectors" if tok in ("Tag-Connect",) else \
               "Electromechanical" if tok == "Littelfuse 297" else \
               "Displays" if tok.startswith("RFA401280B") else \
               "Semiconductors"

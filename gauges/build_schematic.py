@@ -620,18 +620,15 @@ register_symbol(f"{LIB}:CONN_SWD", "J", "SWD (Tag-Connect TC2030-IDC-NL)",
 
 # REV B: 3 positions now (VIN, GND, IGN) - the ignition wire wakes the MCU
 # from STOP mode and is reported to display/ over the private link.
-register_symbol(f"{LIB}:CONN_PWR", "J", "Phoenix MKDS 1,5/3-5,08 (board side; DTM06-3S nickel on the outboard pigtail end)",
+register_symbol(f"{LIB}:CONN_PWR", "J", "Phoenix MKDS 1,5/3-5,08 (board side; 20 AWG GXL pigtail with a DTM06-3S plug on the car end)",
                 "TerminalBlock_Phoenix:TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal",
                 {'L': [P(1, "VIN", "passive"), P(2, "GND", "passive"),
                        P(3, "IGN", "passive")]},
                 hide_pin_names=True)
-# Board-side power landing reuses thermo-pcb's real connector strategy
-# (Phoenix MKDS screw terminal, sealed DTM06-2S crimped on the outboard
-# pigtail end) - same real reasoning (heavier-duty physical interface than
-# a friction-lock header, standard real-world 12V automotive pigtail
-# termination). Not yet re-verified this is the right choice for Cluster
-# specifically (a dash-mounted board, not an engine-bay one like Thermo) -
-# flagged for the connector-strategy pass, not assumed final.
+# HARNESS DECIDED 2026-10-17 (docs/harness.md): no sealed connector sits on the board. J1 takes a 20 AWG GXL pigtail
+# ferruled into the screw terminal, with a DEUTSCH DTM06-3S plug + WM-3S wedge on the car end. The signal headers
+# (J7, J9, J10, J11) take 22 AWG GXL pigtails crimped into KK 254 housings, with DTM06 plugs on the car end; J8 is a
+# plain in-dash KK 254 cable to display/ J3 with no DTM.
 
 # --- CAN0 + sensor harness connector (plan Step 6) ---
 # Real part: Molex KK-254 5-position (22-27-2051, board side), same real
@@ -645,7 +642,7 @@ register_symbol(f"{LIB}:CONN_PWR", "J", "Phoenix MKDS 1,5/3-5,08 (board side; DT
 # harness pin - R19's own divider already reads VIN_PROT, the same
 # battery tap already arriving via J1's power pigtail, so a second wire
 # for the same real physical signal would be redundant.
-register_symbol(f"{LIB}:CONN_HARNESS", "J", "Molex KK-254 22-27-2051 (board side; DTM06-5S nickel on the outboard pigtail end)",
+register_symbol(f"{LIB}:CONN_HARNESS", "J", "Molex KK-254 22-27-2051 (board side; 22 AWG pigtail, DTM06-6S plug on the car end, one cavity sealed)",
                 "Connector_Molex:Molex_KK-254_AE-6410-05A_1x05_P2.54mm_Vertical",
                 {'L': [P(1, "CAN0_H", "passive"), P(2, "CAN0_L", "passive"),
                        P(3, "FUEL_SENSE", "passive"), P(4, "OIL_SENSE", "passive"),
@@ -711,6 +708,12 @@ register_symbol(f"{LIB}:TVS_ARRAY", "D", "SM24CANB-02HTG dual 24 V TVS (AEC-Q101
                 {'L': [P(1, "IO1", "passive"), P(2, "IO2", "passive")],
                  'B': [P(3, "COM", "passive")]},
                 datasheet="https://www.littelfuse.com/products/tvs-diode-arrays/general-purpose-esd-protection/sm24canb/sm24canb_02htg.aspx")
+
+# 3.6 V automotive zener clamp on +3V3 (onsemi SZMMSZ3V6T1G: AEC-Q101, 500 mW, SOD-123; Zzt 90 ohm max and 5 uA at 1 V per the
+# distributor listing, the onsemi datasheet itself was not retrievable). Pad 1 = cathode, pad 2 = anode (KiCad D_SOD-123).
+register_symbol(f"{LIB}:ZENER", "D", "SZMMSZ3V6T1G 3.6V zener (AEC-Q101)", "Diode_SMD:D_SOD-123",
+                {'T': [P(1, "K", "passive")], 'B': [P(2, "A", "passive")]},
+                hide_pin_names=True)
 
 # --- CAN0 transceiver (plan Step 2): real TJA1043T (SO-14), pin table and
 # wiring topology reused VERBATIM from ecu-pcb's own already-verified
@@ -792,7 +795,7 @@ section_text("5V BUCK + 3.3V LDO", 200, 28)
 section_text("MCU CORE (NXP S32K144, 3.3V LOGIC) - FIXED PINS ONLY", 30, 175)
 
 # --- 12V rail, left to right ---
-place(f"{LIB}:CONN_PWR", "J1", "DTM06-3S nickel, 12V input + ignition (sealed)", 40, RAIL,
+place(f"{LIB}:CONN_PWR", "J1", "Phoenix MKDS 1,5/3-5,08: 12V, GND, ignition (20 AWG GXL pigtail, DTM06-3S plug on the car end)", 40, RAIL,
       conn={'1': ('pwr', 'VIN', 5.08), '2': ('pwr', 'GND', 7.62),
             '3': ('label', 'IGN_RAW', 12.7)})
 place(f"{LIB}:Fuse", "F1", "Mini blade holder, 2A Littelfuse 297 fuse (SAE J2077/ISO 8820-3)", 50, RAIL,
@@ -996,7 +999,7 @@ place(f"{LIB}:R_V", "R42", "60R split termination (AEC-Q200)", 880, 260,
       conn={'1': ('label', 'CAN1_SPLIT'), '2': ('label', 'CAN1_L')})
 place(f"{LIB}:C_V", "C42", "4.7nF SPLIT stabilization (AEC-Q200)", 910, 245,
       conn={'1': ('label', 'CAN1_SPLIT'), '2': ('pwr', 'GND')})
-place(f"{LIB}:CONN_LINK", "J8", "KK-254 22-27-2031, private link to display/ J3 (DTM06-3S pigtail)", 960, 250,
+place(f"{LIB}:CONN_LINK", "J8", "KK-254 22-27-2031, private CAN link to display/ J3 (in-dash KK 254 cable, 22 AWG twisted pair + ground, no DTM)", 960, 250,
       conn={'1': ('label', 'CAN1_H'), '2': ('label', 'CAN1_L'),
             '3': ('pwr', 'GND', 7.62)})
 
@@ -1011,7 +1014,7 @@ section_text("REV B: HALL SPEED INPUT (AutoMeter-type 12 V pulse sender)", 700, 
 # comfortably above the S32K144's ~2.3 V input-high level at 3.3 V; a BAV99
 # clamp holds the pin to the rails against spikes. 1 nF gives about 10 us
 # of filtering, far below the ~1 ms periods at 533 Hz (120 mph).
-place(f"{LIB}:CONN_SPEED", "J9", "KK-254 22-27-2021, Hall speed sender (signal + ground)", 700, 380,
+place(f"{LIB}:CONN_SPEED", "J9", "KK-254 22-27-2021, Hall speed sender (signal + ground; 22 AWG pigtail, DTM06-2S plug)", 700, 380,
       conn={'1': ('label', 'SPEED_RAW'), '2': ('pwr', 'GND', 7.62)})
 place(f"{LIB}:R_V", "R43", "4.7k pull-up to VIN_PROT for open-collector senders (AEC-Q200)", 760, 360,
       conn={'1': ('label', 'VIN_PROT'), '2': ('label', 'SPEED_RAW')})
@@ -1059,7 +1062,7 @@ LAMPS = [("LAMP_TURN_L", "Left turn"), ("LAMP_TURN_R", "Right turn"),
 _lamp_conn = {str(i + 1): ('label', LAMPS[i][0] + "_RAW") for i in range(6)}
 _lamp_conn['7'] = ('pwr', 'GND', 7.62)
 _lamp_conn['8'] = ('label', 'DIM_RAW')
-place(f"{LIB}:CONN_LAMPS", "J10", "KK-254 22-27-2081, indicator lamp inputs (6 x 12 V-active + ground) and dash-dimmer feed", 1000, 400,
+place(f"{LIB}:CONN_LAMPS", "J10", "KK-254 22-27-2081, indicator lamp inputs (6 x 12 V-active + ground) and dash-dimmer feed (22 AWG pigtail, DTM06-08SA plug)", 1000, 400,
       conn=_lamp_conn)
 for i, (net, what) in enumerate(LAMPS):
     x = 1060 + i * 55
@@ -1116,7 +1119,7 @@ for _side, _name, _r, _dclamp, _led, _y in (("L", "Left", "R82", "D24", "D26", 7
 # at 6000 rpm is 400 Hz). A DNP 4.7k pull-up serves open-collector tach outputs.
 # Coil-negative operation on a points system is NOT validated; prefer the ECU's
 # tach output or a proper coil-driver tach signal.
-place(f"{LIB}:CONN_TACH", "J11", "KK-254 22-27-2021, tach input (signal + ground)", 1000, 500,
+place(f"{LIB}:CONN_TACH", "J11", "KK-254 22-27-2021, tach input (signal + ground; 22 AWG pigtail, DTM06-2S plug)", 1000, 500,
       conn={'1': ('label', 'TACH_RAW'), '2': ('pwr', 'GND', 7.62)})
 place(f"{LIB}:R_1206", "R76", "18k series, tach, 200V (AEC-Q200)", 1060, 500,
       conn={'1': ('label', 'TACH_RAW'), '2': ('label', 'TACH_MID')})
@@ -1293,7 +1296,7 @@ place(f"{LIB}:D_BAV99", "D15", "BAV99-Q battery divider clamp (AEC-Q101)", 340, 
 # scope thermo-pcb's own resistive-sender firmware already established
 # the pattern for, not a new kind of problem.
 
-place(f"{LIB}:CONN_HARNESS", "J7", "DTM06-5S nickel, CAN0 + 3x sender input (sealed)", 400, 600,
+place(f"{LIB}:CONN_HARNESS", "J7", "KK-254 22-27-2051: CAN0 + 3 sender inputs (22 AWG pigtail, DTM06-6S plug with one cavity sealed)", 400, 600,
       conn={'1': ('label', 'CAN0_H'), '2': ('label', 'CAN0_L'),
             '3': ('label', 'SENDER_FUEL'), '4': ('label', 'SENDER_OIL'),
             '5': ('label', 'SENDER_TEMP')})
@@ -1335,6 +1338,12 @@ place(f"{LIB}:R_V", "R87", "100k CAN0_EN pull-down, defined state while the MCU 
       conn={'1': ('label', 'CAN0_EN'), '2': ('pwr', 'GND')})
 place(f"{LIB}:R_V", "R88", "100k CAN0_STB_N pull-down, defined state while the MCU resets (AEC-Q200)", 660, 740,
       conn={'1': ('label', 'CAN0_STB_N'), '2': ('pwr', 'GND')})
+# REVIEW G-08: a sender wire shorted to battery pushes (V - 3.3)/1k through its pull-up into +3V3 (11 mA at 14.4 V, three wires 33 mA).
+# While the car is running the MCU load absorbs that; with the car off the load is a few hundred uA and the LDO (which cannot sink
+# current) would let +3V3 climb toward the wire voltage and destroy the MCU and the four displays (GC9A01 VCI absolute maximum 4.6 V).
+# D33 holds the rail at about 3.6 V + I x Rz (roughly 4.0 to 4.5 V at 33 mA), inside every part's absolute maximum.
+place(f"{LIB}:ZENER", "D33", "SZMMSZ3V6T1G 3.6V zener clamp on +3V3, absorbs a sender wire shorted to battery with the car off (AEC-Q101)", 700, 740,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
 # LDO input capacitor next to U4 (TLV733P-Q1 DS 8.1.1) and more ceramic bulk at VIN_PROT: a +75 V ISO 7637-2 pulse 2a charges
 # the (derated, ~3.5 uF) input capacitance for the OV comparator's 4-7 us de-glitch and the simulation overshoots 39.5 V
 # (LMR33630-Q1 absolute maximum 38 V); two more 10 uF 50 V parts bring it to about 31 V.
@@ -1363,10 +1372,10 @@ NOTE_LINES = [
     "   curve (README.md), not a shared guess.",
     "5. Value fields tag automotive qualification: Q100 G1 = AEC-Q100 Grade 1 (ICs) -",
     "   Q101 = AEC-Q101 (discretes) - Q200 = AEC-Q200 (passives).",
-    "6. J1 (power) and J7 (CAN0 + 3x sender) both land real Molex KK-254/Phoenix MKDS",
-    "   board-side connectors, sealed DTM06 nickel pigtails on the outboard end - same",
-    "   real strategy thermo-pcb established. Not yet re-confirmed as the right choice",
-    "   for a dash-mounted (not engine-bay) board.",
+    "6. Harness (decided 2026-10-17, docs/harness.md): J1 Phoenix MKDS with a 20 AWG GXL",
+    "   pigtail and DTM06-3S plug; J7/J9/J10/J11 KK 254 headers with 22 AWG pigtails and",
+    "   DTM06-6S / -2S / -08SA / -2S plugs; J8 an in-dash KK 254 cable to display/ J3.",
+    "   No sealed connector is mounted on the board.",
     "7. RE-SCOPED 2026-09-25: this board is the small-gauges half of Cluster's Android",
     "   Automotive re-architecture - the center speedo (BT817AQ + ST7701S) moved to a",
     "   separate carrier, cluster-pcb/display/ (Verdin iMX95 + SN65DSI85-Q1, running",

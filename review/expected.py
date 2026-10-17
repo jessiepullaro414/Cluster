@@ -229,6 +229,13 @@ for _d, _a, _b in (("D28", "CAN0_H", "CAN0_L"), ("D29", "SENDER_FUEL", "SENDER_O
                       ds="Littelfuse SM24CANB series datasheet Rev. 10/09/17 (pin 1 or 2 to pin 3; VRWM 24 V)",
                       pins={1: ("IO1", [("net", _a)]), 2: ("IO2", [("net", _b)] if _b else [("nc",)]), 3: ("COM", [("net", "GND")])})
 
+# +3V3 rail clamp (G-08): onsemi SZMMSZ3V6T1G, SOD-123, pad 1 cathode (KiCad D_SOD-123), distributor-listed ratings only
+GAUGES["D33"] = dict(
+    part="onsemi SZMMSZ3V6T1G 3.6 V zener", status="PRIOR",
+    ds="DigiKey listing (AEC-Q101, 500 mW, Zzt 90 ohm max, 5 uA at 1 V); onsemi datasheet not retrievable",
+    pins={1: ("K", [("net", "+3V3")]), 2: ("A", [("net", "GND")])},
+)
+
 # Tag-Connect TC2030-IDC-NL: the cable the programmer plugs in expects exactly this order
 # (Tag-Connect TC2030-CTX datasheet): 1 VCC, 2 SWDIO, 3 nRESET, 4 SWCLK, 5 GND, 6 SWO
 GAUGES["J2"] = dict(
@@ -397,5 +404,49 @@ DISPLAY["Q3"]["pins"][2] = ("S", [("net", "GND")])
 for _d in ("D5", "D6", "D7"):
     DISPLAY[_d] = dict(part="Nexperia BAV99-Q clamp", status="READ", ds=GAUGES["D10"]["ds"],
                        pins={1: ("A1", [("net", "GND")]), 2: ("K2", [("free",)]), 3: ("CA", [("free",)])})
+
+# --- display/ audio and USB host (commit c307bf5), read against their datasheets 2026-10-17 ---
+DISPLAY["U9"] = dict(
+    part="TI TAC5112-Q1 audio codec, 32-pin QFN", status="READ",
+    ds="TI SLASFC2A (Mar 2025) table 4-1, 5.1 (AVDD and IOVDD abs max 3.9 V)",
+    pins={1: ("VSS", [("net", "GND")]), 2: ("DREG", [("c", "GND", 1e-6)]), 3: ("BCLK", [("free",)]),
+          4: ("FSYNC", [("free",)]), 5: ("DOUT", [("free",)]), 6: ("DIN", [("free",)]),
+          7: ("IOVDD", [("net", "+1V8")]), 8: ("VSS", [("net", "GND")]), 9: ("SCL", [("free",)]),
+          10: ("SDA", [("free",)]), 11: ("GPIO1", [("free",)]), 12: ("GPIO2", [("free",)]),
+          13: ("GPO1", [("free",)]), 14: ("GPI1", [("free",)]), 15: ("VSS", [("net", "GND")]),
+          16: ("ADDR", [("nets", ["GND", "+1V8"])]), 17: ("MICBIAS", [("c", "GND", 100e-9)]),
+          18: ("IN1P", [("free",)]), 19: ("IN1M", [("free",)]), 20: ("IN2P", [("free",)]), 21: ("IN2M", [("free",)]),
+          22: ("VSSI", [("net", "GND")]), 23: ("VSSI", [("net", "GND")]), 24: ("VSSI", [("net", "GND")]),
+          25: ("VSSI", [("net", "GND")]), 26: ("VSS", [("net", "GND")]),
+          27: ("OUT1M", [("free",)]), 28: ("OUT1P", [("free",)]), 29: ("OUT2P", [("free",)]), 30: ("OUT2M", [("free",)]),
+          31: ("AVDD", [("net", "+3V3")]), 32: ("VREF", [("c", "GND", 1e-6)]), 33: ("EP", [("net", "GND")])},   # thermal pad = VSS
+    decap=[dict(pin="31", net="+3V3", min_nom=100e-9, max_mm=5.0, why="AVDD decoupling"),
+           dict(pin="7", net="+1V8", min_nom=100e-9, max_mm=5.0, why="IOVDD decoupling")],
+)
+DISPLAY["U10"] = dict(
+    part="TI TLV767-Q1 adjustable, 3.3 V audio AVDD", status="READ", ds=DISPLAY["U3"]["ds"],
+    pins={1: ("OUT", [("net", "+3V3"), ("c", "GND", 1e-6)]), 2: ("NC", [("nc",)]), 3: ("FB", [("r", "GND", 1e3, 1e6)]),
+          4: ("GND", [("net", "GND")]), 5: ("EN", [("free",)]), 6: ("GND", [("net", "GND")]), 7: ("NC", [("nc",)]),
+          8: ("IN", [("net", "+5V"), ("c", "GND", 1e-6)]), 9: ("EP", [("nets", ["GND"])])},
+)
+DISPLAY["U11"] = dict(
+    part="TI TPS2557-Q1 USB power switch, DRB", status="READ",
+    ds="TI SLVSC97B (Sep 2020) terminal functions, 7.1, IOS table (61.9 k -> 1.61-1.98 A)",
+    pins={1: ("GND", [("net", "GND")]), 2: ("IN", [("net", "+5V")]), 3: ("IN", [("net", "+5V")]),
+          4: ("EN", [("free",)]), 5: ("ILIM", [("r", "GND", 20e3, 187e3)]), 6: ("OUT", [("net", "USB2_VBUS")]),
+          7: ("OUT", [("net", "USB2_VBUS")]), 8: ("FAULT", [("free",)]), 9: ("EP", [("net", "GND")])},
+    decap=[dict(pin="2", net="+5V", min_nom=100e-9, max_mm=5.0, why="0.1 uF or more at IN, as close as possible")],
+)
+for _u, _chs in (("U12", ["LINE_L_P", "LINE_L_N", "LINE_R_P", "LINE_R_N"]), ("U13", ["MIC_P", "MIC_N", None, None]),
+                 ("U14", ["USB2_DP", "USB2_DN", "USB2_CC1", "USB2_CC2"])):
+    _p = {3: ("GND", [("net", "GND")]), 8: ("GND", [("net", "GND")])}
+    # datasheet names pins 1, 2, 4, 5 D1+, D1-, D2+, D2-; the symbol calls them CH1-CH4 (same pins)
+    for _k, (_n, _net) in enumerate(zip((1, 2, 4, 5), _chs)):
+        _p[_n] = (f"CH{_k + 1}", [("net", _net)] if _net else [("free",)])
+    for _n in (6, 7, 9, 10):
+        _p[_n] = ("NC", [("nc",)])
+    DISPLAY[_u] = dict(part="TI TPD4E05U06-Q1 4-channel ESD, USON-10", status="READ",
+                       ds="TI SLVSCO7C pin functions (DQA): 1,2,4,5 channels, 3,8 GND, 6,7,9,10 NC; VRWM 5.5 V, unidirectional (-0.6 V)",
+                       pins=_p)
 
 BOARDS = {"gauges": GAUGES, "display": DISPLAY}

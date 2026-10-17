@@ -17,6 +17,14 @@ public class CenterLogicTest {
         }
     }
 
+    @Test public void carPlayIsOpenOnlyWhileItsScreenIsShown() {
+        assertTrue(CenterLogic.carPlayOpen(Content.PROJECTION, true));
+        assertTrue(!CenterLogic.carPlayOpen(Content.PROJECTION, false));      // Android Auto
+        assertTrue(!CenterLogic.carPlayOpen(Content.GAUGE, true));            // phone connected, but the centre shows the speedometer
+        assertTrue(!CenterLogic.carPlayOpen(Content.HOME, true));
+        assertTrue(!CenterLogic.carPlayOpen(Content.GAUGE, false));
+    }
+
     @Test public void noPhoneFollowsTheUsersChoiceAndIgnoresFlip() {
         assertEquals(Content.GAUGE, CenterLogic.choose(false, false, NoPhone.GAUGE));
         assertEquals(Content.HOME, CenterLogic.choose(false, false, NoPhone.HOME));

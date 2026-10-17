@@ -42,6 +42,7 @@ public class SettingsView extends FrameLayout {
 
     private final Settings settings;
     private final Listener listener;
+    private boolean armed = true;
     private final Settings before = new Settings();              // the values when an edit began, to cancel back to
     private final RowView[] rows = new RowView[Settings.ROWS.length + 1];
     private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -60,6 +61,18 @@ public class SettingsView extends FrameLayout {
     }
 
     // ---- what the owner calls ------------------------------------------------------------------------------
+
+    /**
+     * Rows react to a press of the dial only while armed. The list is usually opened by holding the dial button; releasing that
+     * same press must not count as a click on the first row (it would put it into edit mode at once), so the owner opens the list
+     * disarmed and arms it when the button comes up.
+     */
+    public void arm(boolean on) {
+        armed = on;
+        for (int i = 0; i < Settings.ROWS.length; i++) rows[i].setContentDescription(on ? DIRECT_MANIPULATION : null);
+    }
+
+    public boolean isArmed() { return armed; }
 
     /** Put the dial on the first row. */
     public void focusFirst() {
@@ -164,10 +177,12 @@ public class SettingsView extends FrameLayout {
             setDefaultFocusHighlightEnabled(false);
             if (!backRow) setContentDescription(DIRECT_MANIPULATION);       // pressing the dial on it enters edit mode
             setOnClickListener(v -> {
+                if (!armed) return;
                 if (backRow) listener.onClose();
                 else setSelected(!isSelected());                              // (the controller selects it itself when it enters direct manipulation)
             });
             setOnLongClickListener(v -> {
+                if (!armed) return true;
                 if (isSelected()) cancelEdit(index);
                 else listener.onClose();
                 return true;

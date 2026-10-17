@@ -66,7 +66,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
     private ProjectionView maps;
     private HomeView home;
     private SettingsView settingsView;
-    private DialTarget dialTarget;
+    private DialTarget dialTarget, turnPrev, turnNext;
     private SharedPreferences prefs;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
@@ -74,6 +74,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
     private long t0;
     private boolean resumed;                          // the app is in front
     private boolean ticking;
+    private boolean centerDown;                         // the dial button is down (seen by the activity)
 
     // centre-display state
     private boolean phoneProjecting = true;            // fake: a phone is connected
@@ -88,7 +89,7 @@ public class MainActivity extends Activity implements SettingsView.Listener {
         @Override public void run() {
             float t = (SystemClock.elapsedRealtime() - t0) / 1000f;
             VehicleState s = DriveScenario.at(t, override);
-            final int look = settings.effectiveTheme(phoneProjecting && projectingCarPlay);
+            final int look = settings.effectiveTheme(CenterLogic.carPlayOpen(shown, projectingCarPlay));    // the Apple look only while CarPlay is on the centre screen
             gauge.setTheme(look);                  // the centre speedometer matches the small screens
             gauge.setImperial(settings.imperial);
             gauge.setState(s);
@@ -158,12 +159,19 @@ public class MainActivity extends Activity implements SettingsView.Listener {
         home = new HomeView(this);
         settingsView = new SettingsView(this, settings, this);
         dialTarget = new DialTarget(this);
+        turnPrev = new DialTarget(this);
+        turnNext = new DialTarget(this);
 
         FrameLayout root = new FrameLayout(this);
         root.addView(gauge);
         root.addView(maps);
         root.addView(home);
+        // Focus order is prev, main, next. The rotary controller turns a dial turn into "move focus to the next / previous view", so
+        // on the main screen these two tiny views give a turn somewhere to go: when one gets focus we treat it as a turn and put
+        // focus back on the main view.
+        root.addView(turnPrev, new FrameLayout.LayoutParams(24, 24, android.view.Gravity.TOP | android.view.Gravity.START));
         root.addView(dialTarget);
+        root.addView(turnNext, new FrameLayout.LayoutParams(24, 24, android.view.Gravity.BOTTOM | android.view.Gravity.END));
         root.addView(settingsView);
         gauge.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
         maps.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
@@ -172,6 +180,12 @@ public class MainActivity extends Activity implements SettingsView.Listener {
         // settings); the settings rows are focusable views of their own. Nothing else takes focus.
         for (View v : new View[] { gauge, maps, home }) v.setFocusable(View.NOT_FOCUSABLE);
         dialTarget.setOnClickListener(v -> flip());
+        turnPrev.setClickable(false);
+        turnNext.setClickable(false);
+        turnPrev.setLongClickable(false);
+        turnNext.setLongClickable(false);
+        turnPrev.setOnFocusChangeListener((v, has) -> { if (has) { turn(-1); dialTarget.post(() -> dialTarget.requestFocus()); } });
+        turnNext.setOnFocusChangeListener((v, has) -> { if (has) { turn(+1); dialTarget.post(() -> dialTarget.requestFocus()); } });
         dialTarget.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
         setContentView(root);
         dialTarget.requestFocus();
@@ -212,7 +226,12 @@ public class MainActivity extends Activity implements SettingsView.Listener {
         settingsOpen = open;
         settingsView.setVisibility(open ? View.VISIBLE : View.GONE);
         dialTarget.setVisibility(open ? View.GONE : View.VISIBLE);
-        if (open && !was) settingsView.focusFirst();                       // the dial now moves between the rows
+        turnPrev.setVisibility(open ? View.GONE : View.VISIBLE);
+        turnNext.setVisibility(open ? View.GONE : View.VISIBLE);
+        if (open && !was) {
+            settingsView.arm(!centerDown);                                   // opened by holding the button: wait for its release
+            settingsView.focusFirst();
+        }                       // the dial now moves between the rows
         else if (!open && was) dialTarget.requestFocus();                   // and back to the main screen
         if (open) settingsView.invalidate();
     }
@@ -241,7 +260,14 @@ public class MainActivity extends Activity implements SettingsView.Listener {
     @Override public boolean dispatchKeyEvent(KeyEvent e) {
         Log.i("ClusterInput", "key " + KeyEvent.keyCodeToString(e.getKeyCode()) + " action=" + e.getAction() + " repeat=" + e.getRepeatCount()
                 + " source=0x" + Integer.toHexString(e.getSource()) + " device=" + e.getDeviceId());
-        return super.dispatchKeyEvent(e);
+        boolean center = e.getKeyCode() == KeyEvent.KEYCODE_DPAD_CENTER || e.getKeyCode() == KeyEvent.KEYCODE_ENTER;
+        if (center && e.getAction() == KeyEvent.ACTION_DOWN) centerDown = true;
+        boolean r = super.dispatchKeyEvent(e);
+        if (center && e.getAction() == KeyEvent.ACTION_UP) {
+            centerDown = false;
+            if (settingsOpen && !settingsView.isArmed()) settingsView.arm(true);       // the press that opened the list is over
+        }
+        return r;
     }
 
     @Override public boolean dispatchGenericMotionEvent(MotionEvent e) {

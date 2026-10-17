@@ -85,3 +85,5 @@ adb shell am broadcast -a com.jessiescars.cluster.CLEAR
 - Typefaces are the platform's `sans-serif-condensed` and `sans-serif-medium`; the final font is a design choice.
 - Colours and layout are a first pass for review, not a finished design; the dial scales (7000 rpm, 120 mph) are guesses to match the car.
 - Not done: CarPlay / Android Auto viewport (B5), rotary dial input (B4), real property source (B3), settings from `DisplaySettings` (units, car profile).
+
+**Emulator display.** The Android Automotive image adds a second display (the stock instrument cluster, 'Welcome, ClusterHome') that the AVD cannot remove. emulator\hide_stock_cluster.ps1 disables the two stock cluster apps so that part of the window stays black (undo with -Undo).

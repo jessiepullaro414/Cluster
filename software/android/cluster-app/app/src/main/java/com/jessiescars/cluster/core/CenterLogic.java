@@ -34,6 +34,14 @@ public final class CenterLogic {
         return noPhone == NoPhone.HOME ? Content.HOME : Content.GAUGE;
     }
 
+    /**
+     * "CarPlay is open": the CarPlay screen is what the centre display shows right now. A phone that is connected is not enough:
+     * with the centre flipped to the speedometer (or no phone) the gauges use the owner's own theme.
+     */
+    public static boolean carPlayOpen(Content shown, boolean phoneIsCarPlay) {
+        return shown == Content.PROJECTION && phoneIsCarPlay;
+    }
+
     /** Shape of the rectangular CarPlay / Android Auto window inside the circle. */
     public enum Aspect {
         ROUND(1, 1), SQUARE(1, 1), FOUR_THREE(4, 3), SIXTEEN_NINE(16, 9);

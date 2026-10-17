@@ -4,6 +4,7 @@
 
 #include <string>
 
+#include "bridge.h"
 #include "dial_angle.h"
 #include "link_tx.h"
 #include "shell.h"
@@ -38,8 +39,11 @@ std::string format_settings(const hmi::Model& m, const VehicleSetup& v);
 // for the bench input --replay (a PC whose kernel has no virtual CAN). Returns false for anything else.
 bool parse_replay_line(const std::string& line, uint32_t* t_ms, uint32_t* id, uint8_t data[8], uint8_t* len);
 
-// The settings page polls GET /state and draws it: {"screen":"settings","row":2,"rows":[["Gauge theme","Modern"],...],
-// "editing":false,"phone":"cp","theme":1}
-std::string page_state_json(const Shell& sh);
+// The centre page (web/centre.html) polls GET /state and draws it:
+//   {"view":"gauge","screen":"home","editing":false,"row":0,"rows":[["Gauge theme","Modern"],...],"phone":"cp",
+//    "theme":1,"imperial":true,"veh":{"link":true,"speed_mps":12.5,"lights":false,"dimmer":40,"hi":false,
+//    "brake":false,"alt":false,"oil":false}}
+// "view" is maps, gauge or settings; a vehicle value that is stale or invalid is null.
+std::string page_state_json(const Shell& sh, const vhal::Bridge& b, uint32_t now_ms);
 
 }  // namespace clusterd

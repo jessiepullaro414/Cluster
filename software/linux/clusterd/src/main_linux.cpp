@@ -179,7 +179,7 @@ static int http_listen(int port) {
     return s;
 }
 
-static void http_serve_one(int ls, const std::string& web_dir, const Shell& sh) {
+static void http_serve_one(int ls, const std::string& web_dir, const Shell& sh, const vhal::Bridge& b, uint32_t now) {
     int c = accept(ls, nullptr, nullptr);
     if (c < 0) return;
     timeval tv = {0, 200000};
@@ -189,11 +189,11 @@ static void http_serve_one(int ls, const std::string& web_dir, const Shell& sh) 
     if (n > 0) {
         buf[n] = 0;
         std::string body, type = "text/html; charset=utf-8", status = "200 OK";
-        if (std::strncmp(buf, "GET /state", 10) == 0) { body = page_state_json(sh); type = "application/json"; }
+        if (std::strncmp(buf, "GET /state", 10) == 0) { body = page_state_json(sh, b, now); type = "application/json"; }
         else if (std::strncmp(buf, "GET / ", 6) == 0 || std::strncmp(buf, "GET /index.html", 15) == 0) {
-            body = read_file(web_dir + "/settings.html");
+            body = read_file(web_dir + "/centre.html");
             if (body.empty()) {
-                std::fprintf(stderr, "clusterd: no %s/settings.html (check --web)\n", web_dir.c_str());
+                std::fprintf(stderr, "clusterd: no %s/centre.html (check --web)\n", web_dir.c_str());
                 status = "404 Not Found";
             }
         } else status = "404 Not Found";
@@ -350,7 +350,7 @@ int main(int argc, char** argv) {
             bridge.on_frame(f.id, f.data, f.len, now);
             if (++replay_i == replay.size()) { replay_i = 0; replay_t0 += replay_len; }
         }
-        if (i_page >= 0 && (fds[i_page].revents & POLLIN)) http_serve_one(page, args.web, shell);
+        if (i_page >= 0 && (fds[i_page].revents & POLLIN)) http_serve_one(page, args.web, shell, bridge, now);
         if (i_click >= 0 && (fds[i_click].revents & POLLIN)) {
             input_event ev;
             while (read(click, &ev, sizeof ev) == ssize_t(sizeof ev))

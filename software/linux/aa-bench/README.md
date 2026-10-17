@@ -54,8 +54,8 @@ End to end on one Windows PC, no phone and no hardware:
 |---|---|
 | Android Auto 18.0 on the emulator talks to LIVI: TLS up, protocol 6.1, phone `sdk_gphone64_x86_64`, H.264 video | LIVI log; `shots/android-auto-in-livi.png` (live Google Maps in LIVI's window) |
 | LIVI with `livi_config.py --shape 0`: 720 x 720, safe area 106 px; Android Auto lays itself out inside the circle | `shots/android-auto-round.png` (the window through a round mask) |
-| clusterd `--replay` (the can_replay.py drive, through the real vhal-bridge decoder) to LIVI telemetry | `shots/livi-dashboard-with-clusterd-data.png`: 7 km/h, rpm, fuel 67 % live on LIVI's dashboard |
-| A 1.6 s dial hold (`--dial-stdin` from a pipe): clusterd tells LIVI to open `/custom`, our settings page | `shots/clusterd-settings-in-livi.png`; LIVI status.json `ui.path` = `/custom`, back to `/` after a hold |
+| clusterd `--replay` (the can_replay.py drive, through the real vhal-bridge decoder) to LIVI telemetry, and to **our speedometer** on LIVI's custom page in all four themes | LIVI's `state/vehicle.json` (fuel 67.9 %); `shots/centre-classic-in-livi.png`, `centre-modern-in-livi.png`, `centre-carplay-in-livi.png`, `centre-factory-in-livi.png` |
+| A 1.6 s dial hold (`--dial-stdin` from a pipe): clusterd tells LIVI to open `/custom`, the Settings list on the same page | `shots/clusterd-settings-in-livi.png`; LIVI status.json `ui.path` = `/custom`, back to `/` after a hold |
 
 How the emulator got the real Android Auto (the Play Store refuses it there): the owner downloaded the
 Android Auto bundle (18.0.664204, arm64-v8a, .apkm) from APKMirror; `adb install-multiple` of `base.apk`,
@@ -81,12 +81,16 @@ Traps:
 Findings for the round panel (open):
 - **LIVI's own pages have a navigation rail** down the left edge; on the round glass its top and bottom icons
   fall outside the circle. Look for a LIVI option to hide it, or pad its pages for a round screen.
-- **LIVI's default dashboard is landscape** (two dials side by side): on 720 x 720 the outer dials are cut. LIVI
-  has dashboard layouts and car-maker themes; one of those, or our own, has to suit a circle.
+- **LIVI's default dashboard is landscape** (two dials side by side) and cut on 720 x 720. **Resolved**: the
+  gauge view is our own speedometer on the custom page (web/centre.html), not LIVI's dashboard.
+- **Fonts**: the page asks for Roboto / Roboto Condensed like the Android app. Without them Chromium falls back to
+  DejaVu Sans, which is so much wider that the factory face's 100-140 numerals run into each other. The image
+  needs `fonts-roboto` (checked on the bench: installed, LIVI restarted, the numerals space out).
 - **With a phone connected the dial cannot reach the gauge view**: on the maps the dial belongs to the phone,
   and Settings returns to the maps. hmi.h's flows need a way to the gauge while projecting (a Settings row,
   or a longer hold). A UX decision for the owner.
-- The dashboard's coolant read 0 degrees during the replay; not yet checked against the replayed values.
+- LIVI's dashboard read coolant 0 degrees during the replay; not checked (that dashboard is no longer our gauge,
+  but the coolant value also goes to Android Auto and CarPlay, so it is worth a look).
 
 ## What the bench run on 2026-10-17 found first
 

@@ -1,0 +1,298 @@
+<!doctype html>
+<!-- The centre screen's own page for the Linux option: LIVI shows it as its custom page (customUrl =
+     http://127.0.0.1:4010/). It only DRAWS clusterd's state (GET /state): the dial goes to clusterd, never to
+     this page, so keyboard focus inside LIVI's iframe does not matter.
+
+       view "gauge"     our speedometer in the owner's theme: a port of the Android app's ClusterView.java and
+                        Lamps.java (classic, modern, CarPlay-inspired, factory 1966), same 720 px design space,
+                        same day / night palette (core/Palette.java), so both options draw the same centre gauge
+       view "settings"  the settings list
+     Round 720 x 720 panel: nothing that matters sits outside a circle of radius 340 around (360, 360). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cluster centre</title>
+<style>
+  :root { --bg: #0e0e11; --fg: #faf4e8; --dim: #8c8c96; --accent: #e0884a; --row: #1c1c22; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--fg);
+               font-family: system-ui, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #gauge { position: absolute; inset: 0; margin: auto; width: min(100vw, 100vh); height: min(100vw, 100vh); display: none; }
+  #dial { position: absolute; inset: 0; margin: auto; width: min(100vw, 100vh); height: min(100vw, 100vh);
+          border-radius: 50%; display: none; flex-direction: column; align-items: center; justify-content: center;
+          background: var(--bg); }
+  h1 { font-size: 5vmin; letter-spacing: .3em; color: var(--accent); margin: 0 0 3vmin; font-weight: 600; }
+  ul { list-style: none; padding: 0; margin: 0; width: 62%; }
+  li { display: flex; justify-content: space-between; gap: 2vmin; padding: 1.6vmin 3vmin; margin: .8vmin 0;
+       border-radius: 4vmin; font-size: 4.2vmin; }
+  li .v { color: var(--dim); }
+  li.sel { background: var(--row); }
+  li.sel .v { color: var(--fg); }
+  li.sel.edit { outline: .5vmin solid var(--accent); }
+  li.sel.edit .v { color: var(--accent); }
+  #hint { margin-top: 3vmin; font-size: 3vmin; color: var(--dim); text-align: center; max-width: 60%; }
+</style>
+</head>
+<body>
+<canvas id="gauge" width="720" height="720"></canvas>
+<div id="dial">
+  <h1>SETTINGS</h1>
+  <ul id="rows"></ul>
+  <div id="hint"></div>
+</div>
+<script>
+'use strict';
+// ---------------------------------------------------------------- core/Palette.java, core/Gauge.java
+const MIN_NIGHT_LEVEL = 0.20;
+function scale(rgb, level) {          // rgb as 0xRRGGBB; multiplies each channel, like Palette.scale
+  const r = Math.round(((rgb >> 16) & 255) * level), g = Math.round(((rgb >> 8) & 255) * level), b = Math.round((rgb & 255) * level);
+  return (r << 16) | (g << 8) | b;
+}
+function css(rgb) { return '#' + (rgb & 0xFFFFFF).toString(16).padStart(6, '0'); }
+function palette(lightsOn, dimmerPct) {
+  const mk = (night, accent, text, textDim, track, level) => ({
+    night, level, background: 0x000000, accent: scale(accent, level), text: scale(text, level),
+    textDim: scale(textDim, level), track: scale(track, level), redline: scale(0xE5484D, level),
+    warning: scale(0xFFB000, level), good: scale(0x3DDC84, level), blue: scale(0x3D8BFF, level) });
+  if (!lightsOn) return mk(false, 0x35C6F4, 0xFFFFFF, 0x8A95A3, 0x262B33, 1);
+  const pct = dimmerPct == null ? 100 : Math.max(0, Math.min(100, dimmerPct));
+  return mk(true, 0xFFA000, 0xFFC857, 0xB07A1F, 0x2A2013, MIN_NIGHT_LEVEL + (1 - MIN_NIGHT_LEVEL) * pct / 100);
+}
+const START_DEG = 135, SWEEP_DEG = 270;
+const fraction = (v, min, max) => (v == null || isNaN(v) || max <= min) ? 0 : Math.max(0, Math.min(1, (v - min) / (max - min)));
+const angle = f => START_DEG + SWEEP_DEG * f;
+const rad = d => d * Math.PI / 180;
+const UNITS = { mph: { label: 'MPH', perMps: 2.2369363 }, kph: { label: 'KM/H', perMps: 3.6 } };
+
+// Android typefaces, mapped to what a Linux image has (Roboto first, then common fallbacks).
+const FONT = {
+  'sans-serif': '"Roboto", "Noto Sans", "DejaVu Sans", sans-serif',
+  'sans-serif-medium': '"Roboto Medium", "Roboto", "Noto Sans", "DejaVu Sans", sans-serif',
+  'sans-serif-condensed': '"Roboto Condensed", "Noto Sans Condensed", "DejaVu Sans Condensed", "Arial Narrow", sans-serif',
+};
+
+// ---------------------------------------------------------------- ClusterView.java
+const C = 360;
+const cv = document.getElementById('gauge'), g = cv.getContext('2d');
+
+function ring(r, w, from, to, color) {
+  g.beginPath();
+  g.lineWidth = w; g.strokeStyle = css(color); g.lineCap = 'butt';
+  g.arc(C, C, r, rad(angle(from)), rad(angle(from) + SWEEP_DEG * (to - from)));
+  g.stroke();
+}
+function mix(a, b, t) {
+  const ch = (s) => Math.round(((a >> s) & 255) * (1 - t) + ((b >> s) & 255) * t);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+function gradientRing(r, w, shown, c0, c1) {
+  const steps = Math.max(1, Math.round(shown * 135));
+  g.lineWidth = w; g.lineCap = 'butt';
+  for (let i = 0; i < steps; i++) {
+    const f0 = i / 135;
+    g.beginPath();
+    g.strokeStyle = css(mix(c0, c1, f0));
+    g.arc(C, C, r, rad(angle(f0)), rad(angle(f0) + SWEEP_DEG / 135 * 1.4));
+    g.stroke();
+  }
+}
+function disc(x, y, r, color) { g.beginPath(); g.fillStyle = css(color); g.arc(x, y, r, 0, 2 * Math.PI); g.fill(); }
+const polar = (cx, cy, r, deg) => [cx + Math.cos(rad(deg)) * r, cy + Math.sin(rad(deg)) * r];
+function tick(cx, cy, deg, r0, r1, w, color) {
+  const a = polar(cx, cy, r0, deg), b = polar(cx, cy, r1, deg);
+  g.beginPath(); g.strokeStyle = css(color); g.lineWidth = w; g.lineCap = 'butt';
+  g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); g.stroke();
+}
+function text(s, x, y, size, face, color, opts = {}) {
+  g.save();
+  g.font = `${opts.bold ? 'bold ' : ''}${size}px ${FONT[face]}`;
+  g.fillStyle = css(color); g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+  g.translate(x, y);
+  if (opts.scaleX && opts.scaleX !== 1) g.scale(opts.scaleX, 1);
+  g.fillText(s, 0, 0);
+  g.restore();
+}
+const speedText = spd => spd == null ? '--' : String(Math.round(spd));
+
+function drawClassic(p, spd, u) {
+  const max = u === UNITS.mph ? 120 : 200;
+  ring(318, 22, 0, 1, p.track);
+  for (let val = 0; val <= max; val += 10) {
+    const major = val % 20 === 0, ang = angle(fraction(val, 0, max));
+    tick(C, C, ang, 296 - (major ? 40 : 18), 296, major ? 5 : 3, p.text);
+    if (major) { const q = polar(C, C, 218, ang); text(String(val), q[0], q[1] + 14, 40, 'sans-serif-medium', p.textDim); }
+  }
+  const needle = scale(0xFF9500, p.level);
+  if (spd != null) {
+    const ang = angle(fraction(spd, 0, max)), tip = polar(C, C, 272, ang), tail = polar(C, C, -34, ang);
+    g.beginPath(); g.strokeStyle = css(needle); g.lineWidth = 13; g.lineCap = 'round';
+    g.moveTo(tail[0], tail[1]); g.lineTo(tip[0], tip[1]); g.stroke();
+  }
+  disc(C, C, 30, scale(0x70747C, p.level));
+  text(speedText(spd), C, 560, 150, 'sans-serif-condensed', spd == null ? p.textDim : p.text, { bold: true });
+  text(u.label, C, 610, 34, 'sans-serif-medium', p.textDim);
+}
+
+function drawModern(p, spd, u) {
+  const max = u === UNITS.mph ? 160 : 260;
+  g.fillStyle = css(scale(0x0B1626, p.level)); g.fillRect(0, 0, 720, 720);
+  ring(297, 33, 0, 1, scale(0x15233A, p.level));
+  const f = spd == null ? 0 : fraction(spd, 0, max);
+  if (f > 0) gradientRing(297, 33, f, scale(0x1A4FD8, p.level), scale(0x3DB6FF, p.level));
+  const step = u === UNITS.mph ? 20 : 40;
+  for (let val = 0; val <= max + 0.1; val += step / 2) {
+    const major = Math.abs(val % step) < 0.01, ang = angle(fraction(val, 0, max));
+    tick(C, C, ang, 322, major ? 338 : 330, major ? 6 : 3, major ? p.text : p.textDim);
+    if (major) { const q = polar(C, C, 232, ang); text(String(Math.round(val)), q[0], q[1] + 12, 34, 'sans-serif-medium', scale(0xC9D6EE, p.level)); }
+  }
+  text(speedText(spd), C, 420, 210, 'sans-serif', spd == null ? p.textDim : p.text);
+  text(u.label, C, 486, 38, 'sans-serif-medium', scale(0xC9D6EE, p.level));
+}
+
+function drawCarPlay(p, spd, u) {
+  const max = u === UNITS.mph ? 160 : 260, r = 324, w = 24;
+  ring(r, w, 0, 1, scale(0x1F1F23, p.level));
+  const f = spd == null ? 0 : fraction(spd, 0, max);
+  const c0 = scale(0x0A84FF, p.level), c1 = scale(0x64D2FF, p.level);
+  if (spd != null) {
+    if (f > 0) gradientRing(r, w, f, c0, c1);
+    const s0 = polar(C, C, r, angle(0)), s1 = polar(C, C, r, angle(f));
+    if (f > 0) disc(s0[0], s0[1], w / 2, c0);
+    disc(s1[0], s1[1], w / 2 + 12, p.background);             // a black gap, then the white knob
+    disc(s1[0], s1[1], w / 2 + 1.5, scale(0xFFFFFF, p.level));
+  }
+  text('SPEED', C, 222, 36, 'sans-serif-medium', scale(0x8E8E93, p.level));
+  text(speedText(spd), C, 436, 250, 'sans-serif', spd == null ? p.textDim : p.text);
+  text(u.label, C, 506, 38, 'sans-serif-medium', scale(0x8E8E93, p.level));
+}
+
+const F_START = 151, F_SWEEP = 238.5, F_PX = 360, F_PY = 378;   // measured on the owner's photo
+function drawFactory(p, v, spd, u) {
+  const L = p.level, mph = u === UNITS.mph, vmax = mph ? 140 : 220, minor = mph ? 5 : 10, label = mph ? 10 : 20;
+  const face = scale(0x080808, L), print = scale(0xF2EFE6, L);
+  g.fillStyle = css(face); g.fillRect(0, 0, 720, 720);
+  g.save();
+  g.translate(0, 28);                                      // the face is drawn high in its own space
+  for (let val = 0; val <= vmax; val += minor) {
+    const tens = val % label === 0, ang = F_START + F_SWEEP * val / vmax;
+    tick(F_PX, F_PY, ang, (tens ? 47 : 52) * 3, (tens ? 61 : 60) * 3, tens ? 6.6 : 4.8, print);
+  }
+  for (let val = 0; val <= vmax; val += label) {             // numerals with their tops pointing outwards
+    const ang = F_START + F_SWEEP * val / vmax, q = polar(F_PX, F_PY, 77 * 3, ang);
+    g.save(); g.translate(q[0], q[1]); g.rotate(rad(ang + 90));
+    text(String(val), 0, 19, 54, 'sans-serif-condensed', print, { scaleX: val >= 100 ? 0.64 : 0.82 });
+    g.restore();
+  }
+  text(mph ? 'MILES' : 'KM/H', C, 78, 38, 'sans-serif-condensed', print, { scaleX: 0.9 });
+  disc(357, 261, 17, scale(v.hi ? 0x3C8CFF : 0x1457D8, L));  // the high-beam lens, brighter when lit
+  const x0 = 246, y0 = 441, x1 = 474, y1 = 486;              // odometer window, six empty cells
+  g.beginPath(); g.fillStyle = '#000'; g.roundRect(x0, y0, x1 - x0, y1 - y0, 5); g.fill();
+  g.lineWidth = 4; g.strokeStyle = css(scale(0x969696, L)); g.stroke();
+  g.lineWidth = 2.5; g.strokeStyle = css(scale(0x5A5A5A, L));
+  for (let i = 1; i < 6; i++) { const x = x0 + (x1 - x0) * i / 6; g.beginPath(); g.moveTo(x, y0 + 5); g.lineTo(x, y1 - 5); g.stroke(); }
+  if (spd != null) {                                          // the needle: wide root, fine tip, red-orange
+    const a = rad(F_START + F_SWEEP * Math.min(1, spd / vmax)), ca = Math.cos(a), sa = Math.sin(a);
+    const len = 67 * 3, root = 7, tip = 1.4;
+    g.beginPath();
+    g.moveTo(F_PX - sa * root, F_PY + ca * root);
+    g.lineTo(F_PX + ca * len - sa * tip, F_PY + sa * len + ca * tip);
+    g.lineTo(F_PX + ca * len + sa * tip, F_PY + sa * len - ca * tip);
+    g.lineTo(F_PX + sa * root, F_PY - ca * root);
+    g.closePath(); g.fillStyle = css(scale(0xFF4A1A, L)); g.fill();
+  }
+  disc(F_PX, F_PY, 51, scale(0xE6E8EB, L));                   // the chrome hub
+  disc(F_PX, F_PY, 45, scale(0xB9BDC3, L));
+  disc(F_PX, F_PY, 31, scale(0x1A1A1A, L));
+  disc(F_PX, F_PY, 21, scale(0x3A3C40, L));
+  g.restore();
+}
+
+// ---------------------------------------------------------------- Lamps.java
+function pill(x, y, label, color, w) {
+  g.beginPath(); g.fillStyle = css(color); g.roundRect(x - w / 2, y - 18, w, 36, 10); g.fill();
+  text(label, x, y + 8, 22, 'sans-serif-medium', 0x000000, { bold: true });
+}
+function lampRow(p, v, cx, y) {
+  const lamps = [['HI', 56, v.hi, p.blue], ['BRAKE', 92, v.brake, p.redline], ['ALT', 74, v.alt, p.redline], ['OIL', 74, v.oil, p.redline]]
+    .filter(l => l[2]);
+  if (!lamps.length) return;
+  let x = cx - (lamps.reduce((s, l) => s + l[1], 0) + 12 * (lamps.length - 1)) / 2;
+  for (const [label, w, , color] of lamps) { pill(x + w / 2, y, label, color, w); x += w + 12; }
+}
+function lampWarnings(p, v, cx, y) {
+  if (v.brake) pill(cx - 92, y, 'BRAKE', p.redline, 92);
+  if (v.alt) pill(cx, y, 'ALT', p.redline, 74);
+  if (v.oil) pill(cx + 92, y, 'OIL', p.redline, 74);
+}
+
+// The needle and arcs follow the data smoothly between the ~20 Hz state polls.
+let shownSpd = null;
+function drawGauge(s, dt) {
+  const v = s.veh, u = s.imperial ? UNITS.mph : UNITS.kph;
+  const p = palette(v.lights === true, v.dimmer);
+  const target = v.speed_mps == null ? null : Math.max(0, v.speed_mps) * u.perMps;
+  if (target == null || shownSpd == null) shownSpd = target;
+  else shownSpd += (target - shownSpd) * Math.min(1, dt / 0.12);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = css(p.background); g.fillRect(0, 0, 720, 720);
+  switch (s.theme) {
+    case 0: drawClassic(p, shownSpd, u); lampRow(p, v, C, 644); break;
+    case 2: drawCarPlay(p, shownSpd, u); lampRow(p, v, C, 644); break;
+    case 3: drawFactory(p, v, shownSpd, u); lampWarnings(p, v, C, 644); break;
+    default: drawModern(p, shownSpd, u); lampRow(p, v, C, 644); break;
+  }
+  if (!v.link) text('NO DATA', C, 300, 46, 'sans-serif-condensed', p.warning, { bold: true });
+}
+
+// ---------------------------------------------------------------- settings list
+const dial = document.getElementById('dial'), rows = document.getElementById('rows'), hint = document.getElementById('hint');
+function drawSettings(s) {
+  rows.replaceChildren(...s.rows.map(([label, value], i) => {
+    const li = document.createElement('li');
+    if (i === s.row) li.className = s.editing ? 'sel edit' : 'sel';
+    const a = document.createElement('span'); a.textContent = label;
+    const b = document.createElement('span'); b.className = 'v'; b.textContent = value;
+    li.append(a, b);
+    return li;
+  }));
+  hint.textContent = s.editing ? 'turn to change, click to keep, hold to cancel' : 'turn to choose, click to change, hold to go back';
+}
+
+// ---------------------------------------------------------------- loop
+let state = null, last = performance.now(), listKey = '';
+function frame(t) {
+  const dt = (t - last) / 1000; last = t;
+  if (state) {
+    const gauge = state.view !== 'settings';          // "maps" never reaches this page; draw the gauge if it does
+    cv.style.display = gauge ? 'block' : 'none';
+    dial.style.display = gauge ? 'none' : 'flex';
+    if (gauge) drawGauge(state, dt);
+    else {
+      const key = JSON.stringify([state.rows, state.row, state.editing]);
+      if (key !== listKey) { listKey = key; drawSettings(state); }
+    }
+  }
+  requestAnimationFrame(frame);
+}
+async function poll() {
+  try {
+    const r = await fetch('/state', { cache: 'no-store' });
+    if (r.ok) state = await r.json();
+  } catch (e) { /* clusterd restarting: keep the last picture */ }
+  setTimeout(poll, 50);
+}
+// ?demo: a moving needle with no clusterd behind the page (to look at the themes in a browser)
+if (new URLSearchParams(location.search).has('demo')) {
+  const q = new URLSearchParams(location.search);
+  const t0 = performance.now();
+  setInterval(() => {
+    const k = (performance.now() - t0) / 1000;
+    state = { view: 'gauge', theme: Number(q.get('theme') ?? 1), imperial: q.get('units') !== 'kph',
+              veh: { link: true, speed_mps: 18 + 14 * Math.sin(k / 2), lights: q.has('night'), dimmer: 60,
+                     hi: q.has('hi'), brake: false, alt: false, oil: q.has('oil') } };
+  }, 50);
+} else poll();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

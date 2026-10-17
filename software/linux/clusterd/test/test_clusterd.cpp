@@ -372,18 +372,36 @@ static void test_state_io() {
     }
 
     Shell sh;
-    std::string s = page_state_json(sh);
+    std::string s = page_state_json(sh, vhal::Bridge(), 0);
+    HAS(s, "\"view\":\"gauge\"");          // no phone, "No phone shows: Gauge"
     HAS(s, "\"screen\":\"home\"");
     HAS(s, "[\"Gauge theme\",\"Modern\"]");
     HAS(s, "\"phone\":null");
+    HAS(s, "\"imperial\":true");
+    HAS(s, "\"veh\":{\"link\":false,\"speed_mps\":null");   // nothing heard: no number, the page says NO DATA
     sh.set_phone(Phone::CarPlay);
+    CHECK(sh.view() == View::Maps);
     sh.press(0);
     sh.tick(600);
     sh.tick(1500);
-    s = page_state_json(sh);
+    s = page_state_json(sh, vhal::Bridge(), 0);
+    HAS(s, "\"view\":\"settings\"");
     HAS(s, "\"screen\":\"settings\"");
     HAS(s, "\"phone\":\"cp\"");
     HAS(s, "\"theme\":2");
+
+    // the speedometer's values come from the private link, through the same decoder as the telemetry
+    vhal::Bridge b;
+    feed(b, 5000, 0, 90.0f, false, false, true);
+    Shell g;
+    s = page_state_json(g, b, 5000);
+    HAS(s, "\"link\":true");
+    HAS(s, "\"speed_mps\":25.000");           // 90 km/h
+    HAS(s, "\"lights\":true");
+    HAS(s, "\"dimmer\":40");
+    HAS(s, "\"hi\":true");
+    HAS(s, "\"brake\":false");
+    CHECK(g.centre_shows_speed());
 }
 
 int main() {

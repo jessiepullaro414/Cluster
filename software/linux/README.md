@@ -16,7 +16,7 @@ also Toradex-supported, where Android Automotive on it is a port.
 | Piece | What | State |
 |---|---|---|
 | `clusterd/` | the glue daemon: private CAN link to LIVI telemetry, settings and heartbeat to gauges/, dial to keys, suspend | **logic real and host-tested** (149 checks); Linux I/O builds; end-to-end bench passes against a stand-in LIVI (`aa-bench/bench_clusterd.sh`, 11 checks); not run on a Verdin |
-| `clusterd/web/settings.html` | the Settings screen LIVI shows as its custom page | renders on a 720 x 720 viewport (checked in a browser); draws clusterd's state only |
+| `clusterd/web/centre.html` | the centre screen LIVI shows as its custom page: **our speedometer** in the owner's theme (a port of the Android app's ClusterView, all four themes, day/night palette, lamps) and the Settings list | all four themes checked inside LIVI on replayed drive data (`aa-bench/shots/centre-*-in-livi.png`); draws clusterd's state only |
 | `livi/livi_config.py` | LIVI's config for the round panel: projection size, map-shape safe/view areas, dial keys, custom page, MFi bus | selftest passes; not yet loaded by a real LIVI |
 | `aa-bench/` | relay from a phone's or emulator's "head unit server" into LIVI, stand-in LIVI, bench script | relay selftest passes; **not yet run against a real phone or emulator** (see its README) |
 | `deploy/` | systemd unit, example config | written, untested |
@@ -28,7 +28,7 @@ also Toradex-supported, where Android Automotive on it is a port.
  phone (CarPlay / Android Auto) ── Wi-Fi + Bluetooth (MAYA-W260) or USB-C J17 ──┐
                                                                                   v
    ┌─────────────────────── Verdin iMX95, Linux ───────────────────────────────────────────┐
-   │  LIVI (Electron + Rust): projection, its dashboard "/telemetry", custom page "/custom" │
+   │  LIVI (Electron + Rust): projection "/", custom page "/custom" (our gauge + settings) │
    │      ^ POST :4000/telemetry  (speed, rpm, coolant, fuel, volts, lamps, night, page)   │
    │      | reads state/status.json (which phone is projecting)       ^ uinput keys        │
    │  clusterd ───────────────────────────────────────────────────────┘ (F13/F14/Enter/BS)│
@@ -38,8 +38,9 @@ also Toradex-supported, where Android Automotive on it is a port.
        gauges/ (S32K144): the four small screens, the car bus, the senders
 ```
 
-- **LIVI owns the screen.** Its pages: `/` projection (or its home with no phone), `/telemetry` its dashboard
-  (our centre gauge), `/custom` an iframe of clusterd's settings page. clusterd changes page by pushing
+- **LIVI owns the screen.** Its pages: `/` projection (or its home with no phone), and `/custom`, an iframe of
+  clusterd's own page, which draws **our speedometer** (the same design as the Android app's ClusterView, in the
+  owner's theme) or the Settings list. LIVI's own landscape dashboard is not used. clusterd changes page by pushing
   `{"path": ...}` in the telemetry stream, which LIVI opens once per change.
 - **The dial goes to clusterd, never to a page.** clusterd runs hmi-sim's state machine (`../hmi-sim/hmi.h`,
   the flows the owner tries in the simulator) in `clusterd/src/shell.h`, with one addition: while a phone

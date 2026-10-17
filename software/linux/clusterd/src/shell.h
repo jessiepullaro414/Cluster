@@ -12,8 +12,9 @@
 //
 // Which LIVI page shows what:
 //   maps     LIVI "/"           the projection (or LIVI's own home with no phone)
-//   gauge    LIVI "/telemetry"  LIVI's dashboard, fed by clusterd's telemetry pushes
-//   settings LIVI "/custom"     clusterd's own page (web/settings.html), which only draws Shell state
+//   gauge    LIVI "/custom"     clusterd's own page (web/centre.html) drawing OUR speedometer in the owner's theme
+//                               (a port of the Android app's ClusterView), not LIVI's landscape dashboard
+//   settings LIVI "/custom"     the same page, drawing the settings list; it only draws Shell state
 //
 // The 1.5 s second hold and "Back on hold" are a PROPOSAL like the rest of hmi.h: try them on the bench.
 #pragma once
@@ -29,8 +30,11 @@ enum class Phone : uint8_t { None, CarPlay, AndroidAuto };
 enum class Key : uint8_t { None, KnobLeft, KnobRight, Select, Back };
 
 inline const char* kPathMaps = "/";
-inline const char* kPathGauge = "/telemetry";
+inline const char* kPathGauge = "/custom";
 inline const char* kPathSettings = "/custom";
+
+// What clusterd's own page draws (it is one LIVI page for both).
+enum class View : uint8_t { Maps, Gauge, Settings };
 
 struct Action {
     Key key = Key::None;          // a key for LIVI to pass to the phone
@@ -106,8 +110,12 @@ public:
     }
     // The theme the small screens should show now (DisplaySettings.GaugeTheme).
     int gauge_theme() const { return hmi::effective_theme(ui_.model(), phone_ == Phone::CarPlay); }
-    // The centre shows the speedometer (LIVI's dashboard), so the small screens need not repeat speed.
-    bool centre_shows_speed() const { return std::string(path_) == kPathGauge; }
+    View view() const {
+        if (ui_.screen() != hmi::Screen::Home) return View::Settings;
+        return show_gauge() ? View::Gauge : View::Maps;
+    }
+    // The centre shows our speedometer, so the small screens need not repeat speed.
+    bool centre_shows_speed() const { return view() == View::Gauge; }
 
 private:
     Action input(hmi::Input in) {
@@ -130,10 +138,8 @@ private:
 
     // The page the state asks for, or nullptr when it is already in front.
     const char* page_change() {
-        const char* want;
-        if (ui_.screen() != hmi::Screen::Home) want = kPathSettings;
-        else if (show_gauge()) want = kPathGauge;
-        else want = kPathMaps;
+        View v = view();
+        const char* want = v == View::Settings ? kPathSettings : v == View::Gauge ? kPathGauge : kPathMaps;
         if (std::string(want) == path_) return nullptr;
         path_ = want;
         return want;

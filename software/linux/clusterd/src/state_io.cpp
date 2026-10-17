@@ -108,9 +108,27 @@ static void json_str(std::string& s, const std::string& v) {
     s += '"';
 }
 
-std::string page_state_json(const Shell& sh) {
+static void veh_num(std::string& s, const char* key, vhal::PropValue v, int decimals) {
+    char buf[48];
+    if (!v.available) std::snprintf(buf, sizeof buf, "\"%s\":null", key);
+    else std::snprintf(buf, sizeof buf, "\"%s\":%.*f", key, decimals, double(v.value));
+    s += buf;
+}
+
+static void veh_bool(std::string& s, const char* key, vhal::PropValue v) {
+    s += "\"";
+    s += key;
+    s += "\":";
+    s += !v.available ? "null" : (v.value != 0.0f ? "true" : "false");
+}
+
+std::string page_state_json(const Shell& sh, const vhal::Bridge& b, uint32_t now_ms) {
+    using vhal::Prop;
     const hmi::Ui& ui = sh.ui();
-    std::string s = "{\"screen\":";
+    View v = sh.view();
+    std::string s = "{\"view\":";
+    s += v == View::Gauge ? "\"gauge\"" : v == View::Settings ? "\"settings\"" : "\"maps\"";
+    s += ",\"screen\":";
     s += ui.screen() == hmi::Screen::Home ? "\"home\"" : "\"settings\"";
     s += ",\"editing\":";
     s += ui.screen() == hmi::Screen::Edit ? "true" : "false";
@@ -127,7 +145,24 @@ std::string page_state_json(const Shell& sh) {
     s += "],\"phone\":";
     s += sh.phone() == Phone::CarPlay ? "\"cp\"" : sh.phone() == Phone::AndroidAuto ? "\"aa\"" : "null";
     s += ",\"theme\":" + std::to_string(sh.gauge_theme());
-    s += "}";
+    s += ",\"imperial\":";
+    s += ui.model().imperial ? "true" : "false";
+    s += ",\"veh\":{\"link\":";
+    s += b.link_alive(now_ms) ? "true," : "false,";
+    veh_num(s, "speed_mps", b.get(Prop::SpeedMps, now_ms), 3);
+    s += ',';
+    veh_bool(s, "lights", b.get(Prop::DashLightsOn, now_ms));
+    s += ',';
+    veh_num(s, "dimmer", b.get(Prop::DashDimmerPct, now_ms), 0);
+    s += ',';
+    veh_bool(s, "hi", b.get(Prop::HighBeam, now_ms));
+    s += ',';
+    veh_bool(s, "brake", b.get(Prop::BrakeWarning, now_ms));
+    s += ',';
+    veh_bool(s, "alt", b.get(Prop::AlternatorWarning, now_ms));
+    s += ',';
+    veh_bool(s, "oil", b.get(Prop::OilWarning, now_ms));
+    s += "}}";
     return s;
 }
 

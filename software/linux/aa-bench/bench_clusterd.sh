@@ -13,9 +13,10 @@ make -s build/clusterd
 work="$(mktemp -d)"
 trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$work"' EXIT
 
-python3 "$here/fake_livi.py" --status "$work/status.json" --phone-script "1.5:cp,6.5:none" --log "$work/livi.jsonl" > "$work/fake.out" 2>&1 &
+python3 "$here/fake_livi.py" --port 4100 --status "$work/status.json" --phone-script "1.5:cp,6.5:none" --log "$work/livi.jsonl" > "$work/fake.out" 2>&1 &
 sleep 0.5
-printf 'theme = 0\n' > "$work/clusterd.conf"
+# its own ports, so a real LIVI (4000) and clusterd (4010) may keep running beside the bench
+printf 'theme = 0\nlivi_port = 4100\npage_port = 4110\n' > "$work/clusterd.conf"
 # dial script: t=2.5 turn right (to the phone), click (select), 3.5 hold 1.6 s (Back, then Settings),
 # 5.5 turn right in Settings (next row); the phone leaves at 6.5; 7.3 hold: back to Home, which with
 # no phone is the gauge; quit at 9
@@ -24,8 +25,8 @@ printf 'theme = 0\n' > "$work/clusterd.conf"
         --web "$PWD/web" --livi-status "$work/status.json" > "$work/clusterd.out" 2>&1 &
 cd_pid=$!
 sleep 5.2
-state="$(curl -s http://127.0.0.1:4010/state || true)"
-page="$(curl -s http://127.0.0.1:4010/ | head -c 200 || true)"
+state="$(curl -s http://127.0.0.1:4110/state || true)"
+page="$(curl -s http://127.0.0.1:4110/ | head -c 200 || true)"
 wait $cd_pid || true
 
 echo "--- clusterd"; cat "$work/clusterd.out"
@@ -33,15 +34,17 @@ echo "--- fake LIVI"; cat "$work/fake.out"
 echo "--- /state at 5.2 s: $state"
 fail=0
 check() { if grep -q -- "$2" "$1"; then echo "ok    $3"; else echo "FAIL  $3"; fail=1; fi; }
-check "$work/clusterd.out" "page /telemetry" "starts on the gauge (no phone)"
+check "$work/clusterd.out" "page /custom" "starts on our speedometer (no phone): the custom page"
 check "$work/livi.jsonl" '"speedKph": null' "telemetry pushes reach LIVI (stale values as null)"
 check "$work/clusterd.out" "page /$" "phone arrives: maps"
 check "$work/clusterd.out" "key knobRight" "turn goes to the phone"
 check "$work/clusterd.out" "key select" "click goes to the phone"
 check "$work/clusterd.out" "key back" "0.6 s hold is Back"
-check "$work/clusterd.out" "page /custom" "1.6 s hold opens Settings"
+# gauge and settings share the custom page, so closing Settings with no phone changes no page
+pages="$(grep -o 'page .*' "$work/clusterd.out" | paste -sd' ')"
+[ "$pages" = "page /custom page / page /custom" ] && echo "ok    pages in order: gauge, maps (phone), settings (1.6 s hold)" || { echo "FAIL  page order: $pages"; fail=1; }
 check "$work/livi.jsonl" '"path": "/custom"' "LIVI was told to open the custom page"
-echo "$state" | grep -q '"screen":"settings"' && echo "ok    /state says settings" || { echo "FAIL  /state"; fail=1; }
-echo "$page" | grep -qi "<!doctype html>" && echo "ok    settings page served" || { echo "FAIL  settings page"; fail=1; }
-[ "$(grep "page " "$work/clusterd.out" | tail -1)" = "clusterd: page /telemetry" ] && echo "ok    Settings closed with no phone: the gauge again" || { echo "FAIL  last page"; fail=1; }
+echo "$state" | grep -q '"view":"settings"' && echo "ok    /state says settings" || { echo "FAIL  /state"; fail=1; }
+echo "$state" | grep -q '"veh":{"link":false' && echo "ok    /state carries the vehicle block (no CAN here: link down)" || { echo "FAIL  /state veh"; fail=1; }
+echo "$page" | grep -qi "<!doctype html>" && echo "ok    centre page served" || { echo "FAIL  centre page"; fail=1; }
 exit $fail

@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# End-to-end bench test of clusterd on a PC (WSL is fine), with no CAN, no dial hardware and no LIVI:
+# fake_livi.py stands in for LIVI, and a scripted key stream stands in for the dial.
+#
+#   bash software/linux/aa-bench/bench_clusterd.sh
+#
+# Checks: the first page, telemetry pushes, maps when a phone arrives, the dial going to the phone as
+# knob keys, a 1.6 s hold opening Settings (the page server answers /state), and the gauge on the phone leaving.
+set -euo pipefail
+here="$(cd "$(dirname "$0")" && pwd)"
+cd "$here/../clusterd"
+make -s build/clusterd
+work="$(mktemp -d)"
+trap 'kill $(jobs -p) 2>/dev/null || true; rm -rf "$work"' EXIT
+
+python3 "$here/fake_livi.py" --status "$work/status.json" --phone-script "1.5:cp,6.5:none" --log "$work/livi.jsonl" > "$work/fake.out" 2>&1 &
+sleep 0.5
+printf 'theme = 0\n' > "$work/clusterd.conf"
+# dial script: t=2.5 turn right (to the phone), click (select), 3.5 hold 1.6 s (Back, then Settings),
+# 5.5 turn right in Settings (next row); the phone leaves at 6.5; 7.3 hold: back to Home, which with
+# no phone is the gauge; quit at 9
+( sleep 2.5; printf d; sleep 0.3; printf c; sleep 0.7; printf m; sleep 2.2; printf d; sleep 1.8; printf h; sleep 1.5; printf q ) |
+    ./build/clusterd --can none --dial-stdin --config "$work/clusterd.conf" --settings "$work/settings.conf" \
+        --web "$PWD/web" --livi-status "$work/status.json" > "$work/clusterd.out" 2>&1 &
+cd_pid=$!
+sleep 5.2
+state="$(curl -s http://127.0.0.1:4010/state || true)"
+page="$(curl -s http://127.0.0.1:4010/ | head -c 200 || true)"
+wait $cd_pid || true
+
+echo "--- clusterd"; cat "$work/clusterd.out"
+echo "--- fake LIVI"; cat "$work/fake.out"
+echo "--- /state at 5.2 s: $state"
+fail=0
+check() { if grep -q -- "$2" "$1"; then echo "ok    $3"; else echo "FAIL  $3"; fail=1; fi; }
+check "$work/clusterd.out" "page /telemetry" "starts on the gauge (no phone)"
+check "$work/livi.jsonl" '"speedKph": null' "telemetry pushes reach LIVI (stale values as null)"
+check "$work/clusterd.out" "page /$" "phone arrives: maps"
+check "$work/clusterd.out" "key knobRight" "turn goes to the phone"
+check "$work/clusterd.out" "key select" "click goes to the phone"
+check "$work/clusterd.out" "key back" "0.6 s hold is Back"
+check "$work/clusterd.out" "page /custom" "1.6 s hold opens Settings"
+check "$work/livi.jsonl" '"path": "/custom"' "LIVI was told to open the custom page"
+echo "$state" | grep -q '"screen":"settings"' && echo "ok    /state says settings" || { echo "FAIL  /state"; fail=1; }
+echo "$page" | grep -qi "<!doctype html>" && echo "ok    settings page served" || { echo "FAIL  settings page"; fail=1; }
+[ "$(grep "page " "$work/clusterd.out" | tail -1)" = "clusterd: page /telemetry" ] && echo "ok    Settings closed with no phone: the gauge again" || { echo "FAIL  last page"; fail=1; }
+exit $fail

@@ -70,7 +70,7 @@ Wireless CarPlay (iAP2) needs Apple's MFi authentication coprocessor, which is o
 
 | J16 pin | Net | Notes |
 |---|---|---|
-| 1 | I2C1_SDA | the shared I2C_1 bus (X1 pin 12, with the codec at 0x50; check the coprocessor's own address from Apple's documentation for a clash) |
+| 1 | I2C1_SDA | the shared I2C_1 bus (X1 pin 12, with the codec at 0x50). The open-source LIVI receiver probes the coprocessor at 0x10 and 0x11 (its iap2-mfi crate, read 2026-10-17), so no clash is expected; Apple's documentation is still the authority |
 | 2 | I2C1_SCL | X1 pin 14 |
 | 3 | MFI_RST_N | Verdin GPIO_2, X1 pin 208 (1.8 V). Reset polarity and level are TBD from Apple's MFi documentation |
 | 4 | GND | |

@@ -1,0 +1,26 @@
+# /etc/clusterd.conf: the installer's settings for clusterd (software/linux/README.md).
+# The settings the dial changes (theme, units, ...) live in /var/lib/clusterd/settings.conf and win over
+# anything repeated here.
+
+# private link to gauges/: the device-tree name of Verdin CAN_1, 500 kbit/s (set with ip link)
+can_if = can1
+
+# the car (sent to gauges/ in DisplaySettings, SpeedCalibration and InputConfig)
+car_profile = 1            # 0 none, 1 Haltech V2
+car_bitrate = 1            # 0 500k, 1 1M, 2 250k
+tank_capacity_l = 60       # placeholder: the owner's real tank (PLAN.md open question)
+pulses_per_mile = 16000    # AutoMeter 16-pulse sender at 1000 rev/mile
+lamp_invert_mask = 0       # bit 0..5 turn L, turn R, high beam, brake, alternator, oil: 1 = ground-switched
+tach_enabled = 0
+tach_pulses_per_rev = 4    # V8, points or wasted spark
+
+# the dial (Piher PSC-360 on ADC_1): counts at 0 and just under 360 degrees, detents per turn
+dial_raw_min = 0
+dial_raw_max = 4095
+dial_detents = 24
+
+# LIVI
+livi_port = 4000
+page_port = 4010
+map_shape_cmd = python3 /usr/share/clusterd/livi_config.py --apply /home/cluster/.config/LIVI/config.json
+suspend_cmd = systemctl suspend

@@ -1,0 +1,26 @@
+# systemd unit for clusterd on the Verdin (Linux option). Untested: written ahead of the hardware.
+# The device paths are placeholders until the device tree exists (software/linux/README.md, L5).
+[Unit]
+Description=Cluster glue: private CAN link, dial and LIVI telemetry
+After=network.target sys-subsystem-net-devices-can1.device
+Wants=sys-subsystem-net-devices-can1.device
+
+[Service]
+User=cluster
+# The private link runs at 500 kbit/s; bring it up before clusterd binds to it.
+ExecStartPre=+/sbin/ip link set can1 down
+ExecStartPre=+/sbin/ip link set can1 type can bitrate 500000 restart-ms 100
+ExecStartPre=+/sbin/ip link set can1 up
+ExecStart=/usr/bin/clusterd --config /etc/clusterd.conf --settings /var/lib/clusterd/settings.conf \
+    --web /usr/share/clusterd/web \
+    --livi-status /home/cluster/.config/LIVI/state/status.json \
+    --adc /sys/bus/iio/devices/iio:device0/in_voltage1_raw \
+    --click /dev/input/by-path/platform-gpio-keys-event
+StateDirectory=clusterd
+Restart=always
+RestartSec=1
+# /dev/uinput for the dial keys: the cluster user needs the input group (or a udev rule)
+SupplementaryGroups=input
+
+[Install]
+WantedBy=multi-user.target

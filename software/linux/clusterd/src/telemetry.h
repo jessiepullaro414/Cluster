@@ -18,6 +18,14 @@ std::string telemetry_json(const vhal::Bridge& b, uint32_t now_ms);
 // {"path":"/custom"}: LIVI opens that page once each time the path changes.
 std::string path_json(const char* path);
 
+// Frames for LIVI's core socket ($XDG_RUNTIME_DIR/livi/core.sock, livi-core-proto frame.rs): a little-endian
+// uint32 byte count, then JSON. The hello first (LIVI_CORE_PROTOCOL is livi-core-proto's PROTOCOL, 8 in LIVI 9.5.0),
+// then a key as LIVI's renderer reports it: KeyboardEvent.code, which LIVI maps through its key bindings (knobLeft F13,
+// knobRight F14, selectDown Enter, back Backspace, set by livi_config.py) and passes to Android Auto or CarPlay.
+constexpr unsigned LIVI_CORE_PROTOCOL = 8;
+std::string livi_hello_frame(const char* client);
+std::string livi_key_frame(const char* code, bool down);
+
 // The Android app's telemetry line (core/Telemetry.java, "CL1 imperial=1 theme=1 center=0 speed=96.56 ..."), the
 // format gauges-fw's host harness takes on UDP 5005. Bench use: one replayed drive moves LIVI's centre and the
 // four small gauges together. '-' = not available. Units are gauges-fw's: km/h, rpm, V, %, degC, kPa.

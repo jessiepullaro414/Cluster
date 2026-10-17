@@ -21,6 +21,7 @@
 #include <poll.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <termios.h>
 #include <arpa/inet.h>
 #include <unistd.h>
@@ -128,14 +129,56 @@ static void uinput_emit(int fd, int type, int code, int value) {
     if (write(fd, &ev, sizeof ev) < 0) std::perror("clusterd: uinput write");
 }
 
-static void send_key(int fd, Key k) {
+// ---- LIVI's core socket: the dial's keys straight to LIVI, which hands them to Android Auto / CarPlay ----------
+// Preferred over uinput: it does not depend on which window has the keyboard (on a PC bench the uinput keys never
+// reach LIVI's window). Connected on first use, reconnected when LIVI restarts; what LIVI sends back is drained.
+
+struct LiviCore {
+    std::string path;
+    int fd = -1;
+
+    bool connect_once() {
+        if (fd >= 0) return true;
+        int s = socket(AF_UNIX, SOCK_STREAM | SOCK_NONBLOCK, 0);
+        sockaddr_un a = {};
+        a.sun_family = AF_UNIX;
+        std::snprintf(a.sun_path, sizeof a.sun_path, "%s", path.c_str());
+        if (s < 0 || connect(s, reinterpret_cast<sockaddr*>(&a), sizeof a) < 0) {
+            if (s >= 0) close(s);
+            return false;
+        }
+        fd = s;
+        std::string h = livi_hello_frame("clusterd");
+        if (write(fd, h.data(), h.size()) != ssize_t(h.size())) { close(fd); fd = -1; return false; }
+        std::printf("clusterd: connected to LIVI's core at %s\n", path.c_str());
+        return true;
+    }
+    bool send(const std::string& frame) {
+        if (!connect_once()) return false;
+        if (write(fd, frame.data(), frame.size()) == ssize_t(frame.size())) return true;
+        close(fd);
+        fd = -1;
+        return false;
+    }
+    void drain() {
+        if (fd < 0) return;
+        char buf[4096];
+        ssize_t n;
+        while ((n = read(fd, buf, sizeof buf)) > 0) {}
+        if (n == 0) { close(fd); fd = -1; }   // LIVI went away: reconnect on the next key
+    }
+};
+
+static void send_key(int ui_fd, LiviCore& core, Key k) {
     int code = k == Key::KnobLeft ? KEY_F13 : k == Key::KnobRight ? KEY_F14 : k == Key::Select ? KEY_ENTER : KEY_BACKSPACE;
+    const char* web = k == Key::KnobLeft ? "F13" : k == Key::KnobRight ? "F14" : k == Key::Select ? "Enter" : "Backspace";
     std::printf("clusterd: key %s\n", k == Key::KnobLeft ? "knobLeft" : k == Key::KnobRight ? "knobRight" : k == Key::Select ? "select" : "back");
-    if (fd < 0) return;
-    uinput_emit(fd, EV_KEY, code, 1);
-    uinput_emit(fd, EV_SYN, SYN_REPORT, 0);
-    uinput_emit(fd, EV_KEY, code, 0);
-    uinput_emit(fd, EV_SYN, SYN_REPORT, 0);
+    if (core.send(livi_key_frame(web, true)) && core.send(livi_key_frame(web, false))) return;
+    if (ui_fd < 0) return;
+    uinput_emit(ui_fd, EV_KEY, code, 1);
+    uinput_emit(ui_fd, EV_SYN, SYN_REPORT, 0);
+    uinput_emit(ui_fd, EV_KEY, code, 0);
+    uinput_emit(ui_fd, EV_SYN, SYN_REPORT, 0);
 }
 
 // ---- HTTP: push to LIVI, serve the settings page --------------------------------------------
@@ -291,6 +334,12 @@ int main(int argc, char** argv) {
     }
     bool sim_click_down = false;
     int ui = uinput_open();
+    LiviCore core;
+    {
+        // LIVI's runtime dir: $XDG_RUNTIME_DIR/livi, else /run/user/<uid>/livi (livi-core paths.rs)
+        const char* xdg = std::getenv("XDG_RUNTIME_DIR");
+        core.path = (xdg && *xdg ? std::string(xdg) : "/run/user/" + std::to_string(getuid())) + "/livi/core.sock";
+    }
     int page = http_listen(cfg.page_port);
     int click = args.click.empty() ? -1 : open(args.click.c_str(), O_RDONLY | O_NONBLOCK);
     if (!args.click.empty() && click < 0) std::perror("clusterd: click input");
@@ -314,7 +363,7 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "clusterd: LIVI did not take the page change (is it running?)\n");
     };
     auto act = [&](const Action& a) {
-        if (a.key != Key::None) send_key(ui, a.key);
+        if (a.key != Key::None) send_key(ui, core, a.key);
         push_path(a.path);
     };
     hmi::Model last_saved = cfg.model;
@@ -445,6 +494,7 @@ int main(int argc, char** argv) {
         }
         save_if_committed();
 
+        core.drain();
         if (now - t_status >= 250) {
             t_status = now;
             act(shell.set_phone(parse_livi_phone(read_file(args.livi_status))));

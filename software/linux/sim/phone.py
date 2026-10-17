@@ -14,7 +14,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
-sys.path.insert(0, os.path.join(REPO, "software", "demo"))
+sys.path.insert(0, os.path.join(REPO, "software", "demo"))   # record_livi_demo's adb helpers, wincap
 import record_livi_demo as R  # noqa: E402  (adb helpers: the head unit server, the phone's screen)
 
 RELAY = os.path.join(REPO, "software", "linux", "aa-bench", "relay.ps1")
@@ -56,12 +56,48 @@ def main():
         if "emulator" not in R.adb("devices"):
             print("no phone: the aa_phone emulator did not start")
             return
-    R.start_head_unit_server()
-    R.adb("shell", "am", "start", "-n", "com.google.android.apps.maps/com.google.android.maps.MapsActivity")
-    subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", RELAY],
-                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                     creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | 0x08000000)
-    print("plugged in: Android Auto appears in about 10 s")
+    # The emulator runs the arm64 Android Auto and Google Play services through ARM translation, and they crash now
+    # and then (SIGSEGV), more often just after a boot: the session connects but the centre stays black. So check
+    # LIVI's window for a picture and plug in again if there is none.
+    for attempt in range(3):
+        if attempt:
+            stop_relays()
+            print(f"no picture on the centre, plugging in again ({attempt + 1}/3)", flush=True)
+        R.start_head_unit_server()
+        R.adb("shell", "am", "start", "-n", "com.google.android.apps.maps/com.google.android.maps.MapsActivity")
+        subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", RELAY],
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | 0x08000000)
+        if centre_has_picture():
+            print("plugged in: Android Auto is on the centre")
+            return
+    print("plugged in, but the centre is still black: try Disconnect, wait a minute, Connect")
+
+
+def livi_projecting():
+    """LIVI's own state: Android Auto is the active projection (state/status.json in the bench distro)."""
+    r = subprocess.run(["wsl.exe", "-d", "Ubuntu-24.04", "-u", "root", "-e", "cat", "/root/.config/LIVI/state/status.json"],
+                       capture_output=True, text=True, timeout=20)
+    return '"active": "aa"' in r.stdout
+
+
+def centre_has_picture(timeout=40.0):
+    """True once LIVI projects Android Auto and its window shows a picture. Before the phone connects LIVI shows our
+    own (bright) speedometer, so the picture only counts once LIVI says Android Auto is active."""
+    from wincap import capture, find_window
+    t0 = time.time()
+    while time.time() - t0 < timeout:
+        if livi_projecting():
+            # Android Auto's splash is dark for a few seconds; give the picture up to 15 s (LIVI's content area:
+            # below its 32 px title strip, 752 px square at this display scale)
+            for _ in range(15):
+                time.sleep(1)
+                h = find_window("LIVI")
+                if h is not None and capture(h)[32:784, 0:752].mean() > 30:
+                    return True
+            return False
+        time.sleep(1)
+    return False
 
 
 if __name__ == "__main__":

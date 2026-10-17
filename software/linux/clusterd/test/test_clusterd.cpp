@@ -326,6 +326,15 @@ static void test_telemetry() {
     HAS(j, "\"speedKph\":null");
     HAS(j, "\"turnSignal\":null");
     CHECK(j.find("72.0") == std::string::npos);
+    // LIVI's core socket frames: little-endian length, then the JSON of livi-core-proto's ToCore
+    {
+        std::string k = livi_key_frame("F14", true);
+        std::string body = "{\"type\":\"input\",\"input\":{\"kind\":\"key\",\"code\":\"F14\",\"down\":true}}";
+        CHECK(k.size() == 4 + body.size() && k.substr(4) == body);
+        CHECK(uint8_t(k[0]) == body.size() && k[1] == 0 && k[2] == 0 && k[3] == 0);
+        std::string h = livi_hello_frame("clusterd");
+        CHECK(h.substr(4) == "{\"type\":\"hello\",\"protocol\":8,\"client\":\"clusterd\"}");
+    }
     // the harness line, the same text the Android app's Telemetry.encode writes
     {
         vhal::Bridge hb;

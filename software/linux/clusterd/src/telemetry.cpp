@@ -84,6 +84,23 @@ std::string harness_line(const vhal::Bridge& b, uint32_t now_ms, bool imperial, 
     return s;
 }
 
+static std::string core_frame(const std::string& json) {
+    std::string f(4, '\0');
+    uint32_t n = uint32_t(json.size());
+    for (int i = 0; i < 4; i++) f[size_t(i)] = char((n >> (8 * i)) & 0xFF);
+    return f + json;
+}
+
+std::string livi_hello_frame(const char* client) {
+    return core_frame(std::string("{\"type\":\"hello\",\"protocol\":") + std::to_string(LIVI_CORE_PROTOCOL) +
+                      ",\"client\":\"" + client + "\"}");
+}
+
+std::string livi_key_frame(const char* code, bool down) {
+    return core_frame(std::string("{\"type\":\"input\",\"input\":{\"kind\":\"key\",\"code\":\"") + code + "\",\"down\":" +
+                      (down ? "true" : "false") + "}}");
+}
+
 std::string path_json(const char* path) {
     std::string s = "{\"path\":\"";
     for (const char* p = path; *p; p++)

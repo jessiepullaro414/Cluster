@@ -1,0 +1,25 @@
+Bench-only change to LIVI (github.com/f-io/LIVI, dev branch at b43c7153, the 9.5.0 nightly #2489):
+when Bluetooth cannot start and LIVI_AA_TCP_WITHOUT_BT=1 is set, still open the Android Auto TCP
+listener, so aa-bench/relay.py can join a phone's or emulator's head unit server to it. Without the
+variable LIVI behaves exactly as before. Apply in the LIVI tree with `git apply`.
+
+--- a/native/livi-helperd/bin/livi-helperd/src/linux_main.rs
++++ b/native/livi-helperd/bin/livi-helperd/src/linux_main.rs
+@@ -552,6 +552,17 @@
+     if let Err(e) = bluetooth().await {
+         eprintln!(
+             "[helperd] no Bluetooth ({e}), wireless Android Auto and calls are off, wired Android Auto and CarPlay carry on"
+         );
++        if std::env::var("LIVI_AA_TCP_WITHOUT_BT").is_ok_and(|v| v == "1") {
++            let aa_port = env_or("LIVI_PORT", livi_aa::consts::TCP_PORT);
++            let events = aa_events.clone();
++            println!("[helperd] LIVI_AA_TCP_WITHOUT_BT: Android Auto TCP listener on {aa_port} without Bluetooth");
++            tokio::spawn(livi_aa::server::run(aa_port, move |socket, peer| {
++                events.push_json(format!(
++                    "{{\"event\":\"aa-session\",\"socket\":\"{socket}\",\"peer\":\"{peer}\",\"transport\":\"wifi\"}}"
++                ));
++            }));
++        }
+         crate::shutdown_signal().await;
+         println!("[helperd] shutting down");
+         iap2_usbmux::restore_all_default_config();

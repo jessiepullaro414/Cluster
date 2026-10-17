@@ -44,6 +44,27 @@ The unknowns, in the order they would bite:
 
 **A borrowed Android phone removes unknown 1** and works the same way through `adb forward`.
 
+## What the bench run on 2026-10-17 found
+
+- **The emulator route is closed.** The Google Play phone image (Android 15, `system-images;android-35;google_apis_playstore;x86_64`)
+  ships Android Auto only as a stub (`1.2.542030-stub`); the Play Store then refuses the real app with
+  "This app isn't compatible with your device anymore". So unknown 1 is answered: no. A real Android phone
+  on USB goes through the same `adb forward` + `relay.py` path.
+- **LIVI side: works, with the steps below** (all in a separate WSL distro, Ubuntu 24.04, run as root):
+  - LIVI 9.5.0's binaries need glibc 2.39 (Ubuntu 22.04 has 2.35, too old).
+  - Its compositor and GStreamer needed `libwayland-server0` and the GStreamer base libraries from apt.
+  - Its bundled FFmpeg needs `vaMapBuffer2` (libva 2.21+) and its bundled waylandsink needs
+    `wl_display_create_queue_with_name` (libwayland 1.23); Ubuntu 24.04 has 2.20 and 1.22, so libva 2.22.0 and
+    wayland 1.23.1 were built from source into /usr of the bench distro. LIVI's core sets the decoder's
+    LD_LIBRARY_PATH itself, so an LD_LIBRARY_PATH from outside does not reach it. Then delete
+    `~/.cache/gstreamer-1.0` (it remembers plugins that failed to load). Result: `h264 sw: true`.
+  - `livi-tcp-without-bt.patch` applied to LIVI's dev branch at b43c7153 (the nightly's own commit), only
+    `livi-helperd` rebuilt (`cargo build --release -p livi-helperd`, 2 min 16 s) and dropped into the extracted
+    AppImage's `resources/driver/`. With `LIVI_AA_TCP_WITHOUT_BT=1 LIVI_PORT=5278` LIVI logs
+    `[aa-tcp] listening on 5278`, and the port is reachable from Windows (where adb and the relay run).
+  - LIVI probes the Apple coprocessor at 0x10 / 0x11 on I2C bus 2 at start-up and says none answered, as expected.
+  Debian Trixie (libva 2.22, wayland 1.23) would avoid the two source builds.
+
 ## CarPlay on the bench
 
 No emulator route: the iPhone needs the Apple authentication coprocessor on the head unit for wired and

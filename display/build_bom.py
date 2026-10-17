@@ -37,12 +37,12 @@ sibling board's own BOM.
   * J2/J3/J8/J9 (formerly provisional 2.54mm headers) were resolved
     2026-09-30 once the user's question about what they connect to
     clarified their roles: J2 = car 12V/GND/IGN input (Phoenix MKDS
-    1,5/3-5,08, same family as gauges/'s J1), J3 = the CAN tap that is
-    the display<->gauges<->ECU link (Molex KK 254 22-27-2031, same family
-    as gauges/'s J7), J8/J9 = bench/service headers (Samtec TSW-108-07-G-S
-    / TSW-104-07-G-S). Wire gauge and final harness routing are still
-    unknown, so the harness-side pigtails (DTM06-3S) are a same-family
-    assumption, not a measured requirement.
+    1,5/3-5,08, same family as gauges/'s J1), J3 = the private CAN link
+    to gauges/ J8 (Molex KK 254 22-27-2031; the display is not on the
+    car bus), J8/J9 = bench/service headers (Samtec TSW-108-07-G-S /
+    TSW-104-07-G-S). DECIDED 2026-10-17 (docs/harness.md): J2 takes an
+    18 AWG pigtail with a sealed DTM06-3S plug on the car end; J3 is a
+    short in-dash KK 254 cable with no DTM; J8/J9 never see a harness.
   * AUDIO AND USB HOST (added 2026-10-16): U9 TAC5112-Q1, U11 TPS2557-Q1 and
     U12-U14 TPD4E05U06-Q1 carry the orderable names from their datasheets'
     own orderable-addendum tables (all "Active Production"); J14/J15 are JST
@@ -120,8 +120,8 @@ MPN = {
 # family/SKU cases below - too generic to trust a token match against).
 BOARD_SIDE_CONNECTORS = {
     "J4": ("FH26-39S-0.3SHW(99)", "Hirose", "39-position 0.3mm-pitch FPC connector for the TST040HDBC-42's 39-pin FPC. The panel datasheet does NOT name a connector: 0.3mm pitch is inferred from the FPC's 12mm width across 39 pins, and FH26 is bottom-contact - specify the FPC's exposed-pad side when ordering from TSD. Hirose lists the (05) variant obsolete and FH26W-39S-0.3SHW(60) as current: confirm its land pattern against the bundled FH26 footprint before ordering", "-"),
-    "J2": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end: sealed Deutsch DTM06-3S (TE) pigtail, as on gauges/", "-"),
-    "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the CAN tap (CANH / CANL / GND), 4A / 250V per contact - same KK 254 family gauges/'s J7 uses. This is the display<->gauges<->ECU CAN link. Harness end: sealed Deutsch DTM06-3S (TE) pigtail", "-"),
+    "J2": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end (decided 2026-10-17, docs/harness.md): an 18 AWG pigtail ferruled into this terminal, with a sealed Deutsch DTM06-3S plug (TE) and WM-3S wedge on the car end. Accepts 26-14 AWG", "-"),
+    "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the private CAN link to gauges/ J8 (CANH / CANL / GND), 4A / 250V per contact. The display is not on the car bus. Mating (docs/harness.md): Molex KK 254 housing 22-01-3037 with 08-50-0114 crimps (22-30 AWG) at both ends, a short in-dash twisted-pair cable, no DTM connector", "-"),
     "J8": ("TSW-108-07-G-S", "Samtec", "1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness", "-"),
     "J14": ("B5B-XH-A(LF)(SN)", "JST", "5-circuit XH 2.50 mm vertical header, balanced stereo line-out: L+, L-, R+, R-, GND. Mating: XHP-5 housing with SXH-001T-P0.6 crimps. PATTERN: ordering suffix (LF)(SN) is JST's lead-free tin variant, confirm in the cart. Deliberately a different family from the KK 254 headers so audio cannot be mated to the CAN or dial headers", "-"),
     "J15": ("B3B-XH-A(LF)(SN)", "JST", "3-circuit XH 2.50 mm vertical header, 2-wire electret microphone: bias+signal, return, shield. Mating: XHP-3 housing with SXH-001T-P0.6 crimps. PATTERN: confirm the ordering suffix in the cart", "-"),
@@ -620,9 +620,10 @@ HTML_TEMPLATE = r"""<title>Display Carrier Bill of Materials</title>
   <div class="note">
     <h2>How to read this list</h2>
     <p><strong>No line is left as a placeholder part.</strong> J2/J3 are the real
-    harness connectors (power and CAN, same families as gauges/), J8/J9 are
-    bench-only headers. Still unknown: final wire gauge and harness routing, so
-    the DTM06-3S pigtails are a same-family assumption. Everything else that started as an open item (the front-end
+    harness connectors (power with a sealed DTM06-3S pigtail; the private CAN
+    link to gauges/ as a short in-dash KK 254 cable), J8/J9 are bench-only
+    headers; the harness is decided in docs/harness.md. Still unknown: the
+    car-side tap and the final routing. Everything else that started as an open item (the front-end
     FET pair, the input TVS, the fuse's exact rating, and the Verdin SoM's
     exact SKU) was resolved to a real, cited part on 2026-09-28. Also open, and
     flagged in the J4 and panel lines: the panel datasheet's table and drawing

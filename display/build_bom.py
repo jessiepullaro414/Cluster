@@ -40,8 +40,8 @@ sibling board's own BOM.
     1,5/3-5,08, same family as gauges/'s J1), J3 = the private CAN link
     to gauges/ J8 (Molex KK 254 22-27-2031; the display is not on the
     car bus), J8/J9 = bench/service headers (Samtec TSW-108-07-G-S /
-    TSW-104-07-G-S). DECIDED 2026-10-17 (docs/harness.md): J2 takes an
-    18 AWG pigtail with a sealed DTM06-3S plug on the car end; J3 is a
+    TSW-104-07-G-S). DECIDED 2026-10-17 (docs/harness.md): J2 takes a
+    20 AWG GXL pigtail with a sealed DTM06-3S plug on the car end; J3 is a
     short in-dash KK 254 cable with no DTM; J8/J9 never see a harness.
   * AUDIO AND USB HOST (added 2026-10-16): U9 TAC5112-Q1, U11 TPS2557-Q1 and
     U12-U14 TPD4E05U06-Q1 carry the orderable names from their datasheets'
@@ -120,7 +120,7 @@ MPN = {
 # family/SKU cases below - too generic to trust a token match against).
 BOARD_SIDE_CONNECTORS = {
     "J4": ("FH26-39S-0.3SHW(99)", "Hirose", "39-position 0.3mm-pitch FPC connector for the TST040HDBC-42's 39-pin FPC. The panel datasheet does NOT name a connector: 0.3mm pitch is inferred from the FPC's 12mm width across 39 pins, and FH26 is bottom-contact - specify the FPC's exposed-pad side when ordering from TSD. Hirose lists the (05) variant obsolete and FH26W-39S-0.3SHW(60) as current: confirm its land pattern against the bundled FH26 footprint before ordering", "-"),
-    "J2": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end (decided 2026-10-17, docs/harness.md): an 18 AWG pigtail ferruled into this terminal, with a sealed Deutsch DTM06-3S plug (TE) and WM-3S wedge on the car end. Accepts 26-14 AWG", "-"),
+    "J2": ("MKDS 1,5/ 3-5,08 (1715734)", "Phoenix Contact", "3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end (decided 2026-10-17, docs/harness.md): a 20 AWG GXL pigtail ferruled into this terminal, with a sealed Deutsch DTM06-3S plug (TE) and WM-3S wedge on the car end. Accepts 26-14 AWG", "-"),
     "J3": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, board side of the private CAN link to gauges/ J8 (CANH / CANL / GND), 4A / 250V per contact. The display is not on the car bus. Mating (docs/harness.md): Molex KK 254 housing 22-01-3037 with 08-50-0114 crimps (22-30 AWG) at both ends, a short in-dash twisted-pair cable, no DTM connector", "-"),
     "J8": ("TSW-108-07-G-S", "Samtec", "1x8 0.100in gold-finish pin header, JTAG/debug - bench and service use only, not part of the vehicle harness", "-"),
     "J14": ("B5B-XH-A(LF)(SN)", "JST", "5-circuit XH 2.50 mm vertical header, balanced stereo line-out: L+, L-, R+, R-, GND. Mating: XHP-5 housing with SXH-001T-P0.6 crimps. PATTERN: ordering suffix (LF)(SN) is JST's lead-free tin variant, confirm in the cart. Deliberately a different family from the KK 254 headers so audio cannot be mated to the CAN or dial headers", "-"),

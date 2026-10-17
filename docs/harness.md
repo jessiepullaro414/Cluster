@@ -1,43 +1,58 @@
-# Harness connectors for display/ (decided 2026-10-17)
-
-Scope: the connectors on the display board that carry a wire off the board. The gauges board needs the same pass (see "Not covered" below).
+# Harness: every connector that carries a wire off display/ and gauges/ (decided 2026-10-17)
 
 ## The decision
 
-**Sealed Deutsch DTM06 plugs on the vehicle end of short pigtails; compact header connectors on the board.** No sealed connector is mounted on the display board. J3 is not a vehicle-harness connector at all.
+**Sealed Deutsch DTM06 plugs on the vehicle end of short pigtails; compact header connectors on the boards.** No sealed connector is mounted on either board. Board-to-board links inside the dash are plain KK 254 cables with no Deutsch connector.
 
-| Ref | Board side (part already on the board) | What plugs in | Wire | Where it goes |
+### display/
+
+| Ref | Board side (already on the board) | Pigtail / cable | Wire | Pins |
 |---|---|---|---|---|
-| **J2** | Phoenix MKDS 1,5/3-5,08 (1715734), 3-position screw terminal | pigtail with the wire ferruled into the terminal, DTM06-3S plug on the car end | 18 AWG automotive wire (TXL/GXL class) | car harness: pin 1 VBAT (switched or constant battery, see note), pin 2 GND, pin 3 IGN sense |
-| **J3** | Molex KK 254 22-27-2031, 3-circuit | Molex KK 254 housing 22-01-3037 with crimp terminals, **both ends**, no DTM | 22 AWG twisted pair plus a ground wire | gauges/ J8, the same part: pin 1 CAN H, pin 2 CAN L, pin 3 GND. Short, inside the dash |
-| **J8** | Samtec TSW-108-07-G-S, 1x8 0.1 in | nothing in the car | | bench only: JTAG |
-| **J9** | Samtec TSW-104-07-G-S, 1x4 0.1 in | nothing in the car | | bench only: power, recovery, reset buttons |
+| **J2** battery, ground, ignition | Phoenix MKDS 1,5/3-5,08 (1715734), 3-position screw terminal | wire ferruled into the terminal; **DTM06-3S** plug + WM-3S on the car end | 20 AWG GXL | 1 VBAT, 2 GND, 3 IGN sense |
+| **J3** private CAN link | Molex KK 254 22-27-2031, 3-circuit | Molex KK 254 housing 22-01-3037 with crimps at **both ends**, no DTM | 22 AWG twisted pair + ground | to gauges/ J8, same part: 1 CAN H, 2 CAN L, 3 GND |
+| **J8**, **J9** (and J12, J13) | Samtec 0.1 in headers | none: bench only | | JTAG; power/recovery/reset buttons (J12 console UART, J13 USB) |
 
-(J8 and J9 never see a harness: leave them unpopulated on a production unit or cover them behind the service flap. J12 and J13 are bench headers of the same kind.)
+### gauges/
+
+| Ref | Board side | Pigtail / cable | Wire | Pins |
+|---|---|---|---|---|
+| **J1** battery, ground, ignition | Phoenix MKDS 1,5/3-5,08, 3-position screw terminal | wire ferruled into the terminal; **DTM06-3S** + WM-3S | 20 AWG GXL | 1 VIN, 2 GND, 3 IGN |
+| **J7** car CAN + three senders | Molex KK 254 22-27-2051, 5-circuit | **DTM06-6S** + WM-6S (**no 5-way DTM exists**: DTM comes in 2, 3, 4, 6, 8 and 12 ways, so one cavity takes a sealing plug) | 22 AWG GXL; CAN H and L as a twisted pair | 1 CAN0 H, 2 CAN0 L, 3 fuel sender, 4 oil sender, 5 coolant sender |
+| **J9** Hall speed | Molex KK 254 22-27-2021, 2-circuit | **DTM06-2S** + WM-2S | 22 AWG GXL | 1 signal, 2 GND (the sender is powered by the car harness, not by this board) |
+| **J10** lamps and dimmer | Molex KK 254 22-27-2081, 8-circuit | **DTM06-08SA** + WM-8S | 22 AWG GXL | 1 left turn, 2 right turn, 3 high beam, 4 brake, 5 alternator, 6 oil, 7 GND, 8 dimmer feed |
+| **J11** tach | Molex KK 254 22-27-2021, 2-circuit | **DTM06-2S** + WM-2S | 22 AWG GXL | 1 tach signal, 2 GND |
+| **J8** private CAN link | Molex KK 254 22-27-2031, 3-circuit | the same KK cable as display/ J3 | 22 AWG twisted pair + ground | 1 CAN1 H, 2 CAN1 L, 3 GND |
+
+The senders (J7 pins 3 to 5) are single-wire: their return is the sender's own body, so the car chassis must be a good ground at each sender. The lamp and Hall wires are 12 V signals of a few milliamps; the power wires are fused at the battery end.
 
 ## Why
 
-- **Why not a sealed header on the board.** TE's board-mount DTM header with enough pins is the 12-way DTM13-12PA: right angle, 4.19 mm centre line, 2 rows, 61 x 37 mm footprint, 25.7 mm tall, with its own screw mounts, 7.5 A per contact, IP67/IP6K9K, -55 to 125 C ([TE listing](https://www.te.com/en/product-DTM13-12PA-R008.html), [customer drawing of the 24-way sibling](https://datasheet.octopart.com/DTM13-12PA-12PB-R008-TE-Connectivity-datasheet-180428408.pdf)). That is one eighth of the board for three power wires; the smaller DTM06/DTM04 housings are wire-to-wire only (this was found for thermo/ on 2026-08-10 and is why the other boards in this project use a pigtail). The board's hole pattern for the 12-way part is not in the data TE publishes in PDF, so I did not guess one. If a sealed header ever becomes a requirement, download TE's footprint and STEP, then the display floorplan has to be redone around it.
-- **Why J3 has no DTM.** It was labelled "the CAN tap to the ECU" in the BOM, which is wrong: the display board is on the private link only and never touches the car bus (gauges/ is the gateway, `software/PLAN.md`). J3 joins two boards inside the same dash. A sealed connector protects against engine-bay water, and this is not there.
-- **The wire-gauge gap that decides the wire sizes.** Molex's KK 254 crimp terminal 08-50-0114 takes 22 to 30 AWG ([Digi-Key listing](https://www.digikey.com/en/products/detail/08-50-0114/WM1114-ND/26475)); the DTM size-20 contacts take 16 to 20 AWG. No wire is crimpable into both. So the pairing "KK 254 header, DTM06 plug on a pigtail" that the other boards use has no single wire that fits both ends unless the pigtail is soldered or screwed at the board end. J2 avoids it: the MKDS terminal takes 26 to 14 AWG, and 0.25 to 1.5 mm^2 with a ferrule ([Phoenix catalogue figures as listed by Farnell](https://uk.farnell.com/phoenix-contact/1715734/terminal-block-wire-to-brd-3pos/dp/3041530)), so 18 AWG (0.82 mm^2) goes into both the screw terminal and the DTM contact. J3 avoids it by having no DTM.
-- **Wire size for J2.** The 5 A blade fuse F1 is on the board, so it protects the board and not the wire up to it: put a 5 A (or smaller) fuse at the battery end of that wire. 18 AWG carries 5 A with margin; TE lists 7.5 A per size-20 contact on its DTM headers.
+- **Why no sealed header on a board.** TE's board-mount DTM header with enough pins is the 12-way DTM13-12PA: right angle, 4.19 mm centre line, 2 rows, 61 x 37 mm, 25.7 mm tall, with its own screw mounts, IP67/IP6K9K, -55 to 125 C ([TE listing](https://www.te.com/en/product-DTM13-12PA-R008.html), [TE drawing of its 24-way sibling](https://datasheet.octopart.com/DTM13-12PA-12PB-R008-TE-Connectivity-datasheet-180428408.pdf)). That is about an eighth of the display board for three power wires, and the smaller DTM06/DTM04 housings are wire-to-wire only (found for thermo/ on 2026-08-10). I could not get a footprint drawing for the 12-way and did not guess one. If a sealed header ever becomes a requirement, download TE's footprint and 3D model and redo the floorplan around it.
+- **J3/J8 have no DTM.** The BOM called display J3 "the CAN tap to the ECU": wrong, the display is on the private link only (gauges/ is the gateway, `software/PLAN.md`). The link joins two boards inside one dash, where nothing needs sealing.
+- **Wire sizes come from the two crimps that meet in a pigtail.**
+  - Molex's KK 254 crimp terminal (08-50-0113 / 08-50-0114, tin) takes **22 to 30 AWG** and nothing thicker ([Digi-Key](https://www.digikey.com/en/products/detail/08-50-0114/WM1114-ND/26475), [RS](https://au.rs-online.com/web/p/products/1729178)).
+  - The DEUTSCH size-20 solid socket contact **0462-201-20141** (nickel, indent crimp, 7.5 A typical, TE confirms the part, [TE page](https://www.te.com/en/product-0462-201-20141.html)) is shown in TE's application specification 114-151004 crimped on **20 AWG GXL**, and the specification lists the HDT-50-00 hand tool for 12-20 AWG and the HDT-48-00 for 12-22 AWG. The contact's own permitted wire range is on its customer drawing, which I could not retrieve; resellers quote 16-20, 18-20, 20-22, 22-18 and 24-20 AWG for it.
+  - So **22 AWG is the one size both could take**, and it is not confirmed for the DTM contact. Before ordering any quantity, crimp one DTM contact on 22 AWG GXL with an HDT-48-00 and pull-test it (the wire must show in the inspection hole). If the contact will not hold it, the board end of those pigtails has to change: a screw terminal like J1 (takes 20 AWG), not a KK header, which means a layout change.
+  - The power pigtails (J1, J2) avoid the question: 20 AWG GXL is TE's own nominal wire for the contact, it fits the MKDS terminal (26-14 AWG; 0.25-1.5 mm^2 with a ferrule, [Phoenix figures as listed by Farnell](https://uk.farnell.com/phoenix-contact/1715734/terminal-block-wire-to-brd-3pos/dp/3041530)), and it carries several amps easily.
+- **Fusing.** F1 on each board protects the board, not the wire up to it. Fuse each power feed at the battery end: 5 A or less for display/, 3 A or less for gauges/ (its own fuse is 2 A and it draws about 0.3 A).
+- **Honest limit.** The DTM04 receptacle side that the plugs mate with is not designed here: the car-side lead and where the feeds are tapped belong to the car's wiring.
 
-## What to buy for the display harness
+## What to buy
 
-| For | Part | Qty | Notes |
-|---|---|---|---|
-| J2 pigtail, car end | TE DEUTSCH DTM06-3S plug housing | 1 | the plug that mates a DTM04-3P receptacle on the car side |
-| | TE WM-3S wedge lock | 1 | one per plug housing |
-| | DEUTSCH size-20 socket contacts for 16-20 AWG (0462-201-20141 nickel is the usual number; **confirm on TE's page before ordering, not verified here**) | 3 | |
-| | DTM04-3P receptacle and WM-3P wedge lock | 1 each | only if the car-side lead is also built; the pigtail alone does not need them |
-| | 18 AWG TXL or GXL wire | about 0.5 m | colour: red VBAT, black GND, a third colour (yellow) IGN |
-| | wire-end ferrules for 0.75 to 1.0 mm^2 (Phoenix AI series) | 3 | for the screw terminal |
-| J3 cable | Molex 22-01-3037 KK 254 housing | 2 | |
-| | Molex 08-50-0114 crimp terminal, 22-30 AWG (one distributor lists it obsolete: check stock, 08-50-0032 is the other common KK 254 terminal in the same range) | 6 | |
-| | 22 AWG twisted pair plus one ground wire, 120 ohm class pair if possible | the length between the boards | keep it short and twist the pair along all of it |
+| For | Part | Qty |
+|---|---|---|
+| Each DTM plug | TE DEUTSCH plug housing: DTM06-3S (display J2, gauges J1), DTM06-6S (gauges J7), DTM06-2S (gauges J9, J11), DTM06-08SA (gauges J10) | 1 + 1 + 2 + 1 for gauges, 1 for display |
+| | wedge lock for each plug: WM-3S, WM-6S, WM-2S, WM-8S (listed as WM-8S for the 8-way DTM plug; W8S is the DT-series part, so check the fit) | one per housing |
+| | DEUTSCH size-20 solid socket contact 0462-201-20141 | 3 + 3 (display J2, gauges J1) + 5 (J7) + 2 + 2 + 8 = 23, plus spares |
+| | DTM size-20 sealing plug for the unused cavity of the DTM06-6S (0413-204-2005 is the usual number; confirm) | 1, plus a few for spare cavities |
+| | mating DTM04-nP receptacle + WM-nP wedge, only if the car-side lead is built too | |
+| Power pigtails | 20 AWG GXL wire in 3 colours; ferrules for 0.5 mm^2 (Phoenix AI 0,5 series) | about 0.5 m each; 3 per pigtail |
+| KK 254 ends | housings 22-01-3027 (2), -3037 (3), -3057 (5), -3087 (8) (the 22-01-30x7 pattern is Molex's friction-ramp crimp housing; confirm each number) | J9, J11: 2 each; J3, J8: 1 each; J7: 1 x 5; J10: 1 x 8 |
+| | crimp terminal 08-50-0113 or 08-50-0114 (22-30 AWG; one distributor lists 0114 obsolete: check stock) | 20 at the gauges end (J7 5, J9 2, J10 8, J11 2, J8 3) and 3 at the display end of the J3/J8 cable, plus spares |
+| Signal wire | 22 AWG GXL, several colours; 22 AWG twisted pair for CAN | by the metre |
+| Tools | a crimper for DEUTSCH size 20 (TE HDT-48-00) and a KK 254 crimper for the Molex terminals | |
 
-## Not covered by this decision
+## Not covered
 
-- **gauges/** has the same pairing on J7, J9, J10 and J11 (KK 254 headers, DTM06 pigtails to the car). Unless the pigtail wire is soldered to the board, no one wire fits a KK crimp terminal (22 AWG or thinner) and a DTM size-20 contact (20 AWG or thicker) at the same time. Those connectors do leave the dash. The fix is the same kind: pick a wire that both ends accept, or terminate the pigtail on a screw terminal. Not done here.
-- **display/** also has the dial header J11 (KK 254, in-dash), the audio headers J14/J15 (JST XH, in-dash), the USB-C port J17 and the panel flex connector J4. None of them leaves the car through a sealed connector.
-- The car-side half of every connector (where the 12 V and the ignition wire are tapped, the car-side connector) belongs to the car's wiring and has not been designed.
+- display/ also has the dial header J11 (KK 254), the audio headers J14/J15 (JST XH), the USB-C port J17 and the panel flex connector J4. All are in the dash; none uses a sealed connector.
+- The board BOMs still carry the older wording: gauges/ names a **DTM06-5S** (which does not exist; J7 needs the 6S) and an older DTM06-3S pigtail note on J8. Those lines live in `gauges/build_bom.py` and `build_schematic.py`, which have uncommitted changes from the electrical review, so they are listed here rather than patched; display/'s BOM is updated.

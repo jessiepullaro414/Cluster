@@ -238,3 +238,7 @@ Needs `kiutils`, `kicad-cli`, a JRE and the FreeRouting jar (section 0). The gen
 `python review/review_netlist.py gauges|display` (pin-by-pin against datasheet tables in `review/expected.py`, decoupling per supply pin,
 exit status 1 on any FAIL), `review/layout_checks.py`, `review/surge_sim.py`, `review/thermal_derating.py`, `review/dsi_impedance.py`,
 `review/connector_audit.py`. They only read the generated KiCad files.
+
+## 12. The demo video (`software/demo`)
+
+`media/cluster-demo.mp4` (1080p, about 1 min 47 s) shows the centre gauge in the emulator and the four small gauges from the real firmware drawing code, laid out like the dash, with captions. It is made in three steps from the running emulator and harness (nothing is faked): `py software/demo/record_demo.py` drives the app through the storyboard with the debug broadcasts, records the emulator with `adb screenrecord` and has the harness dump its four panels (`--frames`); `py software/demo/compose_demo.py <workdir>` lines the two up on the wall clock and draws the layout and captions; `node software/demo/encode_demo.mjs <workdir>/out_frames media/cluster-demo.mp4` encodes H.264 with Chrome's own encoder, no ffmpeg needed. Do not touch the PC while the first step runs (about two minutes; the harness window opens on the desktop). The Claude desktop app keeps the Android SDK under its package cache, which is where `adbtools.py` looks for adb.

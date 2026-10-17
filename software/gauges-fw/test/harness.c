@@ -159,6 +159,25 @@ static void png_chunk(FILE *f, const char *tag, const uint8_t *data, uint32_t n)
     fwrite(t, 1, 4, f);
 }
 
+/* One binary PPM (P6) of the rows [0, rows) of an 0x00RRGGBB picture: the demo-video frame dump (--frames). */
+static bool write_ppm(const char *path, const uint32_t *argb, int w, int rows)
+{
+    FILE *f = fopen(path, "wb");
+    if (!f) return false;
+    fprintf(f, "P6\n%d %d\n255\n", w, rows);
+    uint8_t *line = (uint8_t *)malloc((size_t)w * 3);
+    for (int y = 0; y < rows; y++) {
+        for (int x = 0; x < w; x++) {
+            uint32_t p = argb[y * w + x];
+            line[3 * x] = (uint8_t)(p >> 16); line[3 * x + 1] = (uint8_t)(p >> 8); line[3 * x + 2] = (uint8_t)p;
+        }
+        fwrite(line, 1, (size_t)w * 3, f);
+    }
+    free(line);
+    fclose(f);
+    return true;
+}
+
 /* Uncompressed PNG (stored deflate blocks): big but dependency free. argb = 0x00RRGGBB. */
 static bool write_png(const char *path, const uint32_t *argb, int w, int h)
 {
@@ -819,6 +838,8 @@ static void usage(void)
          "  --theme classic|modern|carplay|factory  the look to start in (T cycles it in the window; the Android app can choose it too)\n"
          "  --selftest             plumbing checks, no display needed\n"
          "  --x11check             open the window, show a known picture, read it back from the X server\n"
+         "  --frames DIR [--frames-fps N]  also write the four panels as DIR/<epoch ms>.ppm (default 20 per second, only when they changed): the\n"
+         "                         source of the demo video\n"
          "  --headless             never open a window");
 }
 
@@ -826,6 +847,8 @@ int main(int argc, char **argv)
 {
     int udp_port = 5005, replay_n = 0, after = 3;
     float scale = 1.5f;
+    const char *frames_dir = 0;
+    int frames_fps = 20;
     const char *record_path = 0, *replay_path = 0, *shot = 0, *golden = 0, *golden_file = "test/golden_screens.txt", *dump = 0;
     double sim = 0;
     bool selftest = false, headless = false, x11check = false, units_switch = false;
@@ -837,6 +860,8 @@ int main(int argc, char **argv)
         else if (!strcmp(a, "--replay") && i + 1 < argc) replay_path = argv[++i];
         else if (!strcmp(a, "--scale") && i + 1 < argc) scale = (float)atof(argv[++i]);
         else if (!strcmp(a, "--shot") && i + 1 < argc) shot = argv[++i];
+        else if (!strcmp(a, "--frames") && i + 1 < argc) frames_dir = argv[++i];
+        else if (!strcmp(a, "--frames-fps") && i + 1 < argc) frames_fps = atoi(argv[++i]);
         else if (!strcmp(a, "--after") && i + 1 < argc) after = atoi(argv[++i]);
         else if (!strcmp(a, "--golden") && i + 1 < argc) { golden = argv[++i]; if (i + 1 < argc && argv[i + 1][0] != '-') golden_file = argv[++i]; }
         else if (!strcmp(a, "--dump") && i + 1 < argc) dump = argv[++i];
@@ -911,7 +936,8 @@ int main(int argc, char **argv)
     bool quit = false, shot_done = false;
     int zoom_i = scale >= 1.7f ? 2 : scale >= 1.4f ? 1 : 0;
     static const float zooms[3] = { 1.0f, 1.5f, 1.75f };
-    uint64_t pic_counter = 0;
+    uint64_t pic_counter = 0, last_dump = 0;
+    if (frames_fps < 1) frames_fps = 1;
 #ifndef HARNESS_X11
     (void)zoom_i; (void)zooms; (void)pic_counter; (void)paused;
 #endif
@@ -1048,6 +1074,14 @@ int main(int argc, char **argv)
                 if (win) x11_present(win, cv_.px, cv_.w, cv_.h);
 #endif
                 frames++;
+                if (frames_dir && t - last_dump >= (uint64_t)(1000 / frames_fps)) {
+                    struct timespec ts;
+                    clock_gettime(CLOCK_REALTIME, &ts);
+                    char path[300];
+                    snprintf(path, sizeof path, "%s/%llu.ppm", frames_dir, (unsigned long long)ts.tv_sec * 1000ull + (unsigned long long)(ts.tv_nsec / 1000000));
+                    write_ppm(path, cv_.px, cv_.w, 2 * PAD + (int)(240.0f * cv_.scale + 0.5f));      /* the panel row, without the HUD */
+                    last_dump = t;
+                }
             }
             last_present = t;
         }

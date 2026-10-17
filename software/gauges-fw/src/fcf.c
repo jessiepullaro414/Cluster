@@ -16,7 +16,13 @@
 __attribute__((section(".flashconfig"), used))
 const uint8_t g_flash_config[16] = {
     0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,     /* 0x400 backdoor key */
-    0xFF, 0xFF, 0xFF, 0xFF,                             /* 0x408 FPROT0..3   */
+#ifdef BOOT_BUILD
+    /* 0x408 is FPROT3 = regions 0-7 of 16 KB each (RM 36.4.4.1.8: FPROT3 holds PROT[7:0]); a 0 bit write-protects a region. Regions 0
+     * and 1 are the bootloader's 32 KB: no flash command, so no bug in the update path, can erase them (only an erase-all from the debugger). */
+    0xFC, 0xFF, 0xFF, 0xFF,                             /* 0x408 FPROT3, FPROT2, FPROT1, FPROT0 */
+#else
+    0xFF, 0xFF, 0xFF, 0xFF,                             /* 0x408 FPROT3..FPROT0: nothing protected */
+#endif
     0xFE,                                               /* 0x40C FSEC        */
     0xFB,                                               /* 0x40D FOPT        */
     0xFF,                                               /* 0x40E FEPROT      */

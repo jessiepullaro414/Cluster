@@ -43,5 +43,6 @@ void can_link_send_indicators(bool l, bool r, bool hb, bool brake, bool alt, boo
 void can_link_send_power(bool ignition_on, bool suspend_request, uint8_t suspend_in_s);
 void can_link_send_status(const cluster_gauges_status_t *s);   /* GaugesStatus, once a second */
 void can_link_send_odometer(uint32_t odometer_m, uint32_t trip_m);   /* Odometer, once a second */
+bool can_link_update_requested(void);       /* true once for each valid ENTER command (0x7C0) addressed to this board */
 bool can_link_trip_reset_requested(void);   /* true once for each TripCommand with a new TripResetCount */
 #endif

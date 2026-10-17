@@ -15,7 +15,8 @@ MEMORY
 }
 
 STACK_MIN = 2K;
-NOINIT_SIZE = 32;      /* top of RAM, kept across a watchdog reset: the fault manager's record (src/fault.c) */
+NOINIT_SIZE = 64;      /* top of RAM, kept across a watchdog or software reset: [0,16) the boot request (src/boot_request.c),
+                          [16,64) the fault manager's record (src/fault.c). Identical in the application and the bootloader. */
 
 SECTIONS
 {
@@ -62,11 +63,17 @@ SECTIONS
     .noinit _estack (NOLOAD) : ALIGN(4)
     {
         __noinit_start = .;
-        KEEP(*(.noinit*))
-        . = ALIGN(4);
+        KEEP(*(.noinit.bootreq))
+        __bootreq_end = .;
+        . = __noinit_start + 16;
+        __faultrec_start = .;
+        KEEP(*(.noinit.fault))
+        __faultrec_end = .;
+        . = __noinit_start + NOINIT_SIZE;       /* the whole area, so the startup code writes all of it after a power-on reset */
         __noinit_end = .;
     } > RAM
-    ASSERT(SIZEOF(.noinit) <= NOINIT_SIZE, "retained data larger than NOINIT_SIZE")
+    ASSERT(__bootreq_end - __noinit_start <= 16, "boot request larger than 16 bytes")
+    ASSERT(__faultrec_end - __faultrec_start <= 48, "fault record larger than 48 bytes")
     ASSERT(__bss_end + STACK_MIN <= _estack, "less than STACK_MIN left for the stack")
 
     /DISCARD/ : { *(.comment) *(.note*) }

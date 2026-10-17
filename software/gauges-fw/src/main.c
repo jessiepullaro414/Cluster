@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "adc.h"
+#include "boot_request.h"
 #include "can_hw.h"
 #include "aggregate.h"
 #include "aux_display.h"
@@ -28,9 +29,10 @@
 static fault_t g_fault;
 static odo_t g_odo;                 /* odometer and trip meter */
 static settings_store_t g_ss;      /* the display settings kept in the data flash after the odometer's sectors */
+static bool g_update_pending;      /* the private link asked to be reflashed; honoured once the car is standing and nothing is being saved */
 static bool g_nv_ok;                /* the odometer can be saved (data flash is partitioned and in use) */
 #ifndef HOST_BUILD
-static fault_retained_t g_retained __attribute__((section(".noinit")));   /* link/s32k144.ld keeps it across a watchdog reset */
+static fault_retained_t g_retained __attribute__((section(".noinit.fault")));   /* link/s32k144.ld keeps it across a watchdog reset */
 #else
 static fault_retained_t g_retained;
 #endif
@@ -75,7 +77,7 @@ static void step(uint32_t now)
     });
 
     car_bus_t car = {0};
-    RUN_TASK(TASK_CAN, { can_link_poll(now); car = can_link_car(); cfg = can_link_settings(); });
+    RUN_TASK(TASK_CAN, { can_link_poll(now); car = can_link_car(); cfg = can_link_settings(); if (can_link_update_requested()) g_update_pending = true; });
 
     chosen_t speed = agg_pick_speed(speed_l, car.speed_kph, now, CLUSTER_CAR_BUS_TIMEOUT_MS);
     chosen_t rpm = agg_pick_rpm(rpm_l, cfg.tach_enabled, car.rpm, now, CLUSTER_CAR_BUS_TIMEOUT_MS, 200u);
@@ -83,6 +85,16 @@ static void step(uint32_t now)
     chosen_t fuel = agg_pick_car_first(car.fuel_pct, fuel_l, now, CLUSTER_CAR_BUS_TIMEOUT_MS);
     chosen_t coolant = agg_pick_car_first(car.coolant_c, coolant_l, now, CLUSTER_CAR_BUS_TIMEOUT_MS);
     chosen_t oil = agg_pick_car_first(car.oil_kpa, oil_l, now, CLUSTER_CAR_BUS_TIMEOUT_MS);
+
+    /* Reflash request (CAN message ENTER, bootcore.h): only while the car is standing and the odometer and settings are safe in flash.
+     * Leave a note in the retained RAM and reset; the bootloader sees the note and waits for the image. */
+    if (g_update_pending && (!speed.valid || speed.value < 1.0f) && odo_idle(&g_odo) && settings_store_idle(&g_ss)) {
+        bootreq_write(&g_bootreq, BOOTREQ_ENTER);
+#ifndef HOST_BUILD
+        SCB_AIRCR = SCB_AIRCR_RESET;
+        for (;;) { }
+#endif
+    }
 
     /* The distance counts in RAM whatever happens to the flash; only the saving is a fault-managed task. */
     odo_ignition(&g_odo, ign);

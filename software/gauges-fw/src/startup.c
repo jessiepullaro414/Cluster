@@ -7,6 +7,8 @@
  *     a multi-bit ECC error (RM 32.4.1.1). Only 32-bit writes may be used,
  *     16/8-bit writes are read-modify-write. No stack is used until it is done.
  *     The fill stops at _estack: the last 32 bytes (.noinit) are the retained fault record, see Reset_C.
+ *     This file is compiled three ways: the standalone image (link/s32k144.ld), the application behind the bootloader
+ *     (-DAPP_BUILD: VTOR at 0x8000) and the bootloader itself (-DBOOT_BUILD: calls boot_main() instead of bringing up the clocks).
  *  2. Reset_C disables the watchdog (it is enabled at reset: CS = 0x2980,
  *     TOVAL = 0x400 on the LPO clock), copies .data, enables the FPU, brings
  *     up the clocks and the tick, and calls main.
@@ -18,7 +20,11 @@
 #include "tick.h"
 
 extern uint32_t __data_load, __data_start, __data_end, __noinit_start, __noinit_end;
+#ifdef BOOT_BUILD
+extern void boot_main(void);                /* the bootloader (boot/boot_main.c) */
+#else
 extern int main(void);
+#endif
 void Reset_C(void);
 
 __attribute__((naked, noreturn)) void Reset_Handler(void)
@@ -48,6 +54,9 @@ static void wdog_disable(void)
 
 void Reset_C(void)
 {
+#ifdef APP_BUILD
+    SCB_VTOR = 0x8000u;                         /* behind the bootloader the vector table is not at address 0 (link/s32k144_app.ld) */
+#endif
     wdog_disable();
 
     /* The top of SRAM holds the fault record across a watchdog reset, so the fill above stops short of it. After a
@@ -65,8 +74,12 @@ void Reset_C(void)
     SCB_CPACR |= (0xFu << 20);                  /* CP10, CP11 full access: FPU on */
     __asm volatile("dsb\n isb");
 
+#ifdef BOOT_BUILD
+    boot_main();                                /* decides before any clock or peripheral is touched; never returns */
+#else
     (void)clock_init_80mhz();                   /* falls back to FIRC on failure */
     tick_init();
     (void)main();
+#endif
     for (;;) { }
 }

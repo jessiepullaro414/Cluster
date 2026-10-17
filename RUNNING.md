@@ -64,11 +64,12 @@ Android unit tests are separate, see section 4.
 
 | Command | What it does |
 |---|---|
-| `make test` | builds and runs every host test: aggregation, codec, input maths, screens, renderer, dial change tracking (a random walk of 3,840+ updates must equal a full redraw), the GC9A01 driver against a mock panel, the fault manager (a model of the watchdog), the odometer (power cut at every command event of a drive that wraps the log), the harness self test, and the golden pictures |
+| `make test` | builds and runs every host test: aggregation, codec, input maths, screens, renderer, dial change tracking (a random walk of 3,840+ updates must equal a full redraw), the GC9A01 driver against a mock panel, the fault manager (a model of the watchdog), the odometer and the settings store (power cut at every flash command), the inputs and senders, the CAN link and bit timing, the bootloader core (power cut at every flash command of an update) and the Python update tool against it, the harness self test, and the golden pictures |
 | `make sim` | 60 virtual seconds of driving in every theme (also with speed on the centre screen): bus load, the 10 ms tick budget, panel equals model |
 | `make golden` | compares 196 stored picture checksums. A styling change shows as `CHANGED`; look at the pictures with `make golden-dump` (PNGs in `build/golden`), then accept with `make golden-update` |
 | `make arm-check` | compiles every file for the Cortex-M4F with `-Werror` |
 | `make arm` | links `build/gauges-fw.elf` and prints its size. `sh tools/inspect_elf.sh` shows sections, vectors and the flash configuration field |
+| `make boot`, `make app`, `make image` | the bootloader (first 32 KB), the application linked behind it at 0x8000, and `build/gauges-app.bin` (the update file) plus `build/gauges-flash.bin` (both in one piece for a programmer). `python3 tools/can_flash.py --interface socketcan --channel can0 build/gauges-app.bin` sends an update (needs python-can and a CAN adapter on the private link); `--emit frames.txt` writes the frames without a bus. See the "Firmware update" section of `software/gauges-fw/README.md` |
 | `make preview` or `./build/preview <preset 0-4> <imperial\|metric> <classic\|modern\|carplay\|factory> [center]` | renders the four screens through the real driver into `build/screen_N.ppm`; `python3 tools/montage.py out.png 2` joins them into a PNG (presets: 0 cruise, 1 warnings, 2 no data, 3 idle, 4 redline) |
 | `make bench` | counts the rendering work of typical updates |
 | `make harness` | builds the harness with its window (see 3); `make build/harness_cli` has no window |

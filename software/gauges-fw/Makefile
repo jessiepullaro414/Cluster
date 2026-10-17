@@ -4,7 +4,7 @@ CC      ?= gcc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 
 # Real, host-testable code (no hardware access).
-CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/nvlog.c src/settings_store.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c src/can_bittiming.c src/canmb.c src/can_link.c
+CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/nvlog.c src/settings_store.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c src/can_bittiming.c src/canmb.c src/can_link.c src/bootcore.c src/boot_request.c
 # Still stubs (need the board).
 STUBS := src/power.c
 # Real code that touches registers: compiled and linked for the target, never run on the host.
@@ -14,7 +14,7 @@ HW := src/panel_hal_s32k.c src/wdog_s32k.c src/nvflash_s32k.c src/inputs_hw_s32k
 SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/gc9a01.c src/screens.c
 
 .PHONY: test stubs arm-check arm preview bench harness golden golden-update golden-dump sim clean
-test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/test_settings build/test_can build/test_can_link build/harness_cli
+test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/test_settings build/test_can build/test_can_link build/test_boot build/boot_replay build/harness_cli
 	./build/test_aggregate
 	./build/test_codec
 	./build/test_inputmath
@@ -29,6 +29,8 @@ test: build/test_aggregate build/test_codec build/test_inputmath build/test_scre
 	./build/test_settings
 	./build/test_can
 	./build/test_can_link
+	./build/test_boot
+	python3 tools/test_can_flash.py
 	./build/harness_cli --selftest
 	./build/harness_cli --golden check test/golden_screens.txt
 
@@ -72,6 +74,14 @@ build/test_can: test/test_can.c src/can_bittiming.c src/canmb.c inc/can_bittimin
 build/test_can_link: test/test_can_link.c src/can_link.c src/aggregate.c inc/can_link.h inc/can_hw.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -o $@ test/test_can_link.c src/can_link.c src/aggregate.c -lm
+
+build/test_boot: test/test_boot.c test/pflash_mock.c src/bootcore.c src/boot_request.c src/crc.c inc/bootcore.h inc/pflash.h inc/boot_request.h test/pflash_mock.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -Itest -o $@ test/test_boot.c test/pflash_mock.c src/bootcore.c src/boot_request.c src/crc.c
+
+build/boot_replay: test/boot_replay.c test/pflash_mock.c src/bootcore.c src/crc.c inc/bootcore.h test/pflash_mock.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -Itest -o $@ test/boot_replay.c test/pflash_mock.c src/bootcore.c src/crc.c
 
 ODOSRC := test/test_odometer.c test/nv_mock.c src/odometer.c src/nvlog.c src/crc.c
 # The odometer is tested with a 4-sector log (the ring wraps often, so power can be cut at every event of a drive that wraps it
@@ -162,13 +172,14 @@ ARMCC ?= /opt/arm-gnu-toolchain-12.3.rel1-x86_64-arm-none-eabi/bin/arm-none-eabi
 ARMFLAGS := -std=c11 -Wall -Wextra -Werror -Os -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard -Iinc -I../../protocol
 arm-check:
 	mkdir -p build
-	for f in $(CORE) $(STUBS) $(HW) src/main.c; do 	  $(ARMCC) $(ARMFLAGS) -DHOST_BUILD -c $$f -o build/arm_$$(basename $$f .c).o || exit 1; done
+	for f in $(CORE) $(STUBS) $(HW) $(IMGEXTRA) src/main.c; do 	  $(ARMCC) $(ARMFLAGS) -DHOST_BUILD -c $$f -o build/arm_$$(basename $$f .c).o || exit 1; done
 	$(dir $(ARMCC))arm-none-eabi-size build/arm_*.o
 
 # Full firmware image: startup, generated vector table, flash configuration
 # field, clocks, tick, the screen chain and the (mostly stub) application, linked with
 # link/s32k144.ld. Verified by size and objdump only: nothing has run on a part yet.
 BOOT := src/startup.c src/vectors.c src/fcf.c src/clock.c src/tick.c
+IMGEXTRA := src/app_header.c src/pflash_s32k.c boot/boot_main.c
 ARMBIN := $(dir $(ARMCC))
 ARMLINK := $(ARMFLAGS) -ffunction-sections -fdata-sections -nostartfiles --specs=nano.specs --specs=nosys.specs \
            -Wl,-T,link/s32k144.ld -Wl,--gc-sections -Wl,--no-warn-rwx-segments -Wl,-Map,build/gauges-fw.map
@@ -178,6 +189,34 @@ arm: build/gauges-fw.elf
 build/gauges-fw.elf: $(BOOT) $(CORE) $(STUBS) $(HW) src/main.c link/s32k144.ld $(wildcard inc/*.h)
 	mkdir -p build
 	$(ARMCC) $(ARMLINK) $(BOOT) $(CORE) $(STUBS) $(HW) src/main.c -lm -o $@
+
+# ---- the bootloader, and the application linked behind it -------------------------------------------------------------------------------
+# build/boot.elf is the first 32 KB of program flash; build/app.elf is linked at 0x8000 with the 32-byte image header; mkimage.py turns
+# app.elf into the file that tools/can_flash.py sends. `make image` leaves build/gauges-app.bin (the update file) and build/gauges-flash.bin
+# (bootloader + application in one piece, for a programmer). Verified by size and objdump only: nothing has run on a part.
+BOOTSRC := boot/boot_main.c src/startup.c src/vectors.c src/fcf.c src/clock.c src/tick.c src/bootcore.c src/crc.c src/canmb.c src/can_bittiming.c src/flexcan_s32k.c src/pflash_s32k.c src/boot_request.c
+BOOTLINK := $(ARMFLAGS) -DBOOT_BUILD -ffunction-sections -fdata-sections -nostartfiles --specs=nano.specs --specs=nosys.specs \
+            -Wl,-T,link/s32k144_boot.ld -Wl,--gc-sections -Wl,--no-warn-rwx-segments -Wl,-Map,build/boot.map
+APPSRC := src/startup.c src/vectors.c src/clock.c src/tick.c $(CORE) $(STUBS) $(HW) src/main.c src/app_header.c
+APPLINK := $(ARMFLAGS) -DAPP_BUILD -ffunction-sections -fdata-sections -nostartfiles --specs=nano.specs --specs=nosys.specs \
+           -Wl,-T,link/s32k144_app.ld -Wl,--gc-sections -Wl,--no-warn-rwx-segments -Wl,-Map,build/app.map
+
+.PHONY: boot app image
+boot: build/boot.elf
+	$(ARMBIN)arm-none-eabi-size build/boot.elf
+build/boot.elf: $(BOOTSRC) link/s32k144_boot.ld $(wildcard inc/*.h) $(wildcard boot/*.c)
+	mkdir -p build
+	$(ARMCC) $(BOOTLINK) $(BOOTSRC) -lm -o $@
+app: build/app.elf
+	$(ARMBIN)arm-none-eabi-size build/app.elf
+build/app.elf: $(APPSRC) link/s32k144_app.ld $(wildcard inc/*.h)
+	mkdir -p build
+	$(ARMCC) $(APPLINK) $(APPSRC) -lm -o $@
+image: build/gauges-app.bin
+build/gauges-app.bin: build/app.elf build/boot.elf tools/mkimage.py
+	$(ARMBIN)arm-none-eabi-objcopy -O binary build/app.elf build/app.raw.bin
+	$(ARMBIN)arm-none-eabi-objcopy -O binary build/boot.elf build/boot.raw.bin
+	python3 tools/mkimage.py build/app.raw.bin build/gauges-app.bin --boot build/boot.raw.bin --flash build/gauges-flash.bin
 
 clean:
 	rm -rf build

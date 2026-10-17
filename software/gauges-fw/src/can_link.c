@@ -1,5 +1,6 @@
 #include <string.h>
 #include "can_hw.h"
+#include "bootcore.h"
 #include "can_link.h"
 #include "cluster_can.h"
 #include "cluster_codec.h"
@@ -17,9 +18,9 @@ static const uint16_t TX_ID[M_COUNT] = { CAN_ID_VEHICLEMOTION, CAN_ID_VEHICLEFLU
                                          CAN_ID_GAUGESSTATUS, CAN_ID_ODOMETER };
 static const uint16_t TX_PERIOD_MS[M_COUNT] = { CAN_PERIOD_MS_VEHICLEMOTION, CAN_PERIOD_MS_VEHICLEFLUIDS, CAN_PERIOD_MS_INDICATORS,
                                                 CAN_PERIOD_MS_POWERSTATE, CAN_PERIOD_MS_GAUGESSTATUS, CAN_PERIOD_MS_ODOMETER };
-enum { R_SETTINGS, R_CALIB, R_INPUT, R_TRIP, R_HEARTBEAT, R_COUNT };
+enum { R_SETTINGS, R_CALIB, R_INPUT, R_TRIP, R_HEARTBEAT, R_UPDATE, R_COUNT };
 static const uint16_t RX_ID[R_COUNT] = { CAN_ID_DISPLAYSETTINGS, CAN_ID_SPEEDCALIBRATION, CAN_ID_INPUTCONFIG, CAN_ID_TRIPCOMMAND,
-                                         CAN_ID_DISPLAYHEARTBEAT };
+                                         CAN_ID_DISPLAYHEARTBEAT, BOOT_ID_CMD };
 
 static const can_hw_t *g_hw;
 static uint32_t g_now;
@@ -42,6 +43,7 @@ static uint32_t g_hb_ms;
 static bool g_hb_seen;
 static uint8_t g_trip_last;
 static bool g_trip_known, g_trip_pending;
+static bool g_update_requested;
 
 static uint8_t g_tx_counter[M_COUNT];
 static uint32_t g_tx_ms[M_COUNT];
@@ -84,7 +86,7 @@ void can_link_init(const can_hw_t *hw)
 {
     g_hw = hw;
     memset(&g_car, 0, sizeof g_car);
-    g_car_any = false; g_hb_seen = false; g_trip_known = false; g_trip_pending = false; g_ind_known = false; g_pow_known = false;
+    g_car_any = false; g_hb_seen = false; g_trip_known = false; g_trip_pending = false; g_update_requested = false; g_ind_known = false; g_pow_known = false;
     memset(g_rx_seen, 0, sizeof g_rx_seen);
     memset(g_tx_sent, 0, sizeof g_tx_sent);
     memset(g_tx_counter, 0, sizeof g_tx_counter);
@@ -192,6 +194,11 @@ static void link_frame(const can_frame_t *f)
         g_trip_last = c; g_trip_known = true;
         break;
     }
+    case BOOT_ID_CMD:                                 /* a firmware tool (bootcore.h): ENTER 'B' 'L' board-id means reboot into the bootloader */
+        if (f->data[0] == 0x01u && f->data[1] == 'B' && f->data[2] == 'L' &&
+            (uint16_t)(f->data[3] | (f->data[4] << 8)) == BOARD_ID_GAUGES)
+            g_update_requested = true;
+        break;
     case CAN_ID_DISPLAYHEARTBEAT: {
         cluster_display_heartbeat_t m;
         if (cluster_display_heartbeat_unpack(f->data, &m) != 0 || !fresh_counter(R_HEARTBEAT, m.counter)) return;
@@ -233,6 +240,13 @@ void can_link_load_settings(const display_settings_t *s)
     g_settings = *s;
     g_settings.center_shows_speed = false;       /* describes the display right now, not a preference */
     g_settings.display_heartbeat_seen = false;
+}
+
+bool can_link_update_requested(void)
+{
+    bool r = g_update_requested;
+    g_update_requested = false;
+    return r;
 }
 
 bool can_link_trip_reset_requested(void)

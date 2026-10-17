@@ -74,8 +74,8 @@ static void test_start(void)
     reset_world();
     CHECK(starts[CAN_BUS_LINK] == 1 && starts[CAN_BUS_CAR] == 1);
     CHECK(cfg[CAN_BUS_LINK].bitrate == 500000u && !cfg[CAN_BUS_LINK].listen_only);
-    CHECK(cfg[CAN_BUS_LINK].n_rx == 5u && cfg[CAN_BUS_LINK].n_tx == 6u);
-    CHECK(cfg[CAN_BUS_LINK].rx_ids[0] == 0x400u && cfg[CAN_BUS_LINK].rx_ids[4] == 0x4F0u);
+    CHECK(cfg[CAN_BUS_LINK].n_rx == 6u && cfg[CAN_BUS_LINK].n_tx == 6u);
+    CHECK(cfg[CAN_BUS_LINK].rx_ids[0] == 0x400u && cfg[CAN_BUS_LINK].rx_ids[4] == 0x4F0u && cfg[CAN_BUS_LINK].rx_ids[5] == 0x7C0u);
     CHECK(cfg[CAN_BUS_LINK].tx_ids[0] == 0x300u && cfg[CAN_BUS_LINK].tx_ids[5] == 0x304u);
     CHECK(cfg[CAN_BUS_CAR].listen_only);                                      /* the car bus listens only */
     CHECK(cfg[CAN_BUS_CAR].n_tx == 0u && cfg[CAN_BUS_CAR].n_rx == 0u);        /* profile 0: nothing to accept */
@@ -227,6 +227,25 @@ static void test_heartbeat_and_trip(void)
     CHECK(can_link_trip_reset_requested());                                   /* the count wraps */
 }
 
+static void test_update_request(void)
+{
+    reset_world(); now = 700000;
+    CHECK(!can_link_update_requested());
+    can_frame_t f = { 0x7C0, 8, { 0x01, 'B', 'L', 0x01, 0x00, 0, 0, 0 } };
+    inject(CAN_BUS_LINK, f); tick(10);
+    CHECK(can_link_update_requested());
+    CHECK(!can_link_update_requested());                                      /* once */
+    f.data[3] = 0x02; inject(CAN_BUS_LINK, f); tick(10);                      /* another board */
+    CHECK(!can_link_update_requested());
+    f.data[3] = 0x01; f.data[1] = 'X'; inject(CAN_BUS_LINK, f); tick(10);     /* wrong magic */
+    CHECK(!can_link_update_requested());
+    f.data[1] = 'B'; f.data[0] = 0x02; inject(CAN_BUS_LINK, f); tick(10);     /* a different command: the bootloader's, not ours */
+    CHECK(!can_link_update_requested());
+    f.data[0] = 0x01; f.dlc = 4; inject(CAN_BUS_LINK, f); tick(10);
+    CHECK(!can_link_update_requested());
+    CHECK(car_tx_attempts == 0);
+}
+
 static unsigned count_id(unsigned id)
 {
     unsigned n = 0;
@@ -341,6 +360,7 @@ int main(void)
     test_reconfigure();
     test_link_rx();
     test_heartbeat_and_trip();
+    test_update_request();
     test_transmit();
     test_busy_mailbox();
     if (failures) { printf("test_can_link: %d FAILED\n", failures); return 1; }

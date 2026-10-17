@@ -71,6 +71,18 @@ static void test_crc(void)
     CHECK(crc32("", 0) == 0u);
     uint32_t a = crc32("1234", 4);
     CHECK(crc32_update(a, "56789", 5) == 0xCBF43926u);          /* chaining */
+    /* the table-driven version equals the plain bitwise definition on random data of every small length and a long one */
+    uint8_t buf[5000];
+    unsigned seed = 5;
+    for (unsigned i = 0; i < sizeof buf; i++) { seed = seed * 1664525u + 1013904223u; buf[i] = (uint8_t)(seed >> 16); }
+    for (unsigned n = 0; n <= 70; n++) {
+        uint32_t ref = 0xFFFFFFFFu;
+        for (unsigned i = 0; i < n; i++) { ref ^= buf[i]; for (int b = 0; b < 8; b++) ref = (ref >> 1) ^ (0xEDB88320u & (0u - (ref & 1u))); }
+        CHECK(crc32(buf, n) == ~ref);
+    }
+    uint32_t refl = 0xFFFFFFFFu;
+    for (unsigned i = 0; i < sizeof buf; i++) { refl ^= buf[i]; for (int b = 0; b < 8; b++) refl = (refl >> 1) ^ (0xEDB88320u & (0u - (refl & 1u))); }
+    CHECK(crc32(buf, sizeof buf) == ~refl);
 }
 
 static void test_decode(void)

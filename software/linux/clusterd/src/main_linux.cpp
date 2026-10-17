@@ -33,6 +33,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "bridge.h"
 #include "dial_angle.h"
@@ -214,7 +215,13 @@ struct Args {
     std::string adc;                  // e.g. /sys/bus/iio/devices/iio:device0/in_voltage1_raw
     std::string click;                // e.g. /dev/input/by-path/platform-gpio-keys-event
     std::string can_override;
+    std::string replay;               // bench: a can_replay.py --dry-run log, played in a loop
     bool dial_stdin = false;
+};
+
+struct ReplayFrame {
+    uint32_t t_ms, id;
+    uint8_t data[8], len;
 };
 
 static Args parse_args(int argc, char** argv) {
@@ -232,12 +239,14 @@ static Args parse_args(int argc, char** argv) {
         else if (k == "--click") a.click = next();
         else if (k == "--can") a.can_override = next();
         else if (k == "--dial-stdin") a.dial_stdin = true;
+        else if (k == "--replay") a.replay = next();
         else { std::fprintf(stderr, "clusterd: unknown option %s\n", k.c_str()); std::exit(2); }
     }
     return a;
 }
 
 int main(int argc, char** argv) {
+    setvbuf(stdout, nullptr, _IOLBF, 0);   // one line at a time into journald or a log file
     Args args = parse_args(argc, argv);
     DialConfig dial_cfg;
     Config cfg;
@@ -291,6 +300,19 @@ int main(int argc, char** argv) {
         last_saved = m;
     };
 
+    std::vector<ReplayFrame> replay;
+    if (!args.replay.empty()) {
+        std::istringstream lines(read_file(args.replay));
+        std::string line;
+        ReplayFrame f;
+        while (std::getline(lines, line))
+            if (parse_replay_line(line, &f.t_ms, &f.id, f.data, &f.len)) replay.push_back(f);
+        std::printf("clusterd: replaying %zu frames from %s in a loop\n", replay.size(), args.replay.c_str());
+    }
+    size_t replay_i = 0;
+    uint32_t replay_t0 = now_ms();
+    const uint32_t replay_len = replay.empty() ? 0 : replay.back().t_ms + 50;
+
     act(shell.start());
     uint32_t t_tele = 0, t_status = 0, t_adc = 0;
     int64_t sleep_ref = boottime_minus_mono_ms();
@@ -322,6 +344,11 @@ int main(int argc, char** argv) {
             can_frame cf;
             while (read(can, &cf, sizeof cf) == ssize_t(sizeof cf))
                 if (!(cf.can_id & (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG))) bridge.on_frame(cf.can_id & CAN_SFF_MASK, cf.data, cf.can_dlc, now);
+        }
+        while (!replay.empty() && now - replay_t0 >= replay[replay_i].t_ms) {
+            const ReplayFrame& f = replay[replay_i];
+            bridge.on_frame(f.id, f.data, f.len, now);
+            if (++replay_i == replay.size()) { replay_i = 0; replay_t0 += replay_len; }
         }
         if (i_page >= 0 && (fds[i_page].revents & POLLIN)) http_serve_one(page, args.web, shell);
         if (i_click >= 0 && (fds[i_click].revents & POLLIN)) {

@@ -44,12 +44,55 @@ The unknowns, in the order they would bite:
 
 **A borrowed Android phone removes unknown 1** and works the same way through `adb forward`.
 
-## What the bench run on 2026-10-17 found
+## Result, 2026-10-17: Android Auto from an emulator, projected by LIVI, driven by clusterd
 
-- **The emulator route is closed.** The Google Play phone image (Android 15, `system-images;android-35;google_apis_playstore;x86_64`)
+![Android Auto in LIVI, round mask](shots/android-auto-round.png)
+
+End to end on one Windows PC, no phone and no hardware:
+
+| | Evidence |
+|---|---|
+| Android Auto 18.0 on the emulator talks to LIVI: TLS up, protocol 6.1, phone `sdk_gphone64_x86_64`, H.264 video | LIVI log; `shots/android-auto-in-livi.png` (live Google Maps in LIVI's window) |
+| LIVI with `livi_config.py --shape 0`: 720 x 720, safe area 106 px; Android Auto lays itself out inside the circle | `shots/android-auto-round.png` (the window through a round mask) |
+| clusterd `--replay` (the can_replay.py drive, through the real vhal-bridge decoder) to LIVI telemetry | `shots/livi-dashboard-with-clusterd-data.png`: 7 km/h, rpm, fuel 67 % live on LIVI's dashboard |
+| A 1.6 s dial hold (`--dial-stdin` from a pipe): clusterd tells LIVI to open `/custom`, our settings page | `shots/clusterd-settings-in-livi.png`; LIVI status.json `ui.path` = `/custom`, back to `/` after a hold |
+
+How the emulator got the real Android Auto (the Play Store refuses it there): the owner downloaded the
+Android Auto bundle (18.0.664204, arm64-v8a, .apkm) from APKMirror; `adb install-multiple` of `base.apk`,
+`split_config.arm64_v8a.apk`, `split_config.en.apk` and `split_config.xxhdpi.apk`. Android accepted it as an
+update of Google's preinstalled stub, which it only does for the same signing lineage, so the file is
+Google-signed. The x86_64 emulator image runs arm64 code (`ro.product.cpu.abilist` = x86_64,arm64-v8a).
+Then, all in the emulator: Android Auto settings, tap Version ten times, allow development settings, ⋮ >
+Start head unit server; `adb forward tcp:5277 tcp:5277`; `relay.ps1`.
+
+First-run consent (the owner agreed to it): tapping Continue was not enough, because the permission prompts
+timed out. What worked: `pm grant` of Android Auto's 14 runtime permissions, notification access with
+`cmd notification allow_listener 'com.google.android.projection.gearhead/com.google.android.gearhead.notifications.SharedNotificationListenerManager$ListenerService'`
+(quote the `$`), location for Maps, then a fresh session.
+
+Traps:
+- **The phone's head unit server wedges** when the head unit vanishes mid-session (a killed DHU, a LIVI
+  restart). LIVI then logs "stuck in state INIT ... phone-side AA service likely zombie". Fix: force-stop
+  Android Auto, open its settings, start the head unit server again.
+- **LIVI offers H.265 only** when it can decode H.265 in software and has no H.264 hardware decoder, and the
+  emulator cannot encode H.265 ("no working configuration" in logcat). `LIVI_AA_H264_ONLY=1` (the patch).
+- WSL's kernel has no virtual CAN (`CONFIG_CAN_VCAN` not set), hence clusterd's `--replay` bench input.
+
+Findings for the round panel (open):
+- **LIVI's own pages have a navigation rail** down the left edge; on the round glass its top and bottom icons
+  fall outside the circle. Look for a LIVI option to hide it, or pad its pages for a round screen.
+- **LIVI's default dashboard is landscape** (two dials side by side): on 720 x 720 the outer dials are cut. LIVI
+  has dashboard layouts and car-maker themes; one of those, or our own, has to suit a circle.
+- **With a phone connected the dial cannot reach the gauge view**: on the maps the dial belongs to the phone,
+  and Settings returns to the maps. hmi.h's flows need a way to the gauge while projecting (a Settings row,
+  or a longer hold). A UX decision for the owner.
+- The dashboard's coolant read 0 degrees during the replay; not yet checked against the replayed values.
+
+## What the bench run on 2026-10-17 found first
+
+- **The Play Store route is closed.** The Google Play phone image (Android 15, `system-images;android-35;google_apis_playstore;x86_64`)
   ships Android Auto only as a stub (`1.2.542030-stub`); the Play Store then refuses the real app with
-  "This app isn't compatible with your device anymore". So unknown 1 is answered: no. A real Android phone
-  on USB goes through the same `adb forward` + `relay.py` path.
+  "This app isn't compatible with your device anymore". Sideloading the Google-signed bundle (above) works.
 - **LIVI side: works, with the steps below** (all in a separate WSL distro, Ubuntu 24.04, run as root):
   - LIVI 9.5.0's binaries need glibc 2.39 (Ubuntu 22.04 has 2.35, too old).
   - Its compositor and GStreamer needed `libwayland-server0` and the GStreamer base libraries from apt.

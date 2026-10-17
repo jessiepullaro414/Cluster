@@ -111,7 +111,7 @@ From Git Bash, prefix `MSYS_NO_PATHCONV=1` and use `wsl -e`, or the `/mnt/c/...`
 | L0 | Architecture, LIVI integration points read from its source | done (this file) |
 | L1 | clusterd logic + host tests; Linux I/O; bench against a stand-in LIVI | done |
 | L2 | LIVI config for the round panel and the dial | script done; untested in LIVI |
-| L3 | Real LIVI on a PC with Android Auto from an emulator or phone via `aa-bench/relay.py` | LIVI side running in WSL with the Android Auto port open (2026-10-17); the emulator cannot get the real Android Auto from Play, so this **needs a real Android phone**: see `aa-bench/README.md` |
+| L3 | Real LIVI on a PC with Android Auto from an emulator or phone via `aa-bench/relay.py` | **done 2026-10-17**: Android Auto from an emulator projects in LIVI (round 720 px layout), clusterd's replayed drive shows on LIVI's dashboard, the dial opens our settings page; round-panel findings in `aa-bench/README.md` |
 | L4 | LIVI on a Linux board with Wi-Fi + Bluetooth (wireless Android Auto end to end) | open: hardware |
 | L5 | Torizon/Debian image for the Verdin: device tree (CAN, ADC, gpio-keys, wake, codec, MFi bus), LIVI, clusterd | open: Verdin + carrier |
 | L6 | Suspend/resume measured, CarPlay with a real coprocessor | open |

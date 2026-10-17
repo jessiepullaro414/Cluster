@@ -359,6 +359,18 @@ static void test_state_io() {
     parse_config(format_settings(m, v), &back);
     CHECK(back.model == m && back.vehicle.trip_reset_count == 9);
 
+    {   // can_replay.py --dry-run lines, the bench input
+        uint32_t t, id;
+        uint8_t d[8], n;
+        CHECK(parse_replay_line("  1.234s  0x300  VehicleMotion      00 00 20 03 d8 04 0f 53", &t, &id, d, &n));
+        CHECK(t == 1234 && id == 0x300 && n == 8 && d[2] == 0x20 && d[7] == 0x53);
+        CHECK(!parse_replay_line("sent 2308 frames", &t, &id, d, &n));
+        CHECK(!parse_replay_line("  0.000s  0x300  VehicleMotion", &t, &id, d, &n));
+        CHECK(!parse_replay_line("  0.000s  0x300  X 00 11 22 33 44 55 66 77 88", &t, &id, d, &n));
+        CHECK(!parse_replay_line("  0.000s  300  X 00", &t, &id, d, &n));
+        CHECK(!parse_replay_line("  0.000s  0x300  X 0g", &t, &id, d, &n));
+    }
+
     Shell sh;
     std::string s = page_state_json(sh);
     HAS(s, "\"screen\":\"home\"");

@@ -75,6 +75,30 @@ std::string format_settings(const hmi::Model& m, const VehicleSetup& v) {
     return buf;
 }
 
+bool parse_replay_line(const std::string& line, uint32_t* t_ms, uint32_t* id, uint8_t data[8], uint8_t* len) {
+    std::istringstream in(line);
+    std::string ts, ids, name;
+    if (!(in >> ts >> ids >> name) || ts.size() < 2 || ts.back() != 's' || ids.compare(0, 2, "0x") != 0) return false;
+    char* end = nullptr;
+    double t = std::strtod(ts.c_str(), &end);
+    if (end != ts.c_str() + ts.size() - 1 || t < 0) return false;
+    unsigned long v = std::strtoul(ids.c_str() + 2, &end, 16);
+    if (*end || v > 0x7FF) return false;
+    uint8_t n = 0;
+    std::string byte;
+    while (in >> byte) {
+        if (n == 8 || byte.size() != 2) return false;
+        unsigned long b = std::strtoul(byte.c_str(), &end, 16);
+        if (*end) return false;
+        data[n++] = uint8_t(b);
+    }
+    if (n == 0) return false;
+    *t_ms = uint32_t(t * 1000.0 + 0.5);
+    *id = uint32_t(v);
+    *len = n;
+    return true;
+}
+
 static void json_str(std::string& s, const std::string& v) {
     s += '"';
     for (char ch : v) {

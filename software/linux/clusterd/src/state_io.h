@@ -34,6 +34,10 @@ void parse_config(const std::string& text, Config* c);
 // Only what the dial changes (the model) and the trip counter; the rest of the file is the installer's.
 std::string format_settings(const hmi::Model& m, const VehicleSetup& v);
 
+// One line of tools/can_replay.py --dry-run output, "  1.234s  0x300  VehicleMotion      00 00 20 03 d8 04 0f 53",
+// for the bench input --replay (a PC whose kernel has no virtual CAN). Returns false for anything else.
+bool parse_replay_line(const std::string& line, uint32_t* t_ms, uint32_t* id, uint8_t data[8], uint8_t* len);
+
 // The settings page polls GET /state and draws it: {"screen":"settings","row":2,"rows":[["Gauge theme","Modern"],...],
 // "editing":false,"phone":"cp","theme":1}
 std::string page_state_json(const Shell& sh);

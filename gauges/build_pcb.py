@@ -423,7 +423,15 @@ _ZONE_ORDER = ["POWER", "CAN1 LINK", "SPEED+IGN", "LAMPS+TACH", "MCU", "SENSORS"
 assert sorted(_ZONE_ORDER) == sorted(n for n, _ in CORE_ZONES)
 CORE_ZONES.sort(key=lambda z: _ZONE_ORDER.index(z[0]))
 
-_accounted = set(DISPLAY_REFS)
+# --- Physical turn-signal arrows (the owner decided 2026-10-16 that the arrows on the dash are physical lamps): one green LED per
+# side with its series resistor and reverse clamp, pinned at a fixed X in the display row band so the LED sits behind the arrow window of
+# the faceplate. These X positions are PLACEHOLDERS from the concept drawing (media/cluster-dashboard.png), not measurements of the
+# original arrows: set them from the faceplate drawing. Values are mm from the left edge of the usable board area.
+TURN_LED_X = {"D26": 91.7, "D27": 350.5}                  # left arrow, right arrow
+TURN_GROUPS = {"D26": ["R82", "D24"], "D27": ["R83", "D25"]}
+TURN_REFS = set(TURN_LED_X) | {r for refs in TURN_GROUPS.values() for r in refs}
+
+_accounted = set(DISPLAY_REFS) | TURN_REFS
 for refs in LOCAL_CLUSTERS.values():
     _accounted.update(refs)
 for _, refs in CORE_ZONES:
@@ -527,6 +535,13 @@ for ref in DISPLAY_REFS:
 print(f"Display row: {len(DISPLAY_REFS)} connectors at x="
       f"{sorted(round(v) for v in _row_x.values())}, y~{ROW_Y:.1f}mm "
       f"(evenly-spaced estimate, not real dimensioned hole-center data)")
+
+# Place the turn-signal arrows: LED at its X on the display row's centre line, series resistor to its left and clamp to its right.
+for led_ref, led_x in TURN_LED_X.items():
+    r_ref, d_ref = TURN_GROUPS[led_ref]
+    for ref, dx in ((r_ref, -5.5), (led_ref, 0.0), (d_ref, 4.5)):
+        bx0, by0, bx1, by1 = footprint_bbox(load_footprint(parts[ref]["footprint"]))
+        placed_rel[ref] = (led_x + dx - (bx0 + bx1) / 2, ROW_Y - (by0 + by1) / 2)
 
 # Place local clusters, directly above their own display.
 for disp_ref, (c_placed, c_w, c_h) in local_packed.items():

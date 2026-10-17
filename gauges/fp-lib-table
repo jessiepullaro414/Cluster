@@ -1,4 +1,5 @@
 (fp_lib_table
 	(version 7)
 	(lib (name "TI_RNX0012C_VQFN-HR") (type "KiCad") (uri "${KIPRJMOD}/footprints/TI_RNX0012C_VQFN-HR.pretty") (options "") (descr "TI VQFN-HR-12 (RNX0012C) for LMR33630-Q1, built from TI's own package drawing 4225021/C - copied from manifold-pcb/thermo-pcb, same real part reused verbatim here"))
+	(lib (name "ROHM_CSL0902") (type "KiCad") (uri "${KIPRJMOD}/footprints/ROHM_CSL0902.pretty") (options "") (descr "ROHM CSL0902ET1C green LED, land pattern from the ROHM data sheet Rev.007"))
 )

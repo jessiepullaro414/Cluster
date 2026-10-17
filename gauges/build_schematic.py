@@ -690,6 +690,12 @@ register_symbol(f"{LIB}:D_BAV99", "D", "BAV99-Q clamp (AEC-Q101)",
                  'B': [P(1, "A1", "passive")],
                  'R': [P(3, "CA", "passive")]})
 
+# ROHM CSL0902ET1C green LED (AEC-Q102), pad 1 = cathode, pad 2 = anode (the package's cathode index; data sheet Rev.007 Figure 1).
+register_symbol(f"{LIB}:LED_G", "D", "CSL0902ET1C green LED (AEC-Q102)", "ROHM_CSL0902:CSL0902_1608",
+                {'T': [P(2, "A", "passive")], 'B': [P(1, "K", "passive")]},
+                hide_pin_names=True,
+                datasheet="https://fscdn.rohm.com/en/products/databook/datasheet/opto/led/chip_mono/csl0902et1(c)-e.pdf")
+
 # --- CAN0 transceiver (plan Step 2): real TJA1043T (SO-14), pin table and
 # wiring topology reused VERBATIM from ecu-pcb's own already-verified
 # circuit (ecu-pcb/build_schematic.py, its TJA1043T registration and
@@ -1067,6 +1073,22 @@ place(f"{LIB}:C_V", "C57", "100nF input filter, dash dimmer (AEC-Q200)", 1140, 6
       conn={'1': ('label', 'DIM_ADC'), '2': ('pwr', 'GND')})
 place(f"{LIB}:D_BAV99", "D23", "BAV99-Q input clamp, dash dimmer (AEC-Q101)", 1180, 585,
       conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'DIM_ADC')})
+
+# --- Physical turn-signal arrows (owner decision 2026-10-16: the arrows on the dash are physical lamps, none are drawn on any screen) ---
+# Two green LED arrows sit behind the faceplate (positions: TURN_LED_X in build_pcb.py, to be set from the faceplate drawing).
+# Each is lit straight from its turn-signal wire (the same wire as the J10 sense input, pins 1 and 2), so it flashes exactly like the
+# old bulb and still works if the processor or firmware is dead. Series resistor: the LED (ROHM CSL0902ET1C data sheet Rev.007) is
+# 2.6 / 3.4 / 3.8 V at 20 mA, 30 mA absolute maximum, 5 V reverse maximum, 114 mW. 1.8k from 13.8 V gives about 5.8 mA (14.4 V: 6.3 mA,
+# 9 V: 3.2 mA; at 20 mA the part is 900 to 1800 mcd, so about 250 to 400 mcd here, to be judged behind the real faceplate). The
+# resistor sees 71 mW at 14.4 V and up to about 250 mW in a clamped 24 V surge, so it is a 1206. A BAV99-Q section (pin 1 = GND,
+# pin 3 = LED anode, pin 2 unused) is a reverse clamp that keeps the LED's anode above -0.7 V when the wire swings negative.
+for _side, _name, _r, _dclamp, _led, _y in (("L", "Left", "R82", "D24", "D26", 700), ("R", "Right", "R83", "D25", "D27", 760)):
+    place(f"{LIB}:R_1206", _r, f"1.8k LED series, {_name} turn arrow (AEC-Q200)", 1260, _y,
+          conn={'1': ('label', f"LAMP_TURN_{_side}_RAW"), '2': ('label', f"TURN_LED_{_side}_A")})
+    place(f"{LIB}:LED_G", _led, f"CSL0902ET1C green LED, {_name} turn arrow", 1300, _y,
+          conn={'2': ('label', f"TURN_LED_{_side}_A"), '1': ('pwr', 'GND')})
+    place(f"{LIB}:D_BAV99", _dclamp, f"BAV99-Q reverse clamp, {_name} turn arrow LED (AEC-Q101)", 1340, _y,
+          conn={'1': ('pwr', 'GND'), '2': ('nc',), '3': ('label', f"TURN_LED_{_side}_A")})
 
 # Tach input. Two sources are possible: an ECU / coil-driver tach output (clean
 # 12 V pulses, the normal case) or the coil negative terminal of a points

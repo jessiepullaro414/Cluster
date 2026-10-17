@@ -80,7 +80,9 @@ Traps:
 
 Findings for the round panel (open):
 - **LIVI's own pages have a navigation rail** down the left edge; on the round glass its top and bottom icons
-  fall outside the circle. Look for a LIVI option to hide it, or pad its pages for a round screen.
+  fall outside the circle. **Resolved for our page**: `../livi/livi-round-ui.patch` adds a LIVI setting
+  `customHideNav` (set by `livi_config.py`); with it the custom page, our speedometer and settings, fills the
+  window with no rail and no clock. LIVI's own settings and media pages keep the rail (not driver screens).
 - **LIVI's default dashboard is landscape** (two dials side by side) and cut on 720 x 720. **Resolved**: the
   gauge view is our own speedometer on the custom page (web/centre.html), not LIVI's dashboard.
 - **Fonts**: the page asks for Roboto / Roboto Condensed like the Android app. Without them Chromium falls back to
@@ -91,6 +93,20 @@ Findings for the round panel (open):
   or a longer hold). A UX decision for the owner.
 - LIVI's dashboard read coolant 0 degrees during the replay; not checked (that dashboard is no longer our gauge,
   but the coolant value also goes to Android Auto and CarPlay, so it is worth a look).
+
+## The whole cluster on one PC
+
+![LIVI centre with our speedometer and the four small gauges](shots/cluster-bench-livi-and-small-gauges.png)
+
+`clusterd --harness-udp 127.0.0.1:5005` also sends the Android app's telemetry line (`CL1 ...`, core/Telemetry.java)
+to gauges-fw's host harness (`build/harness --udp 5005`), so one replayed drive moves LIVI's centre and the four
+small gauges (the real firmware drawing code) together, with the same theme, units and "centre shows speed".
+
+Building LIVI's UI with the round patch, in the bench distro: Node 24 from nodejs.org (checksum-checked),
+`ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install --frozen-lockfile`, `pnpm run build:app`; then extract the
+AppImage's `resources/app.asar` (`npx @electron/asar extract`), replace its `out/` with the new one, pack it
+back, and drop in the rebuilt `livi-core` and `livi-helperd` (the config struct changed). The repacked archive
+has the same 41,562 entries; only `out/` differs.
 
 ## What the bench run on 2026-10-17 found first
 

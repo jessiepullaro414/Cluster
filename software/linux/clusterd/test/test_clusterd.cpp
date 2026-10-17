@@ -313,6 +313,16 @@ static void test_telemetry() {
     HAS(j, "\"speedKph\":null");
     HAS(j, "\"turnSignal\":null");
     CHECK(j.find("72.0") == std::string::npos);
+    // the harness line, the same text the Android app's Telemetry.encode writes
+    {
+        vhal::Bridge hb;
+        feed(hb, 1000, 0, 72.0f, true, false, true);    // VehicleMotion carries 0.1 km/h steps: 72.0 exactly
+        std::string l = harness_line(hb, 1000, true, 3, false);
+        CHECK(l.rfind("CL1 imperial=1 theme=3 center=0 speed=72.00 rpm=2500 batt=13.90 fuel=- cool=- oil=-", 0) == 0);
+        HAS(l, " tl=1 tr=0 hb=1 br=0 alt=0 oilw=0 dash=1 dim=40");
+        l = harness_line(hb, 60000, false, 1, true);
+        CHECK(l.rfind("CL1 imperial=0 theme=1 center=1 speed=- rpm=-", 0) == 0);
+    }
     CHECK(path_json("/custom") == "{\"path\":\"/custom\"}");
     CHECK(path_json("/a\"b") == "{\"path\":\"/ab\"}");
     std::FILE* f = std::fopen("build/telemetry_sample.json", "w");

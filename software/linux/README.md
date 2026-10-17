@@ -17,6 +17,7 @@ also Toradex-supported, where Android Automotive on it is a port.
 |---|---|---|
 | `clusterd/` | the glue daemon: private CAN link to LIVI telemetry, settings and heartbeat to gauges/, dial to keys, suspend | **logic real and host-tested** (149 checks); Linux I/O builds; end-to-end bench passes against a stand-in LIVI (`aa-bench/bench_clusterd.sh`, 11 checks); not run on a Verdin |
 | `clusterd/web/centre.html` | the centre screen LIVI shows as its custom page: **our speedometer** in the owner's theme (a port of the Android app's ClusterView, all four themes, day/night palette, lamps) and the Settings list | all four themes checked inside LIVI on replayed drive data (`aa-bench/shots/centre-*-in-livi.png`); draws clusterd's state only |
+| `livi/livi-round-ui.patch` | LIVI setting `customHideNav`: the custom page fills the window with no navigation rail (for the round panel); upstreamable, off by default | built into the bench LIVI and checked (`aa-bench/shots/cluster-bench-livi-and-small-gauges.png`) |
 | `livi/livi_config.py` | LIVI's config for the round panel: projection size, map-shape safe/view areas, dial keys, custom page, MFi bus | selftest passes; not yet loaded by a real LIVI |
 | `aa-bench/` | relay from a phone's or emulator's "head unit server" into LIVI, stand-in LIVI, bench script | relay selftest passes; **not yet run against a real phone or emulator** (see its README) |
 | `deploy/` | systemd unit, example config | written, untested |

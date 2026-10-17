@@ -47,6 +47,43 @@ std::string telemetry_json(const vhal::Bridge& b, uint32_t now_ms) {
     return s;
 }
 
+static void line_num(std::string& s, const char* key, vhal::PropValue v, float scale, int decimals) {
+    char buf[48];
+    if (!v.available || !std::isfinite(v.value)) std::snprintf(buf, sizeof buf, " %s=-", key);
+    else std::snprintf(buf, sizeof buf, " %s=%.*f", key, decimals, double(v.value * scale));
+    s += buf;
+}
+
+static void line_flag(std::string& s, const char* key, vhal::PropValue v) {
+    s += ' ';
+    s += key;
+    s += '=';
+    s += !v.available ? '-' : (v.value != 0.0f ? '1' : '0');
+}
+
+std::string harness_line(const vhal::Bridge& b, uint32_t now_ms, bool imperial, int theme, bool centre_speed) {
+    std::string s = "CL1 imperial=";
+    s += imperial ? '1' : '0';
+    s += " theme=" + std::to_string(theme);
+    s += " center=";
+    s += centre_speed ? '1' : '0';
+    line_num(s, "speed", b.get(Prop::SpeedMps, now_ms), 3.6f, 2);
+    line_num(s, "rpm", b.get(Prop::EngineRpm, now_ms), 1.0f, 0);
+    line_num(s, "batt", b.get(Prop::BatteryV, now_ms), 1.0f, 2);
+    line_num(s, "fuel", b.get(Prop::FuelPct, now_ms), 1.0f, 1);
+    line_num(s, "cool", b.get(Prop::CoolantC, now_ms), 1.0f, 1);
+    line_num(s, "oil", b.get(Prop::OilKpa, now_ms), 1.0f, 1);
+    line_flag(s, "tl", b.get(Prop::TurnLeft, now_ms));
+    line_flag(s, "tr", b.get(Prop::TurnRight, now_ms));
+    line_flag(s, "hb", b.get(Prop::HighBeam, now_ms));
+    line_flag(s, "br", b.get(Prop::BrakeWarning, now_ms));
+    line_flag(s, "alt", b.get(Prop::AlternatorWarning, now_ms));
+    line_flag(s, "oilw", b.get(Prop::OilWarning, now_ms));
+    line_flag(s, "dash", b.get(Prop::DashLightsOn, now_ms));
+    line_num(s, "dim", b.get(Prop::DashDimmerPct, now_ms), 1.0f, 0);
+    return s;
+}
+
 std::string path_json(const char* path) {
     std::string s = "{\"path\":\"";
     for (const char* p = path; *p; p++)

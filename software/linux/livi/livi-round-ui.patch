@@ -1,0 +1,71 @@
+LIVI change for the cluster's round centre panel (github.com/f-io/LIVI, dev branch at b43c7153): a setting
+customHideNav. While the custom page is in front and the setting is on, the navigation rail (with its clock) is
+not drawn at all and the custom page gets the whole window, so clusterd's round speedometer and settings page
+fill the circle. Off by default: LIVI behaves exactly as before. Apply with `git apply`, then regenerate the
+TypeScript contract (LIVI_WRITE_CONTRACT=1 cargo test -p livi-core-proto typescript_contract_is_current),
+rebuild livi-core and the UI (pnpm run build:app). Written so it can be offered upstream.
+
+diff --git a/native/livi-helperd/crates/livi-core-proto/src/config.rs b/native/livi-helperd/crates/livi-core-proto/src/config.rs
+index b0f788c6..54df267d 100644
+--- a/native/livi-helperd/crates/livi-core-proto/src/config.rs
++++ b/native/livi-helperd/crates/livi-core-proto/src/config.rs
+@@ -169,6 +169,10 @@ pub struct Config {
+     pub dashboard_layouts: std::collections::BTreeMap<String, crate::theme::LayoutSlot>,
+     pub custom: PerScreen<bool>,
+     pub custom_url: String,
++    /// The custom page fills the window: no navigation rail while it is in front (a round panel
++    /// whose custom page is the whole screen).
++    #[serde(default)]
++    pub custom_hide_nav: bool,
+ 
+     #[serde(default, skip_serializing_if = "Option::is_none")]
+     pub main_screen_bounds: Option<WindowBounds>,
+@@ -529,6 +533,7 @@ pub fn defaults() -> Config {
+         dashboard_layouts: Default::default(),
+         custom: off,
+         custom_url: String::new(),
++        custom_hide_nav: false,
+         main_screen_bounds: no_bounds,
+         cluster_screen_bounds: no_bounds,
+         aux_screen_bounds: no_bounds,
+diff --git a/src/main/shared/core/contract.ts b/src/main/shared/core/contract.ts
+index 6a301851..4561f033 100644
+--- a/src/main/shared/core/contract.ts
++++ b/src/main/shared/core/contract.ts
+@@ -149,7 +149,12 @@ dashboard: PerScreen<boolean>,
+ /**
+  * Which of the theme's layouts the dashboard offers and in which order.
+  */
+-dashboardLayouts: { [key in string]: LayoutSlot }, custom: PerScreen<boolean>, customUrl: string, mainScreenBounds?: WindowBounds, clusterScreenBounds?: WindowBounds, auxScreenBounds?: WindowBounds, mainScreenWidth: number, mainScreenHeight: number, clusterScreenActive: boolean, clusterScreenWidth: number, clusterScreenHeight: number, auxScreenActive: boolean, auxScreenWidth: number, auxScreenHeight: number, primaryColorDark?: string, primaryColorLight?: string, highlightColorLight?: string, highlightColorDark?: string, backgroundColorDark?: string, backgroundColorLight?: string, 
++dashboardLayouts: { [key in string]: LayoutSlot }, custom: PerScreen<boolean>, customUrl: string, 
++/**
++ * The custom page fills the window: no navigation rail while it is in front (a round panel
++ * whose custom page is the whole screen).
++ */
++customHideNav: boolean, mainScreenBounds?: WindowBounds, clusterScreenBounds?: WindowBounds, auxScreenBounds?: WindowBounds, mainScreenWidth: number, mainScreenHeight: number, clusterScreenActive: boolean, clusterScreenWidth: number, clusterScreenHeight: number, auxScreenActive: boolean, auxScreenWidth: number, auxScreenHeight: number, primaryColorDark?: string, primaryColorLight?: string, highlightColorLight?: string, highlightColorDark?: string, backgroundColorDark?: string, backgroundColorLight?: string, 
+ /**
+  * Override for the logo on the CarPlay tile that leads back to LIVI.
+  */
+@@ -284,6 +289,7 @@ export const DEFAULT_CONFIG: Config = {
+     "aux": false
+   },
+   "customUrl": "",
++  "customHideNav": false,
+   "mainScreenBounds": {
+     "x": 0,
+     "y": 0,
+diff --git a/src/renderer/src/components/layouts/AppLayout.tsx b/src/renderer/src/components/layouts/AppLayout.tsx
+index 650d65c9..1f52cae5 100644
+--- a/src/renderer/src/components/layouts/AppLayout.tsx
++++ b/src/renderer/src/components/layouts/AppLayout.tsx
+@@ -40,7 +40,9 @@ export const AppLayout: FC<PropsWithChildren<AppLayoutProps>> = ({
+   const { hidden: clusterNavHidden } = useAutoHideNav(inAutoHideNavPage, navRef.current)
+ 
+   const tabs = useTabsConfig(receivingVideo)
+-  const singleTab = tabs.length <= 1
++  // customHideNav: the custom page takes the whole window, the rail is not drawn at all
++  const customFills = pathname === ROUTES.CUSTOM && settings?.customHideNav === true
++  const singleTab = tabs.length <= 1 || customFills
+ 
+   const hideNavHome = isStreaming && pathname === ROUTES.HOME
+   const hideNav = hideNavHome || (inAutoHideNavPage && clusterNavHidden)

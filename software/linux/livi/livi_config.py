@@ -17,7 +17,7 @@ LIVI semantics are from its source (livi-aa-stack config.rs: "The view area beco
 content insets"; a 720 x 720 screen on Android Auto's 1280 x 720 tier gets 560 px of width margin, so the
 phone lays out a 720 x 720 content area). Checked against LIVI 9.5.0, 2026-10-17.
 
-Also set: the dial's keys (clusterd sends F13 / F14 / Enter / Backspace through uinput), the custom page
+Also set: customHideNav (needs LIVI built with livi-round-ui.patch; a stock LIVI ignores it), the dial's keys (clusterd sends F13 / F14 / Enter / Backspace through uinput), the custom page
 (clusterd's settings page), wireless Android Auto and CarPlay on, and optionally the I2C bus of the Apple
 authentication coprocessor on display/ J16 (Verdin I2C_1; the Linux bus number depends on the device tree).
 """
@@ -62,6 +62,7 @@ def settings_for(shape, mfi_bus=None, car_name=None):
         "wirelessAaEnabled": True,
         "wirelessCpEnabled": True,
         "customUrl": PAGE_URL,
+        "customHideNav": True,          # livi-round-ui.patch: no navigation rail over our round page
     }
     for name, v in (("View", view), ("Safe", safe)):
         for side, px in zip(("Top", "Bottom", "Left", "Right"), v):
@@ -104,6 +105,7 @@ def selftest():
     assert new["bindings"] == {"up": "ArrowUp", "back": "Backspace", "knobLeft": "F13", "knobRight": "F14", "selectDown": "Enter"}
     assert new["custom"] == {"main": True, "cluster": True, "aux": False} and new["darkMode"] is True
     assert new["carPlayMfiI2cBus"] == 1 and new["projectionViewAreaTop"] == 144
+    assert new["customHideNav"] is True
     assert cfg["bindings"]["back"] == "Escape"   # the input is not modified
     print("livi_config selftest ok")
 

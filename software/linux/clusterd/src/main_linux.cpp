@@ -216,6 +216,7 @@ struct Args {
     std::string click;                // e.g. /dev/input/by-path/platform-gpio-keys-event
     std::string can_override;
     std::string replay;               // bench: a can_replay.py --dry-run log, played in a loop
+    std::string harness;              // bench: HOST:PORT of gauges-fw's harness (the four small gauges), UDP
     bool dial_stdin = false;
 };
 
@@ -240,6 +241,7 @@ static Args parse_args(int argc, char** argv) {
         else if (k == "--can") a.can_override = next();
         else if (k == "--dial-stdin") a.dial_stdin = true;
         else if (k == "--replay") a.replay = next();
+        else if (k == "--harness-udp") a.harness = next();
         else { std::fprintf(stderr, "clusterd: unknown option %s\n", k.c_str()); std::exit(2); }
     }
     return a;
@@ -309,6 +311,19 @@ int main(int argc, char** argv) {
             if (parse_replay_line(line, &f.t_ms, &f.id, f.data, &f.len)) replay.push_back(f);
         std::printf("clusterd: replaying %zu frames from %s in a loop\n", replay.size(), args.replay.c_str());
     }
+    // Bench: the four small gauges in gauges-fw's harness, fed the Android app's telemetry line.
+    int harness_fd = -1;
+    sockaddr_in harness_to = {};
+    if (!args.harness.empty()) {
+        size_t colon = args.harness.rfind(':');
+        std::string host = colon == std::string::npos ? args.harness : args.harness.substr(0, colon);
+        int port = colon == std::string::npos ? 5005 : std::atoi(args.harness.c_str() + colon + 1);
+        harness_to.sin_family = AF_INET;
+        harness_to.sin_port = htons(uint16_t(port));
+        if (inet_pton(AF_INET, host.c_str(), &harness_to.sin_addr) == 1) harness_fd = socket(AF_INET, SOCK_DGRAM, 0);
+        else std::fprintf(stderr, "clusterd: --harness-udp wants IPv4:PORT, got %s\n", args.harness.c_str());
+    }
+    uint32_t t_harness = 0;
     size_t replay_i = 0;
     uint32_t replay_t0 = now_ms();
     const uint32_t replay_len = replay.empty() ? 0 : replay.back().t_ms + 50;
@@ -392,6 +407,12 @@ int main(int argc, char** argv) {
         if (now - t_tele >= 100) {
             t_tele = now;
             if (http_post_json(cfg.livi_url_host, cfg.livi_port, "/telemetry", telemetry_json(bridge, now))) livi_up = true;
+        }
+
+        if (harness_fd >= 0 && now - t_harness >= 50) {
+            t_harness = now;
+            std::string l = harness_line(bridge, now, shell.ui().model().imperial, shell.gauge_theme(), shell.centre_shows_speed());
+            sendto(harness_fd, l.data(), l.size(), 0, reinterpret_cast<sockaddr*>(&harness_to), sizeof harness_to);
         }
 
         // What gauges/ is told.

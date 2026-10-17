@@ -189,6 +189,33 @@
 #define PCC_ADC0        REG32(PCC_BASE + 0xECu)
 #define PCC_ADC1        REG32(PCC_BASE + 0x9Cu)
 
+/* ---- FlexCAN0 base 0x4002_4000, FlexCAN1 0x4002_5000 (RM chapter 55); 32-bit registers ---- */
+#define CAN_BASE(i)     (0x40024000u + 0x1000u * (i))
+#define CAN_MCR(i)      REG32(CAN_BASE(i) + 0x00u)
+#define CAN_CTRL1(i)    REG32(CAN_BASE(i) + 0x04u)
+#define CAN_TIMER(i)    REG32(CAN_BASE(i) + 0x08u)
+#define CAN_ECR(i)      REG32(CAN_BASE(i) + 0x1Cu)
+#define CAN_ESR1(i)     REG32(CAN_BASE(i) + 0x20u)
+#define CAN_IMASK1(i)   REG32(CAN_BASE(i) + 0x28u)
+#define CAN_IFLAG1(i)   REG32(CAN_BASE(i) + 0x30u)
+#define CAN_CTRL2(i)    REG32(CAN_BASE(i) + 0x34u)
+#define CAN_MB_WORD(i, mb, w) REG32(CAN_BASE(i) + 0x80u + 16u * (mb) + 4u * (w))     /* word 0 CS, 1 ID, 2 data 0-3, 3 data 4-7 */
+#define CAN_RXIMR(i, mb) REG32(CAN_BASE(i) + 0x880u + 4u * (mb))
+#define CAN_MCR_MDIS    (1u << 31)
+#define CAN_MCR_FRZ     (1u << 30)
+#define CAN_MCR_HALT    (1u << 28)
+#define CAN_MCR_NOTRDY  (1u << 27)
+#define CAN_MCR_SOFTRST (1u << 25)
+#define CAN_MCR_FRZACK  (1u << 24)
+#define CAN_MCR_SRXDIS  (1u << 17)      /* a node does not receive its own transmissions */
+#define CAN_MCR_IRMQ    (1u << 16)      /* individual receive masks (RXIMR) */
+#define CAN_MCR_AEN     (1u << 12)      /* transmit abort enable */
+#define CAN_MCR_MAXMB(n) ((uint32_t)(n))    /* number of mailboxes minus one */
+#define CAN_ESR1_FLTCONF(v) (((v) >> 4) & 3u)   /* 0 error active, 1 error passive, 2 and 3 bus off */
+#define PCC_FLEXCAN0    REG32(PCC_BASE + 0x90u)
+#define PCC_FLEXCAN1    REG32(PCC_BASE + 0x94u)
+#define SCG_SOSCDIV2(n) ((uint32_t)(n) << 8)    /* SCG_SOSCDIV[10:8]: 001 = divide by 1 -> 8 MHz, the CAN protocol engine's oscillator clock */
+
 /* ---- NVIC (ARMv7-M): enable an interrupt by number ---- */
 #define NVIC_ISER(irq)  REG32(0xE000E100u + 4u * ((irq) >> 5))
 #define NVIC_ENABLE(irq) (NVIC_ISER(irq) = 1u << ((irq) & 31u))

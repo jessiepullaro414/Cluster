@@ -1,10 +1,11 @@
 #ifndef CAN_LINK_H
 #define CAN_LINK_H
-/* STUB. CAN0 (car bus, LISTEN-ONLY, profile selectable: ecu-pcb native or
- * Haltech V2) and CAN1 (private link to display/). Message layouts, counters
- * and CRC come from ../../protocol/cluster_can.h (generated, do not copy). */
+/* CAN0 (car bus, LISTEN-ONLY, profile selectable: 0 none, 1 Haltech V2) and CAN1 (private link to display/). REAL logic, host-tested
+ * against a fake controller (test/test_can_link.c); the FlexCAN register driver is flexcan_s32k.c. Message layouts, counters and
+ * CRC come from ../../protocol/cluster_can.h and cluster_codec.h (generated, do not copy). */
 #include <stdbool.h>
 #include "aggregate.h"
+#include "can_hw.h"
 #include "cluster_codec.h"
 
 typedef struct {
@@ -27,7 +28,7 @@ typedef struct {
     bool    display_heartbeat_seen;  /* true only while DisplayHeartbeat arrives within its timeout (Android is alive) */
 } display_settings_t;
 
-void       can_link_init(void);
+void       can_link_init(const can_hw_t *hw);     /* null: no controllers (everything silent, the car bus inactive) */
 void       can_link_poll(uint32_t now_ms);            /* drain RX, update tables */
 car_bus_t  can_link_car(void);
 display_settings_t can_link_settings(void);

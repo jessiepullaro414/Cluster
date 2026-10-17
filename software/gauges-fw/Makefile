@@ -4,17 +4,17 @@ CC      ?= gcc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 
 # Real, host-testable code (no hardware access).
-CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/nvlog.c src/settings_store.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c
+CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/nvlog.c src/settings_store.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c src/can_bittiming.c src/canmb.c src/can_link.c
 # Still stubs (need the board).
-STUBS := src/can_link.c src/power.c
+STUBS := src/power.c
 # Real code that touches registers: compiled and linked for the target, never run on the host.
-HW := src/panel_hal_s32k.c src/wdog_s32k.c src/nvflash_s32k.c src/inputs_hw_s32k.c src/adc_s32k.c
+HW := src/panel_hal_s32k.c src/wdog_s32k.c src/nvflash_s32k.c src/inputs_hw_s32k.c src/adc_s32k.c src/flexcan_s32k.c
 
 # Sources of the screen chain for tests that use the mock panel.
 SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/gc9a01.c src/screens.c
 
 .PHONY: test stubs arm-check arm preview bench harness golden golden-update golden-dump sim clean
-test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/test_settings build/harness_cli
+test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/test_settings build/test_can build/test_can_link build/harness_cli
 	./build/test_aggregate
 	./build/test_codec
 	./build/test_inputmath
@@ -27,6 +27,8 @@ test: build/test_aggregate build/test_codec build/test_inputmath build/test_scre
 	./build/test_odometer16
 	./build/test_inputs
 	./build/test_settings
+	./build/test_can
+	./build/test_can_link
 	./build/harness_cli --selftest
 	./build/harness_cli --golden check test/golden_screens.txt
 
@@ -62,6 +64,14 @@ build/test_inputs: $(INPSRC) inc/capture.h inc/inputs.h inc/inputs_hw.h inc/send
 build/test_settings: test/test_settings.c test/nv_mock.c src/settings_store.c src/nvlog.c src/crc.c inc/settings_store.h inc/nvlog.h test/nv_mock.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -Itest -o $@ test/test_settings.c test/nv_mock.c src/settings_store.c src/nvlog.c src/crc.c -lm
+
+build/test_can: test/test_can.c src/can_bittiming.c src/canmb.c inc/can_bittiming.h inc/canmb.h inc/can_hw.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -o $@ test/test_can.c src/can_bittiming.c src/canmb.c
+
+build/test_can_link: test/test_can_link.c src/can_link.c src/aggregate.c inc/can_link.h inc/can_hw.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -o $@ test/test_can_link.c src/can_link.c src/aggregate.c -lm
 
 ODOSRC := test/test_odometer.c test/nv_mock.c src/odometer.c src/nvlog.c src/crc.c
 # The odometer is tested with a 4-sector log (the ring wraps often, so power can be cut at every event of a drive that wraps it

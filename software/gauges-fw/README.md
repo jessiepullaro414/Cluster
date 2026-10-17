@@ -1,4 +1,4 @@
-# gauges-fw (S32K144: boots to main in the image; inputs, senders, fault handling and odometer real, CAN and power still stubs)
+# gauges-fw (S32K144: boots to main in the image; inputs, senders, CAN, fault handling, odometer and settings real on the host and compiled for the part; power/STOP mode still a stub)
 
 Target: NXP S32K144, 64-LQFP, on `../../gauges`. Pin numbers below come from the gauges schematic comments (which were read from NXP's S32K1xx IO table); `inc/gauges_pins.h` is the single place they live.
 
@@ -12,7 +12,9 @@ Target: NXP S32K144, 64-LQFP, on `../../gauges`. Pin numbers below come from the
 | `src/inputs.c`, `inc/inputs.h`, `inc/inputs_hw.h` | speed and tach from the capture periods, six lamp inputs with debounce and per-lamp inversion, dimmer, ignition debounce | **real, tested** against a fake hardware layer |
 | `src/capture.c`, `inc/capture.h` | period tracking for a pulse input: glitch rejection, 16-bit timer overflow extension, absent / running / stopped / fault, time wrap | **real, tested** |
 | `src/inputs_hw_s32k.c`, `src/adc_s32k.c` | FTM1 input capture (CH4 speed, CH5 tach) with its interrupts, lamp and ignition GPIO, ADC0/ADC1 calibration and conversions | written from the RM, **compiled and linked, never run on a part** |
-| `src/can_link.c` | CAN0 (car bus, listen-only) and CAN1 (private link) with counter + CRC-8 from `cluster_can.h` | stub |
+| `src/can_link.c`, `inc/can_link.h`, `inc/can_hw.h` | CAN0 (car bus, listen-only, Haltech V2 decode) and CAN1 (private link, both directions with rolling counter and CRC-8 from `cluster_codec.h`), display heartbeat, trip reset | **real, tested** against a fake controller |
+| `src/can_bittiming.c`, `src/canmb.c` | CTRL1 bit timing for an exact bit rate and 87.5 % sample point; mailbox word packing | **real, tested** |
+| `src/flexcan_s32k.c` | FlexCAN0/1 driver: oscillator-clocked protocol engine, one individually masked mailbox per identifier, polled | written from the RM, **compiled and linked, never run on a part** |
 | `src/gfx.c`, `inc/gfx.h` | tile renderer for the 240x240 round screens: anti-aliased arcs, capsules, discs and 5x7 glyphs from a short op list, integer inner loops, no framebuffer (one frame is 115 KB, the part has 60 KB of RAM) | **real, tested** |
 | `src/dial_modern.c` | the **modern theme**: dark navy face, thick progress arcs filling blue (to red), big proportional digits, small icons, two horizontal bars for volts and oil, modelled on the owner's reference picture | **real, tested**; styling a first pass |
 | `src/dial_carplay.c` | the **carplay theme**: Apple-inspired (black face, thin rings, white knob, system colours, two concentric rings for volts and oil); shares the arc themes' change tracking with dial_modern.c | **real, tested**; styling a first pass; whether the product may call it CarPlay-styled is a licensing question (B5) |
@@ -55,6 +57,16 @@ sh tools/inspect_elf.sh   # vector table, flash config, reset code
 ```
 
 Verified by inspection of the linked image only (SP 0x20006FE0: the top 32 bytes of RAM are the retained fault record, reset vector 0x411, SysTick at vector 15, flash configuration 0xFE/0xFB at 0x40C/0x40D). **Nothing has executed on a part.** `FSEC` is left unsecured for debugging; production must secure it.
+
+## CAN
+
+- **Car bus (CAN0) is receive-only in three independent ways.** `CTRL1[LOM]` (listen-only, which also withholds the acknowledge) is set; no transmit mailbox exists and `tx()` refuses the bus; and the CAN0_TX pin (PTE5) is never given to the FlexCAN, it is a GPIO output held high (recessive). `test_can_link.c` counts every attempt to send on the car bus across all the tests: zero. The TJA1043T is put in normal mode (EN and STB_N high); **its listen-only mode (a hardware TX block) is a possible further step but its pin truth table has not been checked against the data sheet, which is not among the references**.
+- **Clocking and timing.** Both protocol engines run from the 8 MHz crystal (`CLKSRC = 0`, `SOSCDIV2` divide by 1; the RM requires the oscillator clock to be slower than the bus clock). `can_bittiming.c` finds an exact setting: 500 kbit/s is 16 quanta with the sample point at 87.5 %, 1 Mbit/s is 8, 250 kbit/s is 16 at a divider of 2; rates that do not divide are refused. Checked for 8, 40, 48 and 80 MHz clocks and 125k to 1M.
+- **Receive.** One mailbox per identifier with its own mask (`MCR[IRMQ]`) comparing all 11 bits, so each mailbox holds the newest frame of its message; the 10 ms loop polls, so there is no queue to overflow. Haltech V2.35.0 frames 0x360, 0x361, 0x370, 0x372, 0x3E0 and 0x3E2 are decoded with the generated helpers; implausible values are dropped (the old value then ages out and the local sender takes over), and fuel needs the tank size from the display settings. Changing the profile or bit rate in the display settings restarts only the car-bus controller.
+- **Private link (CAN1, 500 kbit/s).** Messages from the display count only if the CRC-8 is right, the length is 8, and the rolling counter changed (a repeated counter is a replay). Settings values are range-checked. The heartbeat keeps the display "alive" for 1.5 s; a stuck frame that repeats its counter does not. TripCommand resets the trip meter once per change of its count; the first frame after power-up only records the count.
+- **Transmit.** Motion every 50 ms, fluids 100 ms, indicators 100 ms and at once when a lamp changes, power 500 ms and at once on a change, status and odometer 1 s. If the controller refuses a frame (mailbox busy because the display is not acknowledging) the counter does not advance, so the display never sees a gap it would read as loss.
+- **Mutation check:** 23 deliberate breakages of `can_link.c`, `can_bittiming.c` and `canmb.c` (listen-only off, no CRC check, no replay check, a wrong timeout, an unrestricted calibration, no immediate lamp change, a counter advanced for a refused frame ...), 22 caught and one equivalent (a jump-width clamp that cannot trigger at 25 quanta or fewer).
+- **Not tested:** anything on a real bus. The FlexCAN init order follows the RM (Freeze mode, soft reset, clear the mailbox RAM and RXIMR, MAXMB, CTRL1, arm the mailboxes, leave Freeze), the mux alternatives come from NXP's IO signal table, and the mailbox word layout is from RM 55.5.3, but none of it has run.
 
 ## Inputs and senders
 

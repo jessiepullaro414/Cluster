@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include "adc.h"
+#include "can_hw.h"
 #include "aggregate.h"
 #include "aux_display.h"
 #include "can_link.h"
@@ -161,7 +162,7 @@ int main(void)
     sender_curves_load();
     inputs_hw_init();
     inputs_init(&inputs_hw_s32k, &adc_s32k);
-    can_link_init();
+    can_link_init(&can_hw_s32k);
     aux_display_init(panel_hal_board(), screens_theme_from_setting(can_link_settings().gauge_theme), can_link_settings().units_mph);
     wdog_start(WDOG_TIMEOUT_MS);
     for (;;) {

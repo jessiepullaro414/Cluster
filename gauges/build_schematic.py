@@ -431,9 +431,12 @@ register_symbol(f"{LIB}:L_H", "L", "10uH", "Inductor_SMD:L_1210_3225Metric",
 register_symbol(f"{LIB}:R_V", "R", "10k", "Resistor_SMD:R_0603_1608Metric",
                 {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
                 hide_pin_names=True)
+# REVIEW FIX 2026-10-17: Abracon ABM8AIG datasheet, pad connections: "Pin #1: Crystal, Pin #2: GND, Pin #3: Crystal,
+# Pin #4: GND". The earlier symbol tied pins 1 and 3 together as OSC_IN and pins 2 and 4 together as OSC_OUT, which shorts
+# the crystal's two terminals to each other (it can never oscillate) and drives the case-ground pads from the XTAL pin.
 register_symbol(f"{LIB}:XTAL", "Y", "8MHz", "Crystal:Crystal_SMD_3225-4Pin_3.2x2.5mm",
-                {'R': [P(1, "OSC_IN", "passive"), P(2, "OSC_OUT", "passive")],
-                 'L': [P(3, "OSC_IN", "passive"), P(4, "OSC_OUT", "passive")]},
+                {'R': [P(1, "XTAL1", "passive"), P(3, "XTAL2", "passive")],
+                 'L': [P(2, "GND", "passive"), P(4, "GND", "passive")]},
                 hide_pin_names=True)
 register_symbol(f"{LIB}:MOSFET_N", "Q", "PMV37ENEA automotive (AEC-Q101)", "Package_TO_SOT_SMD:SOT-23",
                 {'L': [P(2, "S", "passive")], 'R': [P(3, "D", "passive")],
@@ -602,12 +605,17 @@ register_symbol(f"{LIB}:MCU_STM32", "U", "NXP S32K144 automotive (AEC-Q100)",
 # comment documents. Headroom remains for anything Steps 3-6 turn up a
 # real need for beyond this pass's own estimate.
 
-register_symbol(f"{LIB}:CONN_SWD", "J", "SWD (Tag-Connect)",
+# REVIEW FIX 2026-10-17: the pin order below is the one every Tag-Connect SWD cable (TC2030-CTX, TC2030-IDC and the
+# NL/legged variants) expects, from the "6-Pin TC2030 Footprint" column of Tag-Connect's TC2030-CTX datasheet:
+# 1 VCC (target voltage reference), 2 SWDIO/TMS, 3 nRESET, 4 SWCLK/TCK, 5 GND, 6 SWO/TDO. The earlier symbol had
+# SWDIO on 1, VCC on 2, SWCLK on 3, NC on 4, RST on 5 and GND on 6, which would have put the programmer's ground on
+# RESET and its SWDIO output on the 3.3 V rail. SWO (pin 6) is left open: PTA10 (the only SWO-capable pin) carries SPEED_IN.
+register_symbol(f"{LIB}:CONN_SWD", "J", "SWD (Tag-Connect TC2030-IDC-NL)",
                 "Connector:Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical",
-                {'L': [P(1, "SWDIO", "bidirectional"), P(3, "SWCLK", "input"),
-                       P(5, "RST", "input")],
-                 'R': [P(2, "VCC", "power_in"), P(4, "NC", "no_connect"),
-                       P(6, "GND", "power_in")]},
+                {'L': [P(1, "VCC", "power_in"), P(2, "SWDIO", "bidirectional"),
+                       P(3, "nRESET", "input")],
+                 'R': [P(4, "SWCLK", "input"), P(5, "GND", "power_in"),
+                       P(6, "SWO", "no_connect")]},
                 hide_pin_names=True)
 
 # REV B: 3 positions now (VIN, GND, IGN) - the ignition wire wakes the MCU
@@ -695,6 +703,14 @@ register_symbol(f"{LIB}:LED_G", "D", "CSL0902ET1C green LED (AEC-Q102)", "ROHM_C
                 {'T': [P(2, "A", "passive")], 'B': [P(1, "K", "passive")]},
                 hide_pin_names=True,
                 datasheet="https://fscdn.rohm.com/en/products/databook/datasheet/opto/led/chip_mono/csl0902et1(c)-e.pdf")
+
+# Littelfuse SM24CANB-02HTG (AEC-Q101, SOT-23): two bidirectional 24 V TVS channels, pins 1 and 2 each to the common pin 3
+# (datasheet Rev 10/09/17: VRWM 24 V, VBR 26.7 V min at 1 mA, VC 34 V at 1 A / 50 V at 10 A (8/20 us), 30 pF, +-30 kV IEC 61000-4-2).
+register_symbol(f"{LIB}:TVS_ARRAY", "D", "SM24CANB-02HTG dual 24 V TVS (AEC-Q101)",
+                "Package_TO_SOT_SMD:SOT-23",
+                {'L': [P(1, "IO1", "passive"), P(2, "IO2", "passive")],
+                 'B': [P(3, "COM", "passive")]},
+                datasheet="https://www.littelfuse.com/products/tvs-diode-arrays/general-purpose-esd-protection/sm24canb/sm24canb_02htg.aspx")
 
 # --- CAN0 transceiver (plan Step 2): real TJA1043T (SO-14), pin table and
 # wiring topology reused VERBATIM from ecu-pcb's own already-verified
@@ -877,6 +893,8 @@ place(f"{LIB}:C_V", "C49", "100nF CTMR", 1000, 650,
 # --- MCU core (fixed pins only) ---
 place(f"{LIB}:MCU_STM32", "U1", "NXP S32K144 automotive (AEC-Q100)", 110, 250,
       conn={'11': ('wire',), '12': ('wire',),
+            # review 2026-10-17: series termination at the driver (see R84/R85 below)
+            '29': ('label', 'LPSPI2_SCK_MCU'), '25': ('label', 'LPSPI2_SOUT_MCU'),
             # LPSPI2's real hardware PCS0 (pin 30) is genuinely unused by
             # design (plan Step 3): the 4 GC9A01 aux gauges share one SPI
             # bus but each needs its OWN chip select, so 4 individual
@@ -892,10 +910,10 @@ place(f"{LIB}:MCU_STM32", "U1", "NXP S32K144 automotive (AEC-Q100)", 110, 250,
 
 y_y1 = pin_pos[("U1", "11")][1] - off(f"{LIB}:XTAL", 1)[1]
 place(f"{LIB}:XTAL", "Y1", "8MHz (AEC-Q200)", 65, y_y1,
-      conn={'1': ('wire',), '2': ('wire',),
-            '3': ('label', 'OSC_IN'), '4': ('label', 'OSC_OUT')})
+      conn={'1': ('wire',), '3': ('wire',),
+            '2': ('pwr', 'GND', 5.08), '4': ('pwr', 'GND', 7.62)})
 wire_pins("Y1", 1, "U1", 11, label="OSC_IN")
-wire_pins("Y1", 2, "U1", 12, label="OSC_OUT")
+wire_pins("Y1", 3, "U1", 12, label="OSC_OUT")
 place(f"{LIB}:C_V", "C4", "18pF (AEC-Q200)", 45, y_y1 + 30,
       conn={'1': ('label', 'OSC_IN'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_V", "C5", "18pF (AEC-Q200)", 68, y_y1 + 30,
@@ -912,10 +930,9 @@ place(f"{LIB}:C_V", "C8", "1uF (AEC-Q200)", 175, 210,
 place(f"{LIB}:R_V", "R1", "10k pull-up (AEC-Q200)", 150, 300,
       conn={'1': ('pwr', '+3V3'), '2': ('label', 'RESET')})
 
-place(f"{LIB}:CONN_SWD", "J2", "SWD Tag-Connect", 110, 320,
-      conn={'1': ('label', 'SWDIO'), '3': ('label', 'SWCLK'),
-            '5': ('label', 'RESET'),
-            '2': ('pwr', '+3V3', 5.08), '6': ('pwr', 'GND', 5.08)})
+place(f"{LIB}:CONN_SWD", "J2", "SWD Tag-Connect TC2030-IDC-NL (pin order per Tag-Connect: 1 VCC, 2 SWDIO, 3 nRESET, 4 SWCLK, 5 GND, 6 SWO)", 110, 320,
+      conn={'1': ('pwr', '+3V3', 5.08), '2': ('label', 'SWDIO'), '3': ('label', 'RESET'),
+            '4': ('label', 'SWCLK'), '5': ('pwr', 'GND', 5.08)})
 
 # --- CAN0 transceiver (plan Step 2) ---
 section_text("CAN0: NXP TJA1043T TRANSCEIVER (PLAN STEP 2)", 400, 175)
@@ -1206,7 +1223,7 @@ section_text("SENSOR ADC FRONT END: FUEL / OIL / TEMP / BATTERY (PLAN STEP 5)", 
 # by the series resistor. Resolution is lower than before but still
 # 3-4 counts per ohm at the low end; the ADC reference is the same 3V3 rail so
 # the reading stays ratiometric.
-place(f"{LIB}:R_V", "R16", "1k fuel pull-up to +3V3 (11mW at a 10R sender) (AEC-Q200)",
+place(f"{LIB}:R_1206", "R16", "1k fuel pull-up to +3V3, 1206: a wire shorted to 14.4 V puts 123 mW in it (11mW at a 10R sender) (AEC-Q200)",
       30, 590,
       conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_FUEL')})
 place(f"{LIB}:R_V", "R55", "1k fuel ADC series (AEC-Q200)", 30, 620,
@@ -1215,7 +1232,7 @@ place(f"{LIB}:D_BAV99", "D12", "BAV99-Q fuel input clamp (AEC-Q101)", 70, 625,
       conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'ADC_FUEL')})
 place(f"{LIB}:C_V", "C28", "100nF ADC_FUEL smoothing (AEC-Q200)", 60, 590,
       conn={'1': ('label', 'ADC_FUEL'), '2': ('pwr', 'GND')})
-place(f"{LIB}:R_V", "R17", "1k oil pull-up to +3V3 (AEC-Q200)",
+place(f"{LIB}:R_1206", "R17", "1k oil pull-up to +3V3, 1206 (AEC-Q200)",
       110, 590,
       conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_OIL')})
 place(f"{LIB}:R_V", "R56", "1k oil ADC series (AEC-Q200)", 110, 620,
@@ -1230,7 +1247,7 @@ place(f"{LIB}:C_V", "C29", "100nF ADC_OIL smoothing (AEC-Q200)", 140, 590,
 # hot) up to Vout=2.48V at 300R (70F, cold) - a real, wide, usable swing
 # across the sender's genuine full range, not reused from the fuel/oil
 # value just because it's convenient.
-place(f"{LIB}:R_V", "R18", "1k coolant temp pull-up to +3V3 (AEC-Q200)",
+place(f"{LIB}:R_1206", "R18", "1k coolant temp pull-up to +3V3, 1206 (AEC-Q200)",
       190, 590,
       conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_TEMP')})
 place(f"{LIB}:R_V", "R57", "1k temp ADC series (AEC-Q200)", 190, 620,
@@ -1287,6 +1304,46 @@ place(f"{LIB}:CONN_HARNESS", "J7", "DTM06-5S nickel, CAN0 + 3x sender input (sea
 # is now fully wired (PCB layout, routing, DRC, and BOM are separate,
 # not-yet-started next phases, same real "schematic done != board done"
 # distinction every sibling project's own history draws).
+
+# ============================ REVIEW FIXES 2026-10-17 ===============================
+section_text("REVIEW 2026-10-17: CONNECTOR PROTECTION, SPI SERIES TERMINATION, EXTRA BULK, BACKLIGHT GATE PULL-DOWN", 30, 700)
+# Off-board lines get a TVS where the line is low impedance (CAN bus, the three sender inputs, Hall speed); the 33 k..56 k
+# inputs (lamps, ignition, tach, dimmer) are protected by their series resistor plus the BAV99-Q clamp. See docs/electrical-review.md.
+place(f"{LIB}:TVS_ARRAY", "D28", "SM24CANB-02HTG TVS on the car CAN bus, at J7 (AEC-Q101)", 60, 740,
+      conn={'1': ('label', 'CAN0_H'), '2': ('label', 'CAN0_L'), '3': ('pwr', 'GND', 5.08)})
+place(f"{LIB}:TVS_ARRAY", "D29", "SM24CANB-02HTG TVS on the fuel and oil sender wires, at J7 (AEC-Q101)", 120, 740,
+      conn={'1': ('label', 'SENDER_FUEL'), '2': ('label', 'SENDER_OIL'), '3': ('pwr', 'GND', 5.08)})
+place(f"{LIB}:TVS_ARRAY", "D30", "SM24CANB-02HTG TVS on the coolant sender wire, at J7 (second channel unused) (AEC-Q101)", 180, 740,
+      conn={'1': ('label', 'SENDER_TEMP'), '2': ('nc',), '3': ('pwr', 'GND', 5.08)})
+place(f"{LIB}:TVS_ARRAY", "D31", "SM24CANB-02HTG TVS on the private CAN link, at J8 (AEC-Q101)", 240, 740,
+      conn={'1': ('label', 'CAN1_H'), '2': ('label', 'CAN1_L'), '3': ('pwr', 'GND', 5.08)})
+place(f"{LIB}:TVS_ARRAY", "D32", "SM24CANB-02HTG TVS on the Hall speed wire, at J9 (second channel unused) (AEC-Q101)", 300, 740,
+      conn={'1': ('label', 'SPEED_RAW'), '2': ('nc',), '3': ('pwr', 'GND', 5.08)})
+# SPI series termination: SCK and MOSI each run about 440 mm across the board to four modules (see the signal-integrity
+# section of the review): 33 ohm at the MCU pin damps the reflections of a ~3 ns edge on a line whose round trip is ~6 ns.
+place(f"{LIB}:R_V", "R84", "33R SPI SCK series termination at the MCU (AEC-Q200)", 360, 740,
+      conn={'1': ('label', 'LPSPI2_SCK_MCU'), '2': ('label', 'LPSPI2_SCK')})
+place(f"{LIB}:R_V", "R85", "33R SPI MOSI series termination at the MCU (AEC-Q200)", 400, 740,
+      conn={'1': ('label', 'LPSPI2_SOUT_MCU'), '2': ('label', 'LPSPI2_SOUT')})
+# Q2 gate had no defined level while the MCU pin is high-impedance (reset, boot).
+place(f"{LIB}:R_V", "R86", "100k BL_GATE pull-down, backlights stay off until firmware drives BL_EN (AEC-Q200)", 440, 740,
+      conn={'1': ('label', 'BL_GATE'), '2': ('pwr', 'GND')})
+# TJA1043T EN and STB_N have no internal pull-down (NXP TJA1043 Rev. 6, static characteristics: IIL = +-1 uA at 0 V), so while the
+# MCU pins PTB5/PTB4 are high-impedance (reset, boot) the transceiver's mode inputs would float. 100k to GND defines
+# STB_N = EN = low (the low-power state) until firmware drives them.
+place(f"{LIB}:R_V", "R87", "100k CAN0_EN pull-down, defined state while the MCU resets (AEC-Q200)", 620, 740,
+      conn={'1': ('label', 'CAN0_EN'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R88", "100k CAN0_STB_N pull-down, defined state while the MCU resets (AEC-Q200)", 660, 740,
+      conn={'1': ('label', 'CAN0_STB_N'), '2': ('pwr', 'GND')})
+# LDO input capacitor next to U4 (TLV733P-Q1 DS 8.1.1) and more ceramic bulk at VIN_PROT: a +75 V ISO 7637-2 pulse 2a charges
+# the (derated, ~3.5 uF) input capacitance for the OV comparator's 4-7 us de-glitch and the simulation overshoots 39.5 V
+# (LMR33630-Q1 absolute maximum 38 V); two more 10 uF 50 V parts bring it to about 31 V.
+place(f"{LIB}:C_V", "C58", "1uF X7R LDO input (AEC-Q200)", 480, 740,
+      conn={'1': ('pwr', '+5V'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_1210", "C59", "10uF 50V X7S extra bulk at VIN_PROT (AEC-Q200)", 520, 740,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_1210", "C60", "10uF 50V X7S extra bulk at VIN_PROT (AEC-Q200)", 560, 740,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
 
 NOTE_LINES = [
     "NOTES:",

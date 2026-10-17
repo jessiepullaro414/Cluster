@@ -1,0 +1,1135 @@
+{
+ "source": "NXP S32K144_IO_Signal_Description_Input_Multiplexing.xlsx (attachment to S32K1xx Reference Manual Rev 14.2), sheet 'Pinout', column '64 LQFP'; supplies from sheet 'Supplies'",
+ "package": "LQFP-64",
+ "pins": {
+  "1": {
+   "name": "PTD1",
+   "default": "DISABLED",
+   "alts": [
+    "PTD1",
+    "FTM0_CH3",
+    "LPSPI1_SIN",
+    "FTM2_CH1",
+    "FXIO_D1",
+    "TRGMUX_OUT2"
+   ],
+   "functions": [
+    "FTM0_CH3",
+    "FTM2_CH1",
+    "FXIO_D1",
+    "LPSPI1_SIN",
+    "PTD1",
+    "TRGMUX_OUT2"
+   ]
+  },
+  "2": {
+   "name": "PTD0",
+   "default": "DISABLED",
+   "alts": [
+    "PTD0",
+    "FTM0_CH2",
+    "LPSPI1_SCK",
+    "FTM2_CH0",
+    "FXIO_D0",
+    "TRGMUX_OUT1"
+   ],
+   "functions": [
+    "FTM0_CH2",
+    "FTM2_CH0",
+    "FXIO_D0",
+    "LPSPI1_SCK",
+    "PTD0",
+    "TRGMUX_OUT1"
+   ]
+  },
+  "3": {
+   "name": "PTE11",
+   "default": "DISABLED",
+   "alts": [
+    "PTE11",
+    "LPSPI2_PCS0",
+    "LPTMR0_ALT1",
+    "FTM2_CH5",
+    "FXIO_D5",
+    "TRGMUX_OUT5"
+   ],
+   "functions": [
+    "FTM2_CH5",
+    "FXIO_D5",
+    "LPSPI2_PCS0",
+    "LPTMR0_ALT1",
+    "PTE11",
+    "TRGMUX_OUT5"
+   ]
+  },
+  "4": {
+   "name": "PTE10",
+   "default": "DISABLED",
+   "alts": [
+    "PTE10",
+    "CLKOUT",
+    "LPSPI2_PCS1",
+    "FTM2_CH4",
+    "FXIO_D4",
+    "TRGMUX_OUT4"
+   ],
+   "functions": [
+    "CLKOUT",
+    "FTM2_CH4",
+    "FXIO_D4",
+    "LPSPI2_PCS1",
+    "PTE10",
+    "TRGMUX_OUT4"
+   ]
+  },
+  "5": {
+   "name": "PTE5",
+   "default": "DISABLED",
+   "alts": [
+    "PTE5",
+    "TCLK2",
+    "FTM2_QD_PHA",
+    "FTM2_CH3",
+    "CAN0_TX",
+    "FXIO_D7",
+    "EWM_IN"
+   ],
+   "functions": [
+    "CAN0_TX",
+    "EWM_IN",
+    "FTM2_CH3",
+    "FTM2_QD_PHA",
+    "FXIO_D7",
+    "PTE5",
+    "TCLK2"
+   ]
+  },
+  "6": {
+   "name": "PTE4",
+   "default": "DISABLED",
+   "alts": [
+    "PTE4",
+    "FTM2_QD_PHB",
+    "FTM2_CH2",
+    "CAN0_RX",
+    "FXIO_D6",
+    "EWM_OUT_b"
+   ],
+   "functions": [
+    "CAN0_RX",
+    "EWM_OUT_b",
+    "FTM2_CH2",
+    "FTM2_QD_PHB",
+    "FXIO_D6",
+    "PTE4"
+   ]
+  },
+  "7": {
+   "name": "VDD",
+   "default": "VDD",
+   "alts": [
+    "VDD"
+   ],
+   "functions": [
+    "VDD"
+   ]
+  },
+  "8": {
+   "name": "VDDA",
+   "default": "VDDA",
+   "alts": [
+    "VDDA"
+   ],
+   "functions": [
+    "VDDA"
+   ]
+  },
+  "9": {
+   "name": "VREFH",
+   "default": "VREFH",
+   "alts": [
+    "VREFH"
+   ],
+   "functions": [
+    "VREFH"
+   ]
+  },
+  "10": {
+   "name": "VSS",
+   "default": "VSS",
+   "alts": [
+    "VSS"
+   ],
+   "functions": [
+    "VSS"
+   ]
+  },
+  "11": {
+   "name": "PTB7",
+   "default": "EXTAL",
+   "alts": [
+    "EXTAL",
+    "PTB7",
+    "LPI2C0_SCL"
+   ],
+   "functions": [
+    "EXTAL",
+    "LPI2C0_SCL",
+    "PTB7"
+   ]
+  },
+  "12": {
+   "name": "PTB6",
+   "default": "XTAL",
+   "alts": [
+    "XTAL",
+    "PTB6",
+    "LPI2C0_SDA"
+   ],
+   "functions": [
+    "LPI2C0_SDA",
+    "PTB6",
+    "XTAL"
+   ]
+  },
+  "13": {
+   "name": "PTE3",
+   "default": "DISABLED",
+   "alts": [
+    "PTE3",
+    "FTM0_FLT0",
+    "LPUART2_RTS",
+    "FTM2_FLT0",
+    "TRGMUX_IN6",
+    "CMP0_OUT"
+   ],
+   "functions": [
+    "CMP0_OUT",
+    "FTM0_FLT0",
+    "FTM2_FLT0",
+    "LPUART2_RTS",
+    "PTE3",
+    "TRGMUX_IN6"
+   ]
+  },
+  "14": {
+   "name": "PTD16",
+   "default": "DISABLED",
+   "alts": [
+    "PTD16",
+    "FTM0_CH1",
+    "LPSPI0_SIN",
+    "CMP0_RRT"
+   ],
+   "functions": [
+    "CMP0_RRT",
+    "FTM0_CH1",
+    "LPSPI0_SIN",
+    "PTD16"
+   ]
+  },
+  "15": {
+   "name": "PTD15",
+   "default": "DISABLED",
+   "alts": [
+    "PTD15",
+    "FTM0_CH0",
+    "LPSPI0_SCK"
+   ],
+   "functions": [
+    "FTM0_CH0",
+    "LPSPI0_SCK",
+    "PTD15"
+   ]
+  },
+  "16": {
+   "name": "PTE9",
+   "default": "DISABLED",
+   "alts": [
+    "PTE9",
+    "FTM0_CH7",
+    "LPUART2_CTS"
+   ],
+   "functions": [
+    "FTM0_CH7",
+    "LPUART2_CTS",
+    "PTE9"
+   ]
+  },
+  "17": {
+   "name": "PTE8",
+   "default": "CMP0_IN3",
+   "alts": [
+    "CMP0_IN3",
+    "PTE8",
+    "FTM0_CH6"
+   ],
+   "functions": [
+    "CMP0_IN3",
+    "FTM0_CH6",
+    "PTE8"
+   ]
+  },
+  "18": {
+   "name": "PTB5",
+   "default": "DISABLED",
+   "alts": [
+    "PTB5",
+    "FTM0_CH5",
+    "LPSPI0_PCS1",
+    "LPSPI0_PCS0",
+    "CLKOUT",
+    "TRGMUX_IN0"
+   ],
+   "functions": [
+    "CLKOUT",
+    "FTM0_CH5",
+    "LPSPI0_PCS0",
+    "LPSPI0_PCS1",
+    "PTB5",
+    "TRGMUX_IN0"
+   ]
+  },
+  "19": {
+   "name": "PTB4",
+   "default": "DISABLED",
+   "alts": [
+    "PTB4",
+    "FTM0_CH4",
+    "LPSPI0_SOUT",
+    "TRGMUX_IN1"
+   ],
+   "functions": [
+    "FTM0_CH4",
+    "LPSPI0_SOUT",
+    "PTB4",
+    "TRGMUX_IN1"
+   ]
+  },
+  "20": {
+   "name": "PTC3",
+   "default": "ADC0_SE11/CMP0_IN4",
+   "alts": [
+    "ADC0_SE11/CMP0_IN4",
+    "PTC3",
+    "FTM0_CH3",
+    "CAN0_TX",
+    "LPUART0_TX"
+   ],
+   "functions": [
+    "ADC0_SE11",
+    "CAN0_TX",
+    "CMP0_IN4",
+    "FTM0_CH3",
+    "LPUART0_TX",
+    "PTC3"
+   ]
+  },
+  "21": {
+   "name": "PTC2",
+   "default": "ADC0_SE10/CMP0_IN5",
+   "alts": [
+    "ADC0_SE10/CMP0_IN5",
+    "PTC2",
+    "FTM0_CH2",
+    "CAN0_RX",
+    "LPUART0_RX"
+   ],
+   "functions": [
+    "ADC0_SE10",
+    "CAN0_RX",
+    "CMP0_IN5",
+    "FTM0_CH2",
+    "LPUART0_RX",
+    "PTC2"
+   ]
+  },
+  "22": {
+   "name": "PTD7",
+   "default": "CMP0_IN6",
+   "alts": [
+    "CMP0_IN6",
+    "PTD7",
+    "LPUART2_TX",
+    "FTM2_FLT3"
+   ],
+   "functions": [
+    "CMP0_IN6",
+    "FTM2_FLT3",
+    "LPUART2_TX",
+    "PTD7"
+   ]
+  },
+  "23": {
+   "name": "PTD6",
+   "default": "CMP0_IN7",
+   "alts": [
+    "CMP0_IN7",
+    "PTD6",
+    "LPUART2_RX",
+    "FTM2_FLT2"
+   ],
+   "functions": [
+    "CMP0_IN7",
+    "FTM2_FLT2",
+    "LPUART2_RX",
+    "PTD6"
+   ]
+  },
+  "24": {
+   "name": "PTD5",
+   "default": "DISABLED",
+   "alts": [
+    "PTD5",
+    "FTM2_CH3",
+    "LPTMR0_ALT2",
+    "FTM2_FLT1",
+    "TRGMUX_IN7"
+   ],
+   "functions": [
+    "FTM2_CH3",
+    "FTM2_FLT1",
+    "LPTMR0_ALT2",
+    "PTD5",
+    "TRGMUX_IN7"
+   ]
+  },
+  "25": {
+   "name": "PTC1",
+   "default": "ADC0_SE9",
+   "alts": [
+    "ADC0_SE9",
+    "PTC1",
+    "FTM0_CH1",
+    "LPSPI2_SOUT",
+    "FTM1_CH7"
+   ],
+   "functions": [
+    "ADC0_SE9",
+    "FTM0_CH1",
+    "FTM1_CH7",
+    "LPSPI2_SOUT",
+    "PTC1"
+   ]
+  },
+  "26": {
+   "name": "PTC0",
+   "default": "ADC0_SE8",
+   "alts": [
+    "ADC0_SE8",
+    "PTC0",
+    "FTM0_CH0",
+    "LPSPI2_SIN",
+    "FTM1_CH6"
+   ],
+   "functions": [
+    "ADC0_SE8",
+    "FTM0_CH0",
+    "FTM1_CH6",
+    "LPSPI2_SIN",
+    "PTC0"
+   ]
+  },
+  "27": {
+   "name": "PTC17",
+   "default": "ADC0_SE15",
+   "alts": [
+    "ADC0_SE15",
+    "PTC17",
+    "FTM1_FLT3",
+    "CAN2_TX"
+   ],
+   "functions": [
+    "ADC0_SE15",
+    "CAN2_TX",
+    "FTM1_FLT3",
+    "PTC17"
+   ]
+  },
+  "28": {
+   "name": "PTC16",
+   "default": "ADC0_SE14",
+   "alts": [
+    "ADC0_SE14",
+    "PTC16",
+    "FTM1_FLT2",
+    "CAN2_RX"
+   ],
+   "functions": [
+    "ADC0_SE14",
+    "CAN2_RX",
+    "FTM1_FLT2",
+    "PTC16"
+   ]
+  },
+  "29": {
+   "name": "PTC15",
+   "default": "ADC0_SE13",
+   "alts": [
+    "ADC0_SE13",
+    "PTC15",
+    "FTM1_CH3",
+    "LPSPI2_SCK",
+    "TRGMUX_IN8"
+   ],
+   "functions": [
+    "ADC0_SE13",
+    "FTM1_CH3",
+    "LPSPI2_SCK",
+    "PTC15",
+    "TRGMUX_IN8"
+   ]
+  },
+  "30": {
+   "name": "PTC14",
+   "default": "ADC0_SE12",
+   "alts": [
+    "ADC0_SE12",
+    "PTC14",
+    "FTM1_CH2",
+    "LPSPI2_PCS0",
+    "TRGMUX_IN9"
+   ],
+   "functions": [
+    "ADC0_SE12",
+    "FTM1_CH2",
+    "LPSPI2_PCS0",
+    "PTC14",
+    "TRGMUX_IN9"
+   ]
+  },
+  "31": {
+   "name": "PTB3",
+   "default": "ADC0_SE7",
+   "alts": [
+    "ADC0_SE7",
+    "PTB3",
+    "FTM1_CH1",
+    "LPSPI0_SIN",
+    "FTM1_QD_PHA",
+    "TRGMUX_IN2"
+   ],
+   "functions": [
+    "ADC0_SE7",
+    "FTM1_CH1",
+    "FTM1_QD_PHA",
+    "LPSPI0_SIN",
+    "PTB3",
+    "TRGMUX_IN2"
+   ]
+  },
+  "32": {
+   "name": "PTB2",
+   "default": "ADC0_SE6",
+   "alts": [
+    "ADC0_SE6",
+    "PTB2",
+    "FTM1_CH0",
+    "LPSPI0_SCK",
+    "FTM1_QD_PHB",
+    "TRGMUX_IN3"
+   ],
+   "functions": [
+    "ADC0_SE6",
+    "FTM1_CH0",
+    "FTM1_QD_PHB",
+    "LPSPI0_SCK",
+    "PTB2",
+    "TRGMUX_IN3"
+   ]
+  },
+  "33": {
+   "name": "PTB1",
+   "default": "ADC0_SE5/ADC1_SE15",
+   "alts": [
+    "ADC0_SE5/ADC1_SE15",
+    "PTB1",
+    "LPUART0_TX",
+    "LPSPI0_SOUT",
+    "TCLK0",
+    "CAN0_TX"
+   ],
+   "functions": [
+    "ADC0_SE5",
+    "ADC1_SE15",
+    "CAN0_TX",
+    "LPSPI0_SOUT",
+    "LPUART0_TX",
+    "PTB1",
+    "TCLK0"
+   ]
+  },
+  "34": {
+   "name": "PTB0",
+   "default": "ADC0_SE4/ADC1_SE14",
+   "alts": [
+    "ADC0_SE4/ADC1_SE14",
+    "PTB0",
+    "LPUART0_RX",
+    "LPSPI0_PCS0",
+    "LPTMR0_ALT3",
+    "CAN0_RX"
+   ],
+   "functions": [
+    "ADC0_SE4",
+    "ADC1_SE14",
+    "CAN0_RX",
+    "LPSPI0_PCS0",
+    "LPTMR0_ALT3",
+    "LPUART0_RX",
+    "PTB0"
+   ]
+  },
+  "35": {
+   "name": "PTC9",
+   "default": "DISABLED",
+   "alts": [
+    "PTC9",
+    "LPUART1_TX",
+    "FTM1_FLT1",
+    "LPUART0_RTS"
+   ],
+   "functions": [
+    "FTM1_FLT1",
+    "LPUART0_RTS",
+    "LPUART1_TX",
+    "PTC9"
+   ]
+  },
+  "36": {
+   "name": "PTC8",
+   "default": "DISABLED",
+   "alts": [
+    "PTC8",
+    "LPUART1_RX",
+    "FTM1_FLT0",
+    "LPUART0_CTS"
+   ],
+   "functions": [
+    "FTM1_FLT0",
+    "LPUART0_CTS",
+    "LPUART1_RX",
+    "PTC8"
+   ]
+  },
+  "37": {
+   "name": "PTA7",
+   "default": "ADC0_SE3",
+   "alts": [
+    "ADC0_SE3",
+    "PTA7",
+    "FTM0_FLT2",
+    "RTC_CLKIN",
+    "LPUART1_RTS"
+   ],
+   "functions": [
+    "ADC0_SE3",
+    "FTM0_FLT2",
+    "LPUART1_RTS",
+    "PTA7",
+    "RTC_CLKIN"
+   ]
+  },
+  "38": {
+   "name": "PTA6",
+   "default": "ADC0_SE2",
+   "alts": [
+    "ADC0_SE2",
+    "PTA6",
+    "FTM0_FLT1",
+    "LPSPI1_PCS1",
+    "LPUART1_CTS"
+   ],
+   "functions": [
+    "ADC0_SE2",
+    "FTM0_FLT1",
+    "LPSPI1_PCS1",
+    "LPUART1_CTS",
+    "PTA6"
+   ]
+  },
+  "39": {
+   "name": "PTE7",
+   "default": "DISABLED",
+   "alts": [
+    "PTE7",
+    "FTM0_CH7",
+    "FTM3_FLT0"
+   ],
+   "functions": [
+    "FTM0_CH7",
+    "FTM3_FLT0",
+    "PTE7"
+   ]
+  },
+  "40": {
+   "name": "VSS",
+   "default": "VSS",
+   "alts": [
+    "VSS"
+   ],
+   "functions": [
+    "VSS"
+   ]
+  },
+  "41": {
+   "name": "VDD",
+   "default": "VDD",
+   "alts": [
+    "VDD"
+   ],
+   "functions": [
+    "VDD"
+   ]
+  },
+  "42": {
+   "name": "PTB13",
+   "default": "ADC1_SE8/ADC0_SE8",
+   "alts": [
+    "ADC1_SE8/ADC0_SE8",
+    "PTB13",
+    "FTM0_CH1",
+    "FTM3_FLT1",
+    "CAN2_TX"
+   ],
+   "functions": [
+    "ADC0_SE8",
+    "ADC1_SE8",
+    "CAN2_TX",
+    "FTM0_CH1",
+    "FTM3_FLT1",
+    "PTB13"
+   ]
+  },
+  "43": {
+   "name": "PTB12",
+   "default": "ADC1_SE7",
+   "alts": [
+    "ADC1_SE7",
+    "PTB12",
+    "FTM0_CH0",
+    "FTM3_FLT2",
+    "CAN2_RX"
+   ],
+   "functions": [
+    "ADC1_SE7",
+    "CAN2_RX",
+    "FTM0_CH0",
+    "FTM3_FLT2",
+    "PTB12"
+   ]
+  },
+  "44": {
+   "name": "PTD4",
+   "default": "ADC1_SE6",
+   "alts": [
+    "ADC1_SE6",
+    "PTD4",
+    "FTM0_FLT3",
+    "FTM3_FLT3"
+   ],
+   "functions": [
+    "ADC1_SE6",
+    "FTM0_FLT3",
+    "FTM3_FLT3",
+    "PTD4"
+   ]
+  },
+  "45": {
+   "name": "PTD3",
+   "default": "ADC1_SE3",
+   "alts": [
+    "ADC1_SE3",
+    "PTD3",
+    "FTM3_CH5",
+    "LPSPI1_PCS0",
+    "FXIO_D5",
+    "FXIO_D7",
+    "TRGMUX_IN4",
+    "NMI_b"
+   ],
+   "functions": [
+    "ADC1_SE3",
+    "FTM3_CH5",
+    "FXIO_D5",
+    "FXIO_D7",
+    "LPSPI1_PCS0",
+    "NMI_b",
+    "PTD3",
+    "TRGMUX_IN4"
+   ]
+  },
+  "46": {
+   "name": "PTD2",
+   "default": "ADC1_SE2",
+   "alts": [
+    "ADC1_SE2",
+    "PTD2",
+    "FTM3_CH4",
+    "LPSPI1_SOUT",
+    "FXIO_D4",
+    "FXIO_D6",
+    "TRGMUX_IN5"
+   ],
+   "functions": [
+    "ADC1_SE2",
+    "FTM3_CH4",
+    "FXIO_D4",
+    "FXIO_D6",
+    "LPSPI1_SOUT",
+    "PTD2",
+    "TRGMUX_IN5"
+   ]
+  },
+  "47": {
+   "name": "PTA3",
+   "default": "ADC1_SE1",
+   "alts": [
+    "ADC1_SE1",
+    "PTA3",
+    "FTM3_CH1",
+    "LPI2C0_SCL",
+    "EWM_IN",
+    "FXIO_D5",
+    "LPUART0_TX"
+   ],
+   "functions": [
+    "ADC1_SE1",
+    "EWM_IN",
+    "FTM3_CH1",
+    "FXIO_D5",
+    "LPI2C0_SCL",
+    "LPUART0_TX",
+    "PTA3"
+   ]
+  },
+  "48": {
+   "name": "PTA2",
+   "default": "ADC1_SE0",
+   "alts": [
+    "ADC1_SE0",
+    "PTA2",
+    "FTM3_CH0",
+    "LPI2C0_SDA",
+    "EWM_OUT_b",
+    "FXIO_D4",
+    "LPUART0_RX"
+   ],
+   "functions": [
+    "ADC1_SE0",
+    "EWM_OUT_b",
+    "FTM3_CH0",
+    "FXIO_D4",
+    "LPI2C0_SDA",
+    "LPUART0_RX",
+    "PTA2"
+   ]
+  },
+  "49": {
+   "name": "PTA1",
+   "default": "ADC0_SE1/CMP0_IN1",
+   "alts": [
+    "ADC0_SE1/CMP0_IN1",
+    "PTA1",
+    "FTM1_CH1",
+    "LPI2C0_SDAS",
+    "FXIO_D3",
+    "FTM1_QD_PHA",
+    "LPUART0_RTS",
+    "TRGMUX_OUT0"
+   ],
+   "functions": [
+    "ADC0_SE1",
+    "CMP0_IN1",
+    "FTM1_CH1",
+    "FTM1_QD_PHA",
+    "FXIO_D3",
+    "LPI2C0_SDAS",
+    "LPUART0_RTS",
+    "PTA1",
+    "TRGMUX_OUT0"
+   ]
+  },
+  "50": {
+   "name": "PTA0",
+   "default": "ADC0_SE0/CMP0_IN0",
+   "alts": [
+    "ADC0_SE0/CMP0_IN0",
+    "PTA0",
+    "FTM2_CH1",
+    "LPI2C0_SCLS",
+    "FXIO_D2",
+    "FTM2_QD_PHA",
+    "LPUART0_CTS",
+    "TRGMUX_OUT3"
+   ],
+   "functions": [
+    "ADC0_SE0",
+    "CMP0_IN0",
+    "FTM2_CH1",
+    "FTM2_QD_PHA",
+    "FXIO_D2",
+    "LPI2C0_SCLS",
+    "LPUART0_CTS",
+    "PTA0",
+    "TRGMUX_OUT3"
+   ]
+  },
+  "51": {
+   "name": "PTC7",
+   "default": "ADC1_SE5",
+   "alts": [
+    "ADC1_SE5",
+    "PTC7",
+    "LPUART1_TX",
+    "CAN1_TX",
+    "FTM3_CH3",
+    "FTM1_QD_PHA"
+   ],
+   "functions": [
+    "ADC1_SE5",
+    "CAN1_TX",
+    "FTM1_QD_PHA",
+    "FTM3_CH3",
+    "LPUART1_TX",
+    "PTC7"
+   ]
+  },
+  "52": {
+   "name": "PTC6",
+   "default": "ADC1_SE4",
+   "alts": [
+    "ADC1_SE4",
+    "PTC6",
+    "LPUART1_RX",
+    "CAN1_RX",
+    "FTM3_CH2",
+    "FTM1_QD_PHB"
+   ],
+   "functions": [
+    "ADC1_SE4",
+    "CAN1_RX",
+    "FTM1_QD_PHB",
+    "FTM3_CH2",
+    "LPUART1_RX",
+    "PTC6"
+   ]
+  },
+  "53": {
+   "name": "PTE6",
+   "default": "ADC1_SE11",
+   "alts": [
+    "ADC1_SE11",
+    "PTE6",
+    "LPSPI0_PCS2",
+    "FTM3_CH7",
+    "LPUART1_RTS"
+   ],
+   "functions": [
+    "ADC1_SE11",
+    "FTM3_CH7",
+    "LPSPI0_PCS2",
+    "LPUART1_RTS",
+    "PTE6"
+   ]
+  },
+  "54": {
+   "name": "PTE2",
+   "default": "ADC1_SE10",
+   "alts": [
+    "ADC1_SE10",
+    "PTE2",
+    "LPSPI0_SOUT",
+    "LPTMR0_ALT3",
+    "FTM3_CH6",
+    "LPUART1_CTS"
+   ],
+   "functions": [
+    "ADC1_SE10",
+    "FTM3_CH6",
+    "LPSPI0_SOUT",
+    "LPTMR0_ALT3",
+    "LPUART1_CTS",
+    "PTE2"
+   ]
+  },
+  "55": {
+   "name": "PTA13",
+   "default": "DISABLED",
+   "alts": [
+    "PTA13",
+    "FTM1_CH7",
+    "CAN1_TX",
+    "FTM2_QD_PHA"
+   ],
+   "functions": [
+    "CAN1_TX",
+    "FTM1_CH7",
+    "FTM2_QD_PHA",
+    "PTA13"
+   ]
+  },
+  "56": {
+   "name": "PTA12",
+   "default": "DISABLED",
+   "alts": [
+    "PTA12",
+    "FTM1_CH6",
+    "CAN1_RX",
+    "FTM2_QD_PHB"
+   ],
+   "functions": [
+    "CAN1_RX",
+    "FTM1_CH6",
+    "FTM2_QD_PHB",
+    "PTA12"
+   ]
+  },
+  "57": {
+   "name": "PTA11",
+   "default": "DISABLED",
+   "alts": [
+    "PTA11",
+    "FTM1_CH5",
+    "FXIO_D1",
+    "CMP0_RRT"
+   ],
+   "functions": [
+    "CMP0_RRT",
+    "FTM1_CH5",
+    "FXIO_D1",
+    "PTA11"
+   ]
+  },
+  "58": {
+   "name": "PTA10",
+   "default": "JTAG_TDO/noetm_TRACE_SWO",
+   "alts": [
+    "PTA10",
+    "FTM1_CH4",
+    "FXIO_D0",
+    "JTAG_TDO/noetm_TRACE_SWO"
+   ],
+   "functions": [
+    "FTM1_CH4",
+    "FXIO_D0",
+    "JTAG_TDO",
+    "PTA10",
+    "noetm_TRACE_SWO"
+   ]
+  },
+  "59": {
+   "name": "PTE1",
+   "default": "DISABLED",
+   "alts": [
+    "PTE1",
+    "LPSPI0_SIN",
+    "LPI2C0_HREQ",
+    "LPSPI1_PCS0",
+    "FTM1_FLT1"
+   ],
+   "functions": [
+    "FTM1_FLT1",
+    "LPI2C0_HREQ",
+    "LPSPI0_SIN",
+    "LPSPI1_PCS0",
+    "PTE1"
+   ]
+  },
+  "60": {
+   "name": "PTE0",
+   "default": "DISABLED",
+   "alts": [
+    "PTE0",
+    "LPSPI0_SCK",
+    "TCLK1",
+    "LPSPI1_SOUT",
+    "FTM1_FLT2"
+   ],
+   "functions": [
+    "FTM1_FLT2",
+    "LPSPI0_SCK",
+    "LPSPI1_SOUT",
+    "PTE0",
+    "TCLK1"
+   ]
+  },
+  "61": {
+   "name": "PTC5",
+   "default": "JTAG_TDI",
+   "alts": [
+    "PTC5",
+    "FTM2_CH0",
+    "RTC_CLKOUT",
+    "FTM2_QD_PHB",
+    "JTAG_TDI"
+   ],
+   "functions": [
+    "FTM2_CH0",
+    "FTM2_QD_PHB",
+    "JTAG_TDI",
+    "PTC5",
+    "RTC_CLKOUT"
+   ]
+  },
+  "62": {
+   "name": "PTC4",
+   "default": "JTAG_TCLK/SWD_CLK",
+   "alts": [
+    "CMP0_IN2",
+    "PTC4",
+    "FTM1_CH0",
+    "RTC_CLKOUT",
+    "EWM_IN",
+    "FTM1_QD_PHB",
+    "JTAG_TCLK/SWD_CLK"
+   ],
+   "functions": [
+    "CMP0_IN2",
+    "EWM_IN",
+    "FTM1_CH0",
+    "FTM1_QD_PHB",
+    "JTAG_TCLK",
+    "PTC4",
+    "RTC_CLKOUT",
+    "SWD_CLK"
+   ]
+  },
+  "63": {
+   "name": "PTA5",
+   "default": "RESET_b",
+   "alts": [
+    "PTA5",
+    "TCLK1",
+    "RESET_b"
+   ],
+   "functions": [
+    "PTA5",
+    "RESET_b",
+    "TCLK1"
+   ]
+  },
+  "64": {
+   "name": null,
+   "default": null,
+   "alts": [],
+   "functions": []
+  }
+ },
+ "supplies": {
+  "VDD": [
+   7,
+   41
+  ],
+  "VDDA": [
+   8
+  ],
+  "VREFH": [
+   9
+  ],
+  "VSS_VREFL": [
+   10,
+   40
+  ]
+ }
+}

@@ -230,3 +230,10 @@ Needs `kiutils`, `kicad-cli`, a JRE and the FreeRouting jar (section 0). The gen
 - `README.md` (repo root): boards, how they talk, known limits.
 - `docs/mechanical-fit.md`, `docs/rfq-drafts.md`: dash dimensions and the supplier questions (none sent).
 - `software/gauges-fw/README.md`, `software/android/cluster-app/README.md`: the firmware and app in detail.
+
+## 11. Electrical design review scripts (`review/`)
+
+`docs/electrical-review.md` is the written review; the scripts that produced its numbers re-run after any regeneration:
+`python review/review_netlist.py gauges|display` (pin-by-pin against datasheet tables in `review/expected.py`, decoupling per supply pin,
+exit status 1 on any FAIL), `review/layout_checks.py`, `review/surge_sim.py`, `review/thermal_derating.py`, `review/dsi_impedance.py`,
+`review/connector_audit.py`. They only read the generated KiCad files.

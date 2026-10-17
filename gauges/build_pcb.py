@@ -397,18 +397,18 @@ LOCAL_CLUSTERS = {
 CORE_ZONES = [
     ("POWER", ["J1", "F1", "Q1", "U2", "U3", "U4", "D1", "C1", "C2",
                "C3", "C11", "C12", "L1", "R2", "R3", "C45", "C46", "Q3", "R48", "R49",
-               "R50", "R51", "R52", "R53", "R54", "C47", "C48", "C49"]),
-    ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2"]),
+               "R50", "R51", "R52", "R53", "R54", "C47", "C48", "C49", "C58", "C59", "C60"]),
+    ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2", "R84", "R85"]),
     # Rev C (2026-10-04): six 12 V-active indicator-lamp inputs and the tach input.
     ("LAMPS+TACH", ["J10", "J11"] + [f"R{n}" for n in range(58, 82)] +
                    [f"C{n}" for n in range(50, 58)] + [f"D{n}" for n in range(16, 24)]),
     # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
     # ignition sense - see build_schematic.py's rev B comments.
-    ("SPEED+IGN", ["J9", "R43", "R44", "R45", "C43", "D10",
+    ("SPEED+IGN", ["J9", "D32", "R43", "R44", "R45", "C43", "D10",
                    "R46", "R47", "C44", "D11"]),
-    ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8"]),
-    ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "J7"]),
-    ("AUX BL SWITCH", ["Q2", "R10", "R11"]),
+    ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8", "D31"]),
+    ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "R87", "R88", "J7", "D28", "D29", "D30"]),
+    ("AUX BL SWITCH", ["Q2", "R10", "R11", "R86"]),
     ("SENSORS", ["R19", "R20", "C31", "D15",   # battery-voltage divider: next to the ADC, not out at the battery gauge
                  "R16", "R17", "R18", "C28", "C29", "C30", "R55", "R56", "R57",
                  "D12", "D13", "D14"]),
@@ -1011,7 +1011,10 @@ print(f"Net check OK: all {len(sch_net_pins)} nets have matching pin "
 # thermo-pcb's Motor class), only this one power net.
 assert "VIN_PROT" in pcb_net_pins, "VIN_PROT is not a real net on this board"
 TRUNK_WIDTH_LADDER = [0.6, 0.5, 0.4, 0.3]
-TRUNK_NETS = ["VIN_PROT"]
+# REVIEW FIX 2026-10-17: the fused battery side (VIN_FUSED, the LM74930 common-source node COMMON) and the +5V trunk were
+# routed at 0.2 mm; on a 0.5 oz inner layer 0.2 mm carries about 0.23 A for a 10 K rise against a 0.30 A (UVLO edge) to
+# 0.45 A budget (review/layout_checks.py), so they are widened like VIN_PROT wherever there is room.
+TRUNK_NETS = ["VIN_PROT", "VIN_FUSED", "COMMON", "+5V"]
 
 board.to_file(PCB)
 print("Wrote", PCB)

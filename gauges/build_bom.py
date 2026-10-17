@@ -100,6 +100,7 @@ MPN = {
     # display/ and Hall speed input conditioning.
     "TCAN1044V-Q1": ("TCAN1044VDRQ1", "TI", "Automotive CAN FD transceiver w/ VIO pin, SOIC-8 - private CAN1 link to display/ (same part as display/'s transceiver; datasheet SLLSF17D)", "AEC-Q100 Grade 1"),
     "CSL0902ET1C": ("CSL0902ET1C", "ROHM", "Green chip LED with lens, 1.6 x 0.8 x 1.24 mm, 527 nm, 900-1800 mcd at 20 mA (1200 typ), VF 2.6/3.4/3.8 V at 20 mA, 30 mA max, VR 5 V; the physical turn-signal arrows behind the faceplate (ROHM data sheet CSL0902ET1(C) Rev.007; orderable code as listed by Digi-Key, Farnell and element14, confirm the reel suffix at order time)", "AEC-Q102"),
+    "SM24CANB-02HTG": ("SM24CANB-02HTG", "Littelfuse", "Dual bidirectional 24 V TVS array, SOT-23, pins 1 and 2 each to common pin 3 (datasheet Rev. 10/09/17: VRWM 24 V, VBR 26.7 V min, VC 34 V at 1 A, 30 pF, +-30 kV IEC 61000-4-2); AEC-Q101. Protects the car CAN bus (D28), the private CAN link (D31), the sender wires (D29, D30) and the Hall speed wire (D32) at their connectors", "AEC-Q101"),
     "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8)", "AEC-Q101"),
 }
 

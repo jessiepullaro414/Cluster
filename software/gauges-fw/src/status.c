@@ -20,5 +20,6 @@ cluster_gauges_status_t status_build(const status_in_t *in)
     m.limp_level = (uint32_t)in->limp;
     m.quarantine_mask = in->quarantine;
     m.watchdog_resets = in->wdog_resets;
+    m.nv_storage_ok = in->nv_ok;
     return m;
 }

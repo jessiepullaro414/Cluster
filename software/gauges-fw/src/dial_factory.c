@@ -10,7 +10,7 @@
  *
  * Layout (screens_layout(THEME_FACTORY)): fuel (+ volts), speed, oil, temperature; with the speedometer on the centre
  * screen, the speed screen becomes an ammeter-style face for the volts. There is no tachometer: the
- * stock cluster has none. The odometer window of the speedometer is an empty box (no odometer data exists).
+ * stock cluster has none. The odometer window of the speedometer is an empty box (the odometer exists, odometer.c, but its digits are not drawn here yet).
  * Placeholder styling to tune together with the owner.
  */
 #include <math.h>

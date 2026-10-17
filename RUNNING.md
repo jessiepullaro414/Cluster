@@ -64,7 +64,7 @@ Android unit tests are separate, see section 4.
 
 | Command | What it does |
 |---|---|
-| `make test` | builds and runs every host test: aggregation, codec, input maths, screens, renderer, dial change tracking (a random walk of 3,840+ updates must equal a full redraw), the GC9A01 driver against a mock panel, the harness self test, and the golden pictures |
+| `make test` | builds and runs every host test: aggregation, codec, input maths, screens, renderer, dial change tracking (a random walk of 3,840+ updates must equal a full redraw), the GC9A01 driver against a mock panel, the fault manager (a model of the watchdog), the odometer (power cut at every command event of a drive that wraps the log), the harness self test, and the golden pictures |
 | `make sim` | 60 virtual seconds of driving in every theme (also with speed on the centre screen): bus load, the 10 ms tick budget, panel equals model |
 | `make golden` | compares 196 stored picture checksums. A styling change shows as `CHANGED`; look at the pictures with `make golden-dump` (PNGs in `build/golden`), then accept with `make golden-update` |
 | `make arm-check` | compiles every file for the Cortex-M4F with `-Werror` |

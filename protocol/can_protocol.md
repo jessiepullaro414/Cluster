@@ -14,9 +14,11 @@ Little-endian, 500 kbit/s (proposed). Messages with `Counter` and `Crc8` end wit
 | 0x302 | VehicleFluids | GAUGES | 100 ms | 8 |
 | 0x303 | Indicators | GAUGES | 100 ms | 8 |
 | 0x301 | GaugesStatus | GAUGES | 1000 ms | 8 |
+| 0x304 | Odometer | GAUGES | 1000 ms | 8 |
 | 0x310 | PowerState | GAUGES | 500 ms | 8 |
 | 0x400 | DisplaySettings | DISPLAY | 1000 ms | 8 |
 | 0x410 | SpeedCalibration | DISPLAY | 1000 ms | 8 |
+| 0x430 | TripCommand | DISPLAY | 1000 ms | 8 |
 | 0x420 | InputConfig | DISPLAY | 1000 ms | 8 |
 | 0x4F0 | DisplayHeartbeat | DISPLAY | 1000 ms | 8 |
 
@@ -87,10 +89,22 @@ Health, identity and where each value currently comes from.
 | ActiveProfile | 24 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 | DisplayOffline | 32 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 | RpmFromTach | 33 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| NvStorageOk | 34 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 | ResetCause | 40 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 | LimpLevel | 48 | 2 | 1.0 | 0.0 | 0.0..3.0 |  |
-| QuarantineMask | 50 | 5 | 1.0 | 0.0 | 0.0..31.0 |  |
+| QuarantineMask | 50 | 6 | 1.0 | 0.0 | 0.0..63.0 |  |
 | WatchdogResets | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+
+### 0x304 Odometer (GAUGES, 1000 ms)
+
+Distance counters kept by gauges/ (they survive power loss there, see software/gauges-fw/README.md). Metres; the display converts to miles or km. The trip meter is 20 bits, so it wraps at 1048.575 km.
+
+| Signal | Start bit | Length | Scale | Offset | Range | Unit |
+|---|---|---|---|---|---|---|
+| OdometerM | 0 | 32 | 1.0 | 0.0 | 0.0..4.29497e+09 | m |
+| TripM | 32 | 20 | 1.0 | 0.0 | 0.0..1.04858e+06 | m |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x310 PowerState (GAUGES, 500 ms)
 
@@ -128,6 +142,16 @@ Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|
 | PulsesPerMile | 0 | 32 | 1.0 | 0.0 | 100.0..200000.0 |  |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+
+### 0x430 TripCommand (DISPLAY, 1000 ms)
+
+Trip meter reset. gauges/ resets the trip meter when TripResetCount differs from the last value it saw (so a repeated or lost frame resets it exactly once per button press); the first frame after power-up only records the value.
+
+| Signal | Start bit | Length | Scale | Offset | Range | Unit |
+|---|---|---|---|---|---|---|
+| TripResetCount | 0 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
 | Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
 | Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 

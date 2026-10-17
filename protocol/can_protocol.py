@@ -116,15 +116,25 @@ PRIVATE = [
                doc="1 = gauges/ lost the display heartbeat"),
              S("RpmFromTach", 1, 0, 0, 1, "", 33, 1, rx=D,
                doc="1 = RPM comes from the tach input, 0 = car bus"),
+             S("NvStorageOk", 1, 0, 0, 1, "", 34, 1, rx=D,
+               doc="0 = the odometer cannot be saved (data flash not partitioned or not answering): it counts in RAM only and a power loss forgets it"),
              S("ResetCause", 1, 0, 0, 255, "", 40, 8, rx=D,
                doc="why gauges/ last restarted: 0 unknown, 1 power-on, 2 watchdog, 3 software, 4 core lockup, 5 reset pin, 6 clock failure, 7 debugger"),
              S("LimpLevel", 1, 0, 0, 3, "", 48, 2, rx=D,
                doc="0 normal, 1 degraded (a source or the display is missing), 2 limp (a firmware task is switched off after repeated watchdog resets)"),
-             S("QuarantineMask", 1, 0, 0, 31, "", 50, 5, rx=D,
-               doc="firmware tasks switched off by the fault manager: bit 0 power, 1 senders, 2 inputs, 3 CAN link, 4 screens"),
+             S("QuarantineMask", 1, 0, 0, 63, "", 50, 6, rx=D,
+               doc="firmware tasks switched off by the fault manager: bit 0 power, 1 senders, 2 inputs, 3 CAN link, 4 screens, 5 storage"),
              S("WatchdogResets", 1, 0, 0, 255, "", 56, 8, rx=D,
                doc="watchdog resets since power-on, saturating at 255"),
          ]),
+    dict(id=0x304, name="Odometer", sender="GAUGES", period=1000, dlc=8,
+         doc="Distance counters kept by gauges/ (they survive power loss there, see "
+             "software/gauges-fw/README.md). Metres; the display converts to miles or km. "
+             "The trip meter is 20 bits, so it wraps at 1048.575 km.",
+         signals=[
+             S("OdometerM", 1, 0, 0, 4294967295, "m", 0, 32, rx=D),
+             S("TripM", 1, 0, 0, 1048575, "m", 32, 20, rx=D),
+         ] + e2e(D)),
     dict(id=0x310, name="PowerState", sender="GAUGES", period=500, dlc=8,
          doc="Ignition and sleep coordination; also sent on every change.",
          signals=[
@@ -158,6 +168,15 @@ PRIVATE = [
                     "sender at 1000 rev/mile = 16000).",
          signals=[
              S("PulsesPerMile", 1, 0, 100, 200000, "", 0, 32, rx=G),
+         ] + e2e(G)),
+    dict(id=0x430, name="TripCommand", sender="DISPLAY", period=1000,
+         dlc=8, doc="Trip meter reset. gauges/ resets the trip meter when TripResetCount "
+                    "differs from the last value it saw (so a repeated or lost frame "
+                    "resets it exactly once per button press); the first frame after power-up "
+                    "only records the value.",
+         signals=[
+             S("TripResetCount", 1, 0, 0, 15, "", 0, 4, rx=G,
+               doc="incremented (mod 16) by the display for each reset"),
          ] + e2e(G)),
     dict(id=0x420, name="InputConfig", sender="DISPLAY", period=1000,
          dlc=8, doc="Per-input options for the lamp and tach inputs on "

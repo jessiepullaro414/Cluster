@@ -67,6 +67,30 @@
 #define RCM_SRS_POR     (1u << 7)
 #define RCM_SRS_LVD     (1u << 1)
 
+/* ---- FTFC flash controller, base 0x4002_0000 (RM chapter 36); 8-bit registers ---- */
+#define REG8(addr) (*(volatile uint8_t *)(uintptr_t)(addr))
+#define FTFC_BASE       0x40020000u
+#define FTFC_FSTAT      REG8(FTFC_BASE + 0x0u)      /* 36.4.4.1.2: W1C flags, reset 0x80 */
+#define FTFC_FERSTAT    REG8(FTFC_BASE + 0x2Eu)     /* 36.4.4.1.11 */
+/* FCCOB0..B are 12 byte registers; FCCOB number n sits at offset 7-n (n = 0..3), 0xF-n (4..7), 0x17-n (8..B) (RM 36.4.4 memory map) */
+#define FTFC_FCCOB(n)   REG8(FTFC_BASE + ((n) < 4u ? 7u - (n) : ((n) < 8u ? 0xFu - (n) : 0x17u - (n))))
+#define FTFC_FSTAT_CCIF     (1u << 7)               /* 1 = idle / command complete; write 1 to launch */
+#define FTFC_FSTAT_RDCOLERR (1u << 6)
+#define FTFC_FSTAT_ACCERR   (1u << 5)
+#define FTFC_FSTAT_FPVIOL   (1u << 4)
+#define FTFC_FSTAT_MGSTAT0  (1u << 0)               /* run-time error: erase/program verify failed */
+#define FTFC_FERSTAT_DFDIF  (1u << 1)               /* uncorrectable ECC error seen on a flash read; write 1 to clear */
+#define FTFC_CMD_PGM8       0x07u                   /* Program Phrase, 36.5.11.4 */
+#define FTFC_CMD_ERSSCR     0x09u                   /* Erase Flash Sector, 36.5.11.6 */
+#define FTFC_CMD_PGMPART    0x80u                   /* Program Partition, FTFC addendum rev 2 table 4 */
+#define FTFC_DFLASH_ADDR_BIT (1u << 23)             /* FCCOB address bit 23 selects data flash (36.5.9) */
+#define SIM_FCFG1       REG32(0x40048000u + 0x4Cu)  /* RM 11.3.1.10: loaded from the flash IFR at reset */
+#define SIM_FCFG1_DEPART(v)     (((v) >> 12) & 0xFu)    /* FlexNVM partition code: 0 or 0xC = 64 KB data flash, 0xF = IFR erased */
+#define SIM_FCFG1_EEERAMSIZE(v) (((v) >> 16) & 0xFu)    /* 0xF = no emulated EEPROM */
+#define FLEXNVM_BASE    0x10000000u                 /* data flash read address (memory map) */
+#define FLEXNVM_BYTES   65536u                      /* S32K144: 64 KB FlexNVM (RM 36.1.2) */
+#define PCC_FTFC        REG32(PCC_BASE + 0x80u)     /* reset C000_0000: clock already on */
+
 /* ---- FIRC divider for peripheral clocks (RM 28.3.15) ---- */
 #define SCG_FIRCDIV     REG32(SCG_BASE + 0x304u)
 #define SCG_FIRCDIV2(n) ((uint32_t)(n) << 8)    /* 001 = divide by 1 -> 48 MHz; 000 = off (the reset value) */
@@ -127,6 +151,8 @@
 #define SYST_CSR_TICKINT    (1u << 1)
 #define SYST_CSR_CLKSOURCE  (1u << 2)   /* 1 = core clock */
 #define SCB_VTOR        REG32(0xE000ED08u)
+#define SCB_AIRCR       REG32(0xE000ED0Cu)  /* write VECTKEY 0x05FA and SYSRESETREQ (bit 2) to reset the chip */
+#define SCB_AIRCR_RESET 0x05FA0004u
 #define SCB_CPACR       REG32(0xE000ED88u)  /* CP10 and CP11 full access = 0xF << 20 */
 
 /* ---- Clock plan (RM 27.4, Table 27-3 "Normal RUN, VCO 320 MHz") ---------- */

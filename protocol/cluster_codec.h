@@ -166,6 +166,7 @@ typedef struct {
     uint32_t active_profile;
     uint8_t display_offline;
     uint8_t rpm_from_tach;
+    uint8_t nv_storage_ok;
     uint32_t reset_cause;
     uint32_t limp_level;
     uint32_t quarantine_mask;
@@ -187,6 +188,7 @@ static inline void cluster_gauges_status_pack(const cluster_gauges_status_t *m, 
     cluster_set_bits(out, CAN_GAUGESSTATUS_ACTIVEPROFILE_START, CAN_GAUGESSTATUS_ACTIVEPROFILE_LEN, (uint64_t)(int64_t)m->active_profile);
     cluster_set_bits(out, CAN_GAUGESSTATUS_DISPLAYOFFLINE_START, CAN_GAUGESSTATUS_DISPLAYOFFLINE_LEN, (uint64_t)(m->display_offline ? 1 : 0));
     cluster_set_bits(out, CAN_GAUGESSTATUS_RPMFROMTACH_START, CAN_GAUGESSTATUS_RPMFROMTACH_LEN, (uint64_t)(m->rpm_from_tach ? 1 : 0));
+    cluster_set_bits(out, CAN_GAUGESSTATUS_NVSTORAGEOK_START, CAN_GAUGESSTATUS_NVSTORAGEOK_LEN, (uint64_t)(m->nv_storage_ok ? 1 : 0));
     cluster_set_bits(out, CAN_GAUGESSTATUS_RESETCAUSE_START, CAN_GAUGESSTATUS_RESETCAUSE_LEN, (uint64_t)(int64_t)m->reset_cause);
     cluster_set_bits(out, CAN_GAUGESSTATUS_LIMPLEVEL_START, CAN_GAUGESSTATUS_LIMPLEVEL_LEN, (uint64_t)(int64_t)m->limp_level);
     cluster_set_bits(out, CAN_GAUGESSTATUS_QUARANTINEMASK_START, CAN_GAUGESSTATUS_QUARANTINEMASK_LEN, (uint64_t)(int64_t)m->quarantine_mask);
@@ -208,10 +210,34 @@ static inline int cluster_gauges_status_unpack(const uint8_t in[8], cluster_gaug
     m->active_profile = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_ACTIVEPROFILE_START, CAN_GAUGESSTATUS_ACTIVEPROFILE_LEN);
     m->display_offline = (uint8_t)cluster_get_bits(in, CAN_GAUGESSTATUS_DISPLAYOFFLINE_START, CAN_GAUGESSTATUS_DISPLAYOFFLINE_LEN);
     m->rpm_from_tach = (uint8_t)cluster_get_bits(in, CAN_GAUGESSTATUS_RPMFROMTACH_START, CAN_GAUGESSTATUS_RPMFROMTACH_LEN);
+    m->nv_storage_ok = (uint8_t)cluster_get_bits(in, CAN_GAUGESSTATUS_NVSTORAGEOK_START, CAN_GAUGESSTATUS_NVSTORAGEOK_LEN);
     m->reset_cause = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_RESETCAUSE_START, CAN_GAUGESSTATUS_RESETCAUSE_LEN);
     m->limp_level = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_LIMPLEVEL_START, CAN_GAUGESSTATUS_LIMPLEVEL_LEN);
     m->quarantine_mask = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_QUARANTINEMASK_START, CAN_GAUGESSTATUS_QUARANTINEMASK_LEN);
     m->watchdog_resets = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_WATCHDOGRESETS_START, CAN_GAUGESSTATUS_WATCHDOGRESETS_LEN);
+    return 0;
+}
+
+typedef struct {
+    uint32_t odometer_m;
+    uint32_t trip_m;
+    uint8_t counter;   /* filled by unpack; pack takes it as an argument */
+} cluster_odometer_t;
+
+static inline void cluster_odometer_pack(const cluster_odometer_t *m, uint8_t counter, uint8_t out[8]) {
+    for (unsigned i = 0; i < 8; i++) out[i] = 0;
+    cluster_set_bits(out, CAN_ODOMETER_ODOMETERM_START, CAN_ODOMETER_ODOMETERM_LEN, (uint64_t)(int64_t)m->odometer_m);
+    cluster_set_bits(out, CAN_ODOMETER_TRIPM_START, CAN_ODOMETER_TRIPM_LEN, (uint64_t)(int64_t)m->trip_m);
+    cluster_set_bits(out, CAN_ODOMETER_COUNTER_START, CAN_ODOMETER_COUNTER_LEN, counter);
+    out[7] = cluster_crc8(out, 7);
+}
+
+/* returns 0 on success, -1 if the CRC does not match */
+static inline int cluster_odometer_unpack(const uint8_t in[8], cluster_odometer_t *m) {
+    if (cluster_crc8(in, 7) != in[7]) return -1;
+    m->odometer_m = (uint32_t)cluster_get_bits(in, CAN_ODOMETER_ODOMETERM_START, CAN_ODOMETER_ODOMETERM_LEN);
+    m->trip_m = (uint32_t)cluster_get_bits(in, CAN_ODOMETER_TRIPM_START, CAN_ODOMETER_TRIPM_LEN);
+    m->counter = (uint8_t)cluster_get_bits(in, CAN_ODOMETER_COUNTER_START, CAN_ODOMETER_COUNTER_LEN);
     return 0;
 }
 
@@ -299,6 +325,26 @@ static inline int cluster_speed_calibration_unpack(const uint8_t in[8], cluster_
     if (cluster_crc8(in, 7) != in[7]) return -1;
     m->pulses_per_mile = (uint32_t)cluster_get_bits(in, CAN_SPEEDCALIBRATION_PULSESPERMILE_START, CAN_SPEEDCALIBRATION_PULSESPERMILE_LEN);
     m->counter = (uint8_t)cluster_get_bits(in, CAN_SPEEDCALIBRATION_COUNTER_START, CAN_SPEEDCALIBRATION_COUNTER_LEN);
+    return 0;
+}
+
+typedef struct {
+    uint32_t trip_reset_count;
+    uint8_t counter;   /* filled by unpack; pack takes it as an argument */
+} cluster_trip_command_t;
+
+static inline void cluster_trip_command_pack(const cluster_trip_command_t *m, uint8_t counter, uint8_t out[8]) {
+    for (unsigned i = 0; i < 8; i++) out[i] = 0;
+    cluster_set_bits(out, CAN_TRIPCOMMAND_TRIPRESETCOUNT_START, CAN_TRIPCOMMAND_TRIPRESETCOUNT_LEN, (uint64_t)(int64_t)m->trip_reset_count);
+    cluster_set_bits(out, CAN_TRIPCOMMAND_COUNTER_START, CAN_TRIPCOMMAND_COUNTER_LEN, counter);
+    out[7] = cluster_crc8(out, 7);
+}
+
+/* returns 0 on success, -1 if the CRC does not match */
+static inline int cluster_trip_command_unpack(const uint8_t in[8], cluster_trip_command_t *m) {
+    if (cluster_crc8(in, 7) != in[7]) return -1;
+    m->trip_reset_count = (uint32_t)cluster_get_bits(in, CAN_TRIPCOMMAND_TRIPRESETCOUNT_START, CAN_TRIPCOMMAND_TRIPRESETCOUNT_LEN);
+    m->counter = (uint8_t)cluster_get_bits(in, CAN_TRIPCOMMAND_COUNTER_START, CAN_TRIPCOMMAND_COUNTER_LEN);
     return 0;
 }
 

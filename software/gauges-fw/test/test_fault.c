@@ -224,7 +224,7 @@ static void test_total_saturates(void)
 static void test_status_message(void)
 {
     chosen_t car_v = { 50.0f, true, SRC_CAR }, loc_v = { 50.0f, true, SRC_LOCAL }, none_v = { 0.0f, false, SRC_NONE };
-    status_in_t in = { car_v, none_v, loc_v, car_v, true, true, 1u, false, 0x05u, RESET_WATCHDOG, LIMP_LIMP, 0x10u, 7u };
+    status_in_t in = { car_v, none_v, loc_v, car_v, true, true, 1u, false, 0x05u, RESET_WATCHDOG, LIMP_LIMP, 0x10u, 7u, true };
     cluster_gauges_status_t m = status_build(&in), back;
     CHECK(m.fuel_from_car && !m.coolant_from_car && !m.oil_from_car && m.battery_from_car);
     CHECK(m.fuel_sender_open && !m.oil_sender_open && m.temp_sender_open);
@@ -234,6 +234,7 @@ static void test_status_message(void)
     cluster_gauges_status_pack(&m, raw);
     CHECK(cluster_gauges_status_unpack(raw, &back) == 0);
     CHECK(back.reset_cause == 2u && back.limp_level == 2u && back.quarantine_mask == 0x10u && back.watchdog_resets == 7u);
+    CHECK(back.nv_storage_ok == 1);
     CHECK(back.fw_major == FW_MAJOR && back.fw_minor == FW_MINOR && back.display_offline == 1 && back.fuel_sender_open == 1);
     in.car_bus_active = false;
     CHECK(status_build(&in).active_profile == 0u);               /* "none" when no car frames are arriving */

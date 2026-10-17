@@ -4,6 +4,8 @@
 #include "can_link.h"
 #include "fault.h"
 #include "inputs.h"
+#include "nvflash.h"
+#include "odometer.h"
 #include "panel_hal.h"
 #include "screens.h"
 #include "power.h"
@@ -12,6 +14,7 @@
 #include "tick.h"
 #include "cluster_can.h"
 #ifndef HOST_BUILD
+#include "s32k144_regs.h"
 #include "wdog.h"
 #endif
 
@@ -20,6 +23,8 @@
  * watchdog policy can see, and a task that hangs twice is switched off while the rest keeps going. */
 
 static fault_t g_fault;
+static odo_t g_odo;                 /* odometer and trip meter */
+static bool g_nv_ok;                /* the odometer can be saved (data flash is partitioned and in use) */
 #ifndef HOST_BUILD
 static fault_retained_t g_retained __attribute__((section(".noinit")));   /* link/s32k144.ld keeps it across a watchdog reset */
 #else
@@ -35,7 +40,9 @@ static sample_t no_sample(void) { sample_t s = {0.0f, false, 0u}; return s; }
 static void step(uint32_t now)
 {
     static bool ign_prev;
-    static uint32_t status_due_ms;
+    static uint32_t status_due_ms, prev_now;
+    uint32_t dt = prev_now == 0u ? 10u : now - prev_now;      /* real elapsed time, in case a pass ran long */
+    prev_now = now;
     bool ign = true;                                  /* if the power task is switched off, behave as if the key is on */
     RUN_TASK(TASK_POWER, { power_poll(now); ign = power_ignition_on(); });
     if (ign && !ign_prev) fault_ignition_on(&g_fault);
@@ -72,6 +79,14 @@ static void step(uint32_t now)
     chosen_t coolant = agg_pick_car_first(car.coolant_c, coolant_l, now, CLUSTER_CAR_BUS_TIMEOUT_MS);
     chosen_t oil = agg_pick_car_first(car.oil_kpa, oil_l, now, CLUSTER_CAR_BUS_TIMEOUT_MS);
 
+    /* The distance counts in RAM whatever happens to the flash; only the saving is a fault-managed task. */
+    odo_ignition(&g_odo, ign);
+    odo_tick(&g_odo, dt, speed.valid ? (uint32_t)(speed.value * 100.0f + 0.5f) : 0u);
+    RUN_TASK(TASK_STORAGE, {
+        if (can_link_trip_reset_requested()) odo_trip_reset(&g_odo);
+        odo_service(&g_odo);
+    });
+
     RUN_TASK(TASK_SCREENS, {
         screen_values_t sv = { speed, rpm, battery, fuel, coolant, oil };
         aux_display_set_imperial(cfg.units_mph);
@@ -100,13 +115,15 @@ static void step(uint32_t now)
             status_due_ms = now + STATUS_PERIOD_MS;
             status_in_t in = { fuel, coolant, oil, battery, rpm.src == SRC_LOCAL, car.active, cfg.car_profile,
                                cfg.display_heartbeat_seen, open_mask, g_fault.cause, limp,
-                               fault_quarantine_mask(&g_fault), fault_wdog_resets(&g_fault) };
+                               fault_quarantine_mask(&g_fault), fault_wdog_resets(&g_fault), g_nv_ok };
             cluster_gauges_status_t st = status_build(&in);
             can_link_send_status(&st);
+            can_link_send_odometer(odo_get_m(&g_odo), odo_get_trip_m(&g_odo));
         }
     });
 
-    RUN_TASK(TASK_POWER, power_enter_stop_if_idle(now));
+    /* Do not stop the clock with a save in flight (a quarantined storage task cannot finish one, so it does not hold the chip awake). */
+    RUN_TASK(TASK_POWER, if (!fault_task_enabled(&g_fault, TASK_STORAGE) || odo_idle(&g_odo)) power_enter_stop_if_idle(now));
 
     if (fault_service(&g_fault, now)) {
 #ifndef HOST_BUILD
@@ -121,6 +138,12 @@ int main(void)
     /* Everything below runs with the watchdog off (startup.c turned it off to survive the SRAM fill); the first
      * pass of step() is the first time it is watched. Starting it last keeps a slow display init from tripping it. */
     fault_boot(&g_fault, &g_retained, rcm_reset_status(), now_ms());
+    /* Data flash: a fresh part has its FlexNVM unpartitioned; set it up once (it erases the FlexNVM, which holds nothing yet) and
+     * restart so the new partition is in force. Any other partitioning is left alone and the odometer runs from RAM only. */
+    if (nv_s32k_partition() == NV_PARTITION_BLANK && nv_s32k_format())
+        SCB_AIRCR = SCB_AIRCR_RESET;
+    g_nv_ok = nv_s32k_partition() == NV_PARTITION_DATA_FLASH;
+    odo_init(&g_odo, g_nv_ok ? &nv_s32k : 0, 0u);
     power_init();
     senders_init();
     inputs_init();
@@ -134,5 +157,5 @@ int main(void)
 }
 #else
 /* host build only: lets `make stubs` compile-check step() without a main */
-void host_step(uint32_t now) { fault_boot(&g_fault, &g_retained, 0u, now); step(now); }
+void host_step(uint32_t now) { fault_boot(&g_fault, &g_retained, 0u, now); odo_init(&g_odo, 0, 0u); step(now); }
 #endif

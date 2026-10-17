@@ -20,6 +20,7 @@ typedef struct {
     limp_t   limp;
     uint8_t  quarantine;
     uint8_t  wdog_resets;
+    bool     nv_ok;                  /* the odometer can be saved */
 } status_in_t;
 
 cluster_gauges_status_t status_build(const status_in_t *in);

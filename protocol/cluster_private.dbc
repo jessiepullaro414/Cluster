@@ -53,10 +53,17 @@ BO_ 769 GaugesStatus: 8 GAUGES
  SG_ ActiveProfile : 24|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
  SG_ DisplayOffline : 32|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
  SG_ RpmFromTach : 33|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ NvStorageOk : 34|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
  SG_ ResetCause : 40|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
  SG_ LimpLevel : 48|2@1+ (1.0,0.0) [0.0|3.0] "" DISPLAY
- SG_ QuarantineMask : 50|5@1+ (1.0,0.0) [0.0|31.0] "" DISPLAY
+ SG_ QuarantineMask : 50|6@1+ (1.0,0.0) [0.0|63.0] "" DISPLAY
  SG_ WatchdogResets : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
+
+BO_ 772 Odometer: 8 GAUGES
+ SG_ OdometerM : 0|32@1+ (1.0,0.0) [0.0|4.29497e+09] "m" DISPLAY
+ SG_ TripM : 32|20@1+ (1.0,0.0) [0.0|1.04858e+06] "m" DISPLAY
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" DISPLAY
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
 
 BO_ 784 PowerState: 8 GAUGES
  SG_ IgnitionOn : 0|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
@@ -82,6 +89,11 @@ BO_ 1040 SpeedCalibration: 8 DISPLAY
  SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
  SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
 
+BO_ 1072 TripCommand: 8 DISPLAY
+ SG_ TripResetCount : 0|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" GAUGES
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" GAUGES
+
 BO_ 1056 InputConfig: 8 DISPLAY
  SG_ LampInvertMask : 0|8@1+ (1.0,0.0) [0.0|63.0] "" GAUGES
  SG_ TachEnabled : 8|1@1+ (1.0,0.0) [0.0|1.0] "" GAUGES
@@ -98,9 +110,11 @@ CM_ BO_ 768 "Consolidated motion data, chosen by gauges/ from the Hall input and
 CM_ BO_ 770 "Consolidated fluid data: ECU value if fresh, else local sender.";
 CM_ BO_ 771 "Indicator-lamp states from the six 12 V lamp inputs on gauges/ (1 = lamp on after the per-channel polarity setting), sent every 100 ms and on every change.";
 CM_ BO_ 769 "Health, identity and where each value currently comes from.";
+CM_ BO_ 772 "Distance counters kept by gauges/ (they survive power loss there, see software/gauges-fw/README.md). Metres; the display converts to miles or km. The trip meter is 20 bits, so it wraps at 1048.575 km.";
 CM_ BO_ 784 "Ignition and sleep coordination; also sent on every change.";
 CM_ BO_ 1024 "Persistent settings owned by Android; sent on change and every second. gauges/ keeps the last copy in flash.";
 CM_ BO_ 1040 "Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile = 16000).";
+CM_ BO_ 1072 "Trip meter reset. gauges/ resets the trip meter when TripResetCount differs from the last value it saw (so a repeated or lost frame resets it exactly once per button press); the first frame after power-up only records the value.";
 CM_ BO_ 1056 "Per-input options for the lamp and tach inputs on gauges/. A lamp wired ground-switched (the DNP pull-up fitted) idles high, so its bit here is set to invert it.";
 CM_ BO_ 1264 "Liveness plus coarse state; gauges/ marks the display offline if this stops.";
 
@@ -110,8 +124,10 @@ BA_ "GenMsgCycleTime" BO_ 768 50;
 BA_ "GenMsgCycleTime" BO_ 770 100;
 BA_ "GenMsgCycleTime" BO_ 771 100;
 BA_ "GenMsgCycleTime" BO_ 769 1000;
+BA_ "GenMsgCycleTime" BO_ 772 1000;
 BA_ "GenMsgCycleTime" BO_ 784 500;
 BA_ "GenMsgCycleTime" BO_ 1024 1000;
 BA_ "GenMsgCycleTime" BO_ 1040 1000;
+BA_ "GenMsgCycleTime" BO_ 1072 1000;
 BA_ "GenMsgCycleTime" BO_ 1056 1000;
 BA_ "GenMsgCycleTime" BO_ 1264 1000;

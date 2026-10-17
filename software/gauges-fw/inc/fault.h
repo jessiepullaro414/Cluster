@@ -33,7 +33,8 @@ typedef enum {
     TASK_INPUTS = 2,      /* Hall speed, tach, lamps, dimmer */
     TASK_CAN = 3,         /* both CAN controllers and the private-link transmit */
     TASK_SCREENS = 4,     /* rendering and the SPI transfers to the four GC9A01 */
-    TASK_COUNT = 5
+    TASK_STORAGE = 5,     /* the odometer's data flash commands */
+    TASK_COUNT = 6
 } fault_task_t;
 #define TASK_NONE 0xFFu
 #define TASK_MASK_ALL ((1u << TASK_COUNT) - 1u)

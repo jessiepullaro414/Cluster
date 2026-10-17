@@ -40,6 +40,7 @@ SECTIONS
     {
         __data_start = .;
         *(.data*)
+        *(.ramfunc*)         /* code that must run from SRAM (nvflash_s32k.c: Program Partition) */
         . = ALIGN(4);
         __data_end = .;
     } > RAM AT > FLASH

@@ -90,7 +90,7 @@ int main(void)
         CHECK(cluster_indicators_unpack(bad, &u) == -1);
     }
     { /* 0x301 GaugesStatus */
-        const uint8_t vec[8] = { 0x66, 0x7F, 0x55, 0x3F, 0x02, 0x7F, 0x5C, 0x66 };
+        const uint8_t vec[8] = { 0x66, 0x7F, 0x55, 0x3F, 0x02, 0x3F, 0x66, 0x7F };
         cluster_gauges_status_t m; memset(&m, 0, sizeof m);
         m.fw_major = 102;
         m.fw_minor = 127;
@@ -105,10 +105,11 @@ int main(void)
         m.active_profile = 63;
         m.display_offline = 0;
         m.rpm_from_tach = 1;
-        m.reset_cause = 127;
-        m.limp_level = 0;
-        m.quarantine_mask = 23;
-        m.watchdog_resets = 102;
+        m.nv_storage_ok = 0;
+        m.reset_cause = 63;
+        m.limp_level = 2;
+        m.quarantine_mask = 25;
+        m.watchdog_resets = 127;
         uint8_t out[8];
         cluster_gauges_status_pack(&m, out);
         CHECK(same(out, vec));
@@ -127,99 +128,130 @@ int main(void)
         CHECK(u.active_profile == 63);
         CHECK(u.display_offline == 0);
         CHECK(u.rpm_from_tach == 1);
-        CHECK(u.reset_cause == 127);
-        CHECK(u.limp_level == 0);
-        CHECK(u.quarantine_mask == 23);
-        CHECK(u.watchdog_resets == 102);
+        CHECK(u.nv_storage_ok == 0);
+        CHECK(u.reset_cause == 63);
+        CHECK(u.limp_level == 2);
+        CHECK(u.quarantine_mask == 25);
+        CHECK(u.watchdog_resets == 127);
+    }
+    { /* 0x304 Odometer */
+        const uint8_t vec[8] = { 0xFF, 0xFF, 0xFF, 0x7F, 0xFF, 0xFF, 0x93, 0x09 };
+        cluster_odometer_t m; memset(&m, 0, sizeof m);
+        m.odometer_m = 2147483647;
+        m.trip_m = 262143;
+        uint8_t out[8];
+        cluster_odometer_pack(&m, 9, out);
+        CHECK(same(out, vec));
+        cluster_odometer_t u; memset(&u, 0, sizeof u);
+        CHECK(cluster_odometer_unpack(vec, &u) == 0);
+        CHECK(u.odometer_m == 2147483647);
+        CHECK(u.trip_m == 262143);
+        CHECK(u.counter == 9);
+        uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
+        CHECK(cluster_odometer_unpack(bad, &u) == -1);
     }
     { /* 0x310 PowerState */
-        const uint8_t vec[8] = { 0x02, 0xBF, 0x00, 0x00, 0x00, 0x00, 0x90, 0x02 };
+        const uint8_t vec[8] = { 0x01, 0x66, 0x00, 0x00, 0x00, 0x00, 0x90, 0x4D };
         cluster_power_state_t m; memset(&m, 0, sizeof m);
-        m.ignition_on = 0;
-        m.suspend_request = 1;
-        m.suspend_in_seconds = 191;
+        m.ignition_on = 1;
+        m.suspend_request = 0;
+        m.suspend_in_seconds = 102;
         uint8_t out[8];
         cluster_power_state_pack(&m, 9, out);
         CHECK(same(out, vec));
         cluster_power_state_t u; memset(&u, 0, sizeof u);
         CHECK(cluster_power_state_unpack(vec, &u) == 0);
-        CHECK(u.ignition_on == 0);
-        CHECK(u.suspend_request == 1);
-        CHECK(u.suspend_in_seconds == 191);
+        CHECK(u.ignition_on == 1);
+        CHECK(u.suspend_request == 0);
+        CHECK(u.suspend_in_seconds == 102);
         CHECK(u.counter == 9);
         uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
         CHECK(cluster_power_state_unpack(bad, &u) == -1);
     }
     { /* 0x400 DisplaySettings */
-        const uint8_t vec[8] = { 0x19, 0x5E, 0xBF, 0x01, 0xE8, 0x03, 0x90, 0xB5 };
+        const uint8_t vec[8] = { 0x4B, 0x0D, 0x66, 0x01, 0xF4, 0x01, 0x90, 0x23 };
         cluster_display_settings_t m; memset(&m, 0, sizeof m);
-        m.brightness_pct = 25;
-        m.night_mode = 0;
-        m.units_mph = 1;
-        m.gauge_theme = 7;
-        m.center_shows_speed = 1;
-        m.car_profile = 191;
+        m.brightness_pct = 75;
+        m.night_mode = 1;
+        m.units_mph = 0;
+        m.gauge_theme = 3;
+        m.center_shows_speed = 0;
+        m.car_profile = 102;
         m.car_bitrate = 1;
-        m.tank_capacity_l = 100.0f;
+        m.tank_capacity_l = 50.0f;
         uint8_t out[8];
         cluster_display_settings_pack(&m, 9, out);
         CHECK(same(out, vec));
         cluster_display_settings_t u; memset(&u, 0, sizeof u);
         CHECK(cluster_display_settings_unpack(vec, &u) == 0);
-        CHECK(u.brightness_pct == 25);
-        CHECK(u.night_mode == 0);
-        CHECK(u.units_mph == 1);
-        CHECK(u.gauge_theme == 7);
-        CHECK(u.center_shows_speed == 1);
-        CHECK(u.car_profile == 191);
+        CHECK(u.brightness_pct == 75);
+        CHECK(u.night_mode == 1);
+        CHECK(u.units_mph == 0);
+        CHECK(u.gauge_theme == 3);
+        CHECK(u.center_shows_speed == 0);
+        CHECK(u.car_profile == 102);
         CHECK(u.car_bitrate == 1);
-        CHECK(NEAR(u.tank_capacity_l, 100.0f, 0.051000000000000004f));
+        CHECK(NEAR(u.tank_capacity_l, 50.0f, 0.051000000000000004f));
         CHECK(u.counter == 9);
         uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
         CHECK(cluster_display_settings_unpack(bad, &u) == -1);
     }
     { /* 0x410 SpeedCalibration */
-        const uint8_t vec[8] = { 0x09, 0x4A, 0x02, 0x00, 0x00, 0x00, 0x90, 0x6C };
+        const uint8_t vec[8] = { 0xBC, 0x38, 0x01, 0x00, 0x00, 0x00, 0x90, 0x71 };
         cluster_speed_calibration_t m; memset(&m, 0, sizeof m);
-        m.pulses_per_mile = 150025;
+        m.pulses_per_mile = 80060;
         uint8_t out[8];
         cluster_speed_calibration_pack(&m, 9, out);
         CHECK(same(out, vec));
         cluster_speed_calibration_t u; memset(&u, 0, sizeof u);
         CHECK(cluster_speed_calibration_unpack(vec, &u) == 0);
-        CHECK(u.pulses_per_mile == 150025);
+        CHECK(u.pulses_per_mile == 80060);
         CHECK(u.counter == 9);
         uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
         CHECK(cluster_speed_calibration_unpack(bad, &u) == -1);
     }
+    { /* 0x430 TripCommand */
+        const uint8_t vec[8] = { 0x07, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x6F };
+        cluster_trip_command_t m; memset(&m, 0, sizeof m);
+        m.trip_reset_count = 7;
+        uint8_t out[8];
+        cluster_trip_command_pack(&m, 9, out);
+        CHECK(same(out, vec));
+        cluster_trip_command_t u; memset(&u, 0, sizeof u);
+        CHECK(cluster_trip_command_unpack(vec, &u) == 0);
+        CHECK(u.trip_reset_count == 7);
+        CHECK(u.counter == 9);
+        uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
+        CHECK(cluster_trip_command_unpack(bad, &u) == -1);
+    }
     { /* 0x420 InputConfig */
-        const uint8_t vec[8] = { 0x19, 0x00, 0x04, 0x00, 0x00, 0x00, 0x90, 0x62 };
+        const uint8_t vec[8] = { 0x0F, 0x00, 0x07, 0x00, 0x00, 0x00, 0x90, 0xB6 };
         cluster_input_config_t m; memset(&m, 0, sizeof m);
-        m.lamp_invert_mask = 25;
+        m.lamp_invert_mask = 15;
         m.tach_enabled = 0;
-        m.tach_pulses_per_rev = 4;
+        m.tach_pulses_per_rev = 7;
         uint8_t out[8];
         cluster_input_config_pack(&m, 9, out);
         CHECK(same(out, vec));
         cluster_input_config_t u; memset(&u, 0, sizeof u);
         CHECK(cluster_input_config_unpack(vec, &u) == 0);
-        CHECK(u.lamp_invert_mask == 25);
+        CHECK(u.lamp_invert_mask == 15);
         CHECK(u.tach_enabled == 0);
-        CHECK(u.tach_pulses_per_rev == 4);
+        CHECK(u.tach_pulses_per_rev == 7);
         CHECK(u.counter == 9);
         uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
         CHECK(cluster_input_config_unpack(bad, &u) == -1);
     }
     { /* 0x4F0 DisplayHeartbeat */
-        const uint8_t vec[8] = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0xBC };
+        const uint8_t vec[8] = { 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x90, 0x5B };
         cluster_display_heartbeat_t m; memset(&m, 0, sizeof m);
-        m.state = 1;
+        m.state = 2;
         uint8_t out[8];
         cluster_display_heartbeat_pack(&m, 9, out);
         CHECK(same(out, vec));
         cluster_display_heartbeat_t u; memset(&u, 0, sizeof u);
         CHECK(cluster_display_heartbeat_unpack(vec, &u) == 0);
-        CHECK(u.state == 1);
+        CHECK(u.state == 2);
         CHECK(u.counter == 9);
         uint8_t bad[8]; memcpy(bad, vec, 8); bad[2] ^= 0x10;
         CHECK(cluster_display_heartbeat_unpack(bad, &u) == -1);

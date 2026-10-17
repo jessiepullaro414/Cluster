@@ -146,6 +146,19 @@ static void test_shell() {
     sh.release(5800);
     CHECK(sh.tick(7000).path == nullptr);
 
+    // a busy loop: a 0.7 s hold whose release arrives before any tick saw 0.6 s is still a hold, never a click
+    {
+        Shell b;
+        b.start();
+        b.turn(+1);                       // Home on the maps (no phone): a hold opens Settings
+        b.press(10000);
+        Action late = b.release(10700);
+        CHECK(late.path && std::string(late.path) == kPathSettings && b.ui().screen() == hmi::Screen::Settings);
+        b.press(11000);
+        b.release(11100);                 // a short press is still a click: edit the row
+        CHECK(b.ui().screen() == hmi::Screen::Edit);
+    }
+
     // Android Auto: the owner's theme on the small screens
     sh.set_phone(Phone::AndroidAuto);
     CHECK(sh.gauge_theme() == 1);

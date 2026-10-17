@@ -26,7 +26,8 @@ enum class Input { TurnLeft, TurnRight, Click, LongPress };
 
 // Press and release times in milliseconds. A press held for kLongMs fires LongPress once, while it is still
 // held (so the user gets the feedback without letting go); releasing after that does nothing. A shorter
-// press fires Click on release. Debounce is the caller's job (GPIO input filtering).
+// press fires Click on release. A release that comes kLongMs or more after the press, before any tick saw it
+// (a busy loop), is still a LongPress, never a Click. Debounce is the caller's job (GPIO input filtering).
 class ClickDetector {
 public:
     static constexpr uint32_t kLongMs = 600;
@@ -38,11 +39,12 @@ public:
         return false;
     }
     bool release(uint32_t now_ms, Input* out) {
-        (void)now_ms;
         bool was_down = down_;
         down_ = false;
-        if (was_down && !fired_) { *out = Input::Click; return true; }
-        return false;
+        if (!was_down || fired_) return false;
+        fired_ = true;
+        *out = now_ms - t_down_ >= kLongMs ? Input::LongPress : Input::Click;
+        return true;
     }
     bool held() const { return down_; }
     // 0..1 progress towards a long press while held, for a progress ring in the UI

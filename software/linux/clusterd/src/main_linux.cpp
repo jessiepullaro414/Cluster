@@ -271,6 +271,10 @@ int main(int argc, char** argv) {
     int page = http_listen(cfg.page_port);
     int click = args.click.empty() ? -1 : open(args.click.c_str(), O_RDONLY | O_NONBLOCK);
     if (!args.click.empty() && click < 0) std::perror("clusterd: click input");
+    if (click >= 0) {
+        int clk = CLOCK_MONOTONIC;
+        if (ioctl(click, EVIOCSCLOCKID, &clk) < 0) std::perror("clusterd: click input clock");
+    }
     termios saved_tio = {};
     bool tio = false;
     if (args.dial_stdin && isatty(0) && tcgetattr(0, &saved_tio) == 0) {
@@ -369,7 +373,11 @@ int main(int argc, char** argv) {
         if (i_click >= 0 && (fds[i_click].revents & POLLIN)) {
             input_event ev;
             while (read(click, &ev, sizeof ev) == ssize_t(sizeof ev))
-                if (ev.type == EV_KEY && ev.value != 2) act(ev.value ? shell.press(now) : shell.release(now));
+                if (ev.type == EV_KEY && ev.value != 2) {
+                    // the kernel's timestamp of the edge (CLOCK_MONOTONIC, set at open), same clock as now_ms()
+                    uint32_t t = uint32_t(uint64_t(ev.time.tv_sec) * 1000u + uint64_t(ev.time.tv_usec) / 1000u);
+                    act(ev.value ? shell.press(t) : shell.release(t));
+                }
         }
         if (i_stdin >= 0 && (fds[i_stdin].revents & POLLIN)) {
             char ch = 0;
@@ -386,7 +394,8 @@ int main(int argc, char** argv) {
                 }
             }
         }
-        if (stdin_down && int32_t(now - stdin_release_at) >= 0) { act(shell.release(now)); stdin_down = false; }
+        // the release at the time it happened, not when this loop got to it: a busy loop must not turn a hold into a click
+        if (stdin_down && int32_t(now - stdin_release_at) >= 0) { act(shell.release(stdin_release_at)); stdin_down = false; }
         act(shell.tick(now));
 
         if (!args.adc.empty() && now - t_adc >= 5) {

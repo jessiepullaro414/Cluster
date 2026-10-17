@@ -1,5 +1,7 @@
 # Cluster
 
+**How to run everything: [RUNNING.md](RUNNING.md).**
+
 Digital restomod instrument cluster for a 1966 Mustang: round displays in the stock round holes, custom reprinted faceplate, stock outer dash opening (457.2 x 116.69mm hard limit, 441.09 x 105.54mm inner).
 
 The center gauge runs Android Automotive; the four small gauges are driven by a separate MCU board. Both boards share a CAN bus with `ecu-pcb`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that the pin table in src/panel_hal_s32k.c matches inc/gauges_pins.h.
+"""Check that the pin tables in the register drivers (src/*_s32k.c) match inc/gauges_pins.h.
 
 gauges_pins.h carries each claim as `#define PIN_NAME  <package pin>  /* PTxN ... */` (the port
 names come from NXP's IO table via gauges/build_schematic.py). The HAL repeats the port and
@@ -16,7 +16,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FW = os.path.dirname(HERE)
 
 header = open(os.path.join(FW, "inc", "gauges_pins.h"), encoding="utf-8").read()
-hal = open(os.path.join(FW, "src", "panel_hal_s32k.c"), encoding="utf-8").read()
+import glob
+hal = "\n".join(open(f, encoding="utf-8").read() for f in sorted(glob.glob(os.path.join(FW, "src", "*_s32k.c"))))
 
 # PIN_AUX_CS0  13  /* PTE3, ... */
 want = {}
@@ -38,7 +39,9 @@ for name, (port, pin) in sorted(got.items()):
         bad += 1
 
 needed = ["PIN_AUX_CS0", "PIN_AUX_CS1", "PIN_AUX_CS2", "PIN_AUX_CS3", "PIN_AUX_DC0", "PIN_AUX_DC1",
-          "PIN_AUX_DC2", "PIN_AUX_DC3", "PIN_AUX_RST", "PIN_BL_EN", "PIN_LPSPI2_SCK", "PIN_LPSPI2_SOUT"]
+          "PIN_AUX_DC2", "PIN_AUX_DC3", "PIN_AUX_RST", "PIN_BL_EN", "PIN_LPSPI2_SCK", "PIN_LPSPI2_SOUT",
+          "PIN_LAMP_TURN_L", "PIN_LAMP_TURN_R", "PIN_LAMP_HIGH_BEAM", "PIN_LAMP_BRAKE", "PIN_LAMP_ALT", "PIN_LAMP_OIL",
+          "PIN_IGN_SENSE", "PIN_SPEED_IN", "PIN_TACH_IN"]
 for n in needed:
     if n not in got:
         print(f"{n}: missing from the HAL table")

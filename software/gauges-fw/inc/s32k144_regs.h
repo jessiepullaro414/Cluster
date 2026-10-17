@@ -116,6 +116,7 @@
 #define GPIO_BASE(i)    (0x400FF000u + 0x40u * (i))
 #define GPIO_PSOR(i)    REG32(GPIO_BASE(i) + 0x04u)
 #define GPIO_PCOR(i)    REG32(GPIO_BASE(i) + 0x08u)
+#define GPIO_PDIR(i)    REG32(GPIO_BASE(i) + 0x10u)
 #define GPIO_PDDR(i)    REG32(GPIO_BASE(i) + 0x14u)
 
 /* ---- LPSPI2, base 0x4002_E000 (RM chapter 51) ---- */
@@ -142,6 +143,55 @@
 #define LPSPI_TCR_FRAMESZ(bits) ((uint32_t)((bits) - 1u) & 0xFFFu)
 #define LPSPI_FSR_TXCOUNT(fsr) ((fsr) & 7u)
 #define LPSPI_TXFIFO_WORDS 4u                       /* PARAM reset value 0x0000_0202: 2^2 words each way */
+
+/* ---- FTM1, base 0x4003_9000 (RM chapter 47); input capture on CH4 (PTA10) and CH5 (PTA11) ---- */
+#define FTM1_BASE       0x40039000u
+#define FTM1_SC         REG32(FTM1_BASE + 0x00u)
+#define FTM1_CNT        REG32(FTM1_BASE + 0x04u)
+#define FTM1_MOD        REG32(FTM1_BASE + 0x08u)
+#define FTM1_CNSC(n)    REG32(FTM1_BASE + 0x0Cu + 8u * (n))     /* channel n status and control */
+#define FTM1_CNV(n)     REG32(FTM1_BASE + 0x10u + 8u * (n))     /* channel n value (the captured count) */
+#define FTM1_CNTIN      REG32(FTM1_BASE + 0x4Cu)
+#define FTM1_MODE       REG32(FTM1_BASE + 0x54u)
+#define FTM_SC_TOF      (1u << 9)
+#define FTM_SC_TOIE     (1u << 8)
+#define FTM_SC_CLKS_SYS (1u << 3)                   /* CLKS 01: the FTM input clock (PCC_FTM1[PCS]) */
+#define FTM_SC_PS(n)    ((uint32_t)(n))             /* divide by 2^n */
+#define FTM_CNSC_CHF    (1u << 7)                   /* set on a capture; cleared by reading CnSC then writing 0 to it */
+#define FTM_CNSC_CHIE   (1u << 6)
+#define FTM_CNSC_ELSA   (1u << 2)                   /* MSB:MSA = 00 (input capture), ELSB:ELSA = 01 rising edge */
+#define PCC_FTM1        REG32(PCC_BASE + 0xE4u)
+#define PCC_PCS_SOSCDIV1 1u                         /* PCC_FTMn[PCS] 001: SOSCDIV1_CLK (RM figure in 29, clock option 1) */
+#define SCG_SOSCDIV1(n) ((uint32_t)(n))             /* SCG_SOSCDIV[2:0]: 001 = divide by 1 -> 8 MHz */
+
+/* ---- ADC0 base 0x4003_B000, ADC1 base 0x4002_7000 (RM chapter 44) ---- */
+#define ADC0_BASE       0x4003B000u
+#define ADC1_BASE       0x40027000u
+#define ADC_SC1A(b)     REG32((b) + 0x00u)
+#define ADC_CFG1(b)     REG32((b) + 0x40u)
+#define ADC_CFG2(b)     REG32((b) + 0x44u)
+#define ADC_RA(b)       REG32((b) + 0x48u)
+#define ADC_SC2(b)      REG32((b) + 0x90u)
+#define ADC_SC3(b)      REG32((b) + 0x94u)
+#define ADC_CLPS(b)     REG32((b) + 0xB4u)          /* the calibration registers that must be cleared before CAL (RM 44.5.6) */
+#define ADC_CLP3(b)     REG32((b) + 0xB8u)
+#define ADC_CLP2(b)     REG32((b) + 0xBCu)
+#define ADC_CLP1(b)     REG32((b) + 0xC0u)
+#define ADC_CLP0(b)     REG32((b) + 0xC4u)
+#define ADC_CLPX(b)     REG32((b) + 0xC8u)
+#define ADC_CLP9(b)     REG32((b) + 0xCCu)
+#define ADC_SC1_COCO    (1u << 7)
+#define ADC_CFG1_ADIV(n)  ((uint32_t)(n) << 5)      /* divide the input clock by 2^n */
+#define ADC_CFG1_MODE_12  (1u << 2)                 /* MODE 01 = 12-bit */
+#define ADC_SC3_CAL     (1u << 7)
+#define ADC_SC3_AVGE    (1u << 2)
+#define ADC_SC3_AVGS(n) ((uint32_t)(n))             /* 00 4, 01 8, 10 16, 11 32 samples */
+#define PCC_ADC0        REG32(PCC_BASE + 0xECu)
+#define PCC_ADC1        REG32(PCC_BASE + 0x9Cu)
+
+/* ---- NVIC (ARMv7-M): enable an interrupt by number ---- */
+#define NVIC_ISER(irq)  REG32(0xE000E100u + 4u * ((irq) >> 5))
+#define NVIC_ENABLE(irq) (NVIC_ISER(irq) = 1u << ((irq) & 31u))
 
 /* ---- Cortex-M4 system registers (ARMv7-M, PPB at 0xE000_0000) ----------- */
 #define SYST_CSR        REG32(0xE000E010u)

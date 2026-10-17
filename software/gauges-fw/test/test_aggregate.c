@@ -27,6 +27,15 @@ int main(void)
     CHECK(c.src == SRC_LOCAL && c.value == 88);
     c = agg_pick_speed(S(900, true, 0), S(90, true, 990), 1000, 500);
     CHECK(c.src == SRC_CAR && c.value == 90);
+    /* a Hall zero is overruled by a fresh car-bus speed that says the car is moving, but not by a slow or stale one */
+    c = agg_pick_speed(S(0, true, 0), S(90, true, 990), 1000, 500);
+    CHECK(c.src == SRC_CAR && c.value == 90);
+    c = agg_pick_speed(S(0, true, 0), S(5, true, 990), 1000, 500);
+    CHECK(c.src == SRC_LOCAL && c.value == 0);
+    c = agg_pick_speed(S(0, true, 0), S(90, true, 100), 1000, 500);
+    CHECK(c.src == SRC_LOCAL && c.value == 0);
+    c = agg_pick_speed(S(30, true, 0), S(90, true, 990), 1000, 500);
+    CHECK(c.src == SRC_LOCAL && c.value == 30);             /* only a zero is second-guessed */
     c = agg_pick_speed(S(0, false, 0), S(90, true, 100), 1000, 500);
     CHECK(!c.valid);
 

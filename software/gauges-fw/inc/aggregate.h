@@ -26,6 +26,7 @@ typedef struct {
 
 #define AGG_SPEED_MAX_KPH   400.0f   /* above this a Hall reading is implausible */
 #define AGG_RPM_MAX         12000.0f
+#define AGG_HALL_ZERO_OVERRIDE_KPH 8.0f   /* a Hall 0 is overruled by a fresh car-bus speed at least this high */
 
 /* true when `now_ms - s.stamp_ms <= timeout_ms` (wrap-safe) and s.valid */
 bool agg_fresh(sample_t s, uint32_t now_ms, uint32_t timeout_ms);
@@ -34,7 +35,8 @@ bool agg_fresh(sample_t s, uint32_t now_ms, uint32_t timeout_ms);
 chosen_t agg_pick_car_first(sample_t car, sample_t local, uint32_t now_ms,
                             uint32_t car_timeout_ms);
 
-/* Speed: local (Hall) if valid and plausible, else car, else none. */
+/* Speed: local (Hall) if valid and plausible, else car, else none. A Hall reading of zero loses to a fresh car-bus speed of
+ * AGG_HALL_ZERO_OVERRIDE_KPH or more. */
 chosen_t agg_pick_speed(sample_t hall, sample_t car, uint32_t now_ms,
                         uint32_t car_timeout_ms);
 

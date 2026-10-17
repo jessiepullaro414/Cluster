@@ -31,8 +31,13 @@ chosen_t agg_pick_car_first(sample_t car, sample_t local, uint32_t now_ms,
 chosen_t agg_pick_speed(sample_t hall, sample_t car, uint32_t now_ms,
                         uint32_t car_timeout_ms)
 {
-    if (hall.valid && hall.value >= 0.0f && hall.value <= AGG_SPEED_MAX_KPH)
+    if (hall.valid && hall.value >= 0.0f && hall.value <= AGG_SPEED_MAX_KPH) {
+        /* A Hall sender that reads standing still while a fresh car-bus speed says the car is moving has failed or lost its
+         * wire (a stopped pulse train cannot be told from a dead one): believe the car bus. */
+        if (hall.value < 1.0f && agg_fresh(car, now_ms, car_timeout_ms) && car.value >= AGG_HALL_ZERO_OVERRIDE_KPH)
+            return from(car, SRC_CAR);
         return from(hall, SRC_LOCAL);
+    }
     if (agg_fresh(car, now_ms, car_timeout_ms))
         return from(car, SRC_CAR);
     return none();

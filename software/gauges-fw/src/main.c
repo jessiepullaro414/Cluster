@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "adc.h"
 #include "aggregate.h"
 #include "aux_display.h"
 #include "can_link.h"
@@ -63,6 +64,7 @@ static void step(uint32_t now)
     bool dash_lights = false;
     uint8_t dimmer = 100u;
     RUN_TASK(TASK_INPUTS, {
+        inputs_configure(cfg.pulses_per_mile, cfg.tach_pulses_per_rev);
         inputs_poll(now);
         speed_l = inputs_speed_kph(); rpm_l = inputs_rpm_from_tach();
         lamps = inputs_lamps(cfg.lamp_invert_mask);
@@ -102,7 +104,9 @@ static void step(uint32_t now)
         aux_display_poll_budget(AUX_POLL_RUNS, AUX_POLL_BYTES);
     });
 
-    fault_facts_t facts = { cfg.display_heartbeat_seen, open_mask };
+    /* A sender that reads open only matters if its value is actually needed, i.e. the car bus is not supplying it. */
+    uint8_t needed = (uint8_t)((fuel.src != SRC_CAR ? 1u : 0u) | (oil.src != SRC_CAR ? 2u : 0u) | (coolant.src != SRC_CAR ? 4u : 0u));
+    fault_facts_t facts = { cfg.display_heartbeat_seen, (uint8_t)(open_mask & needed) };
     limp_t limp = fault_level(&g_fault, &facts);
     RUN_TASK(TASK_CAN, {
         can_link_send_motion(speed.value, rpm.value, battery.value, speed.valid, rpm.valid,
@@ -145,8 +149,11 @@ int main(void)
     g_nv_ok = nv_s32k_partition() == NV_PARTITION_DATA_FLASH;
     odo_init(&g_odo, g_nv_ok ? &nv_s32k : 0, 0u);
     power_init();
-    senders_init();
-    inputs_init();
+    adc_hw_init();                                  /* calibrates: the 3V3 rail has had the SRAM fill and clock start to settle */
+    senders_init(&adc_s32k);
+    sender_curves_load();
+    inputs_hw_init();
+    inputs_init(&inputs_hw_s32k, &adc_s32k);
     can_link_init();
     aux_display_init(panel_hal_board(), screens_theme_from_setting(can_link_settings().gauge_theme), can_link_settings().units_mph);
     wdog_start(WDOG_TIMEOUT_MS);

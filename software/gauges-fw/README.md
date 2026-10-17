@@ -1,4 +1,4 @@
-# gauges-fw (S32K144: boots to main in the image, drivers still stubs)
+# gauges-fw (S32K144: boots to main in the image; inputs, senders, fault handling and odometer real, CAN and power still stubs)
 
 Target: NXP S32K144, 64-LQFP, on `../../gauges`. Pin numbers below come from the gauges schematic comments (which were read from NXP's S32K1xx IO table); `inc/gauges_pins.h` is the single place they live.
 
@@ -8,8 +8,10 @@ Target: NXP S32K144, 64-LQFP, on `../../gauges`. Pin numbers below come from the
 |---|---|---|
 | `src/main.c` | init order and a 10 ms scheduler loop | stub |
 | `src/aggregate.c` | source priority: Hall vs car-bus speed, tach vs car-bus RPM, car vs local fluids | **real, tested** |
-| `src/senders.c` | resistive fuel / oil / coolant / battery ADC to engineering units | stub, needs measured sender curves |
-| `src/inputs.c` | FTM1 capture for speed (CH4) and tach (CH5), six lamp GPIOs, dimmer ADC, ignition wake | stub |
+| `src/senders.c`, `inc/senders.h`, `inc/adc.h` | resistive fuel / oil / coolant senders and battery voltage: ratiometric resistance, damping, open/short detection, curve lookup | **real, tested** against a fake ADC; the sender **curves are not known** (dashes until measured, `src/sender_curves.c`) |
+| `src/inputs.c`, `inc/inputs.h`, `inc/inputs_hw.h` | speed and tach from the capture periods, six lamp inputs with debounce and per-lamp inversion, dimmer, ignition debounce | **real, tested** against a fake hardware layer |
+| `src/capture.c`, `inc/capture.h` | period tracking for a pulse input: glitch rejection, 16-bit timer overflow extension, absent / running / stopped / fault, time wrap | **real, tested** |
+| `src/inputs_hw_s32k.c`, `src/adc_s32k.c` | FTM1 input capture (CH4 speed, CH5 tach) with its interrupts, lamp and ignition GPIO, ADC0/ADC1 calibration and conversions | written from the RM, **compiled and linked, never run on a part** |
 | `src/can_link.c` | CAN0 (car bus, listen-only) and CAN1 (private link) with counter + CRC-8 from `cluster_can.h` | stub |
 | `src/gfx.c`, `inc/gfx.h` | tile renderer for the 240x240 round screens: anti-aliased arcs, capsules, discs and 5x7 glyphs from a short op list, integer inner loops, no framebuffer (one frame is 115 KB, the part has 60 KB of RAM) | **real, tested** |
 | `src/dial_modern.c` | the **modern theme**: dark navy face, thick progress arcs filling blue (to red), big proportional digits, small icons, two horizontal bars for volts and oil, modelled on the owner's reference picture | **real, tested**; styling a first pass |
@@ -51,6 +53,18 @@ sh tools/inspect_elf.sh   # vector table, flash config, reset code
 ```
 
 Verified by inspection of the linked image only (SP 0x20006FE0: the top 32 bytes of RAM are the retained fault record, reset vector 0x411, SysTick at vector 15, flash configuration 0xFE/0xFB at 0x40C/0x40D). **Nothing has executed on a part.** `FSEC` is left unsecured for debugging; production must secure it.
+
+## Inputs and senders
+
+Everything between a pin and the numbers the screens show is split into logic that runs on the host and a thin register layer that does not:
+
+- **Speed and tach.** FTM1 counts microseconds (8 MHz crystal, divide by 8) and captures rising edges on CH4 (PTA10, Hall speed) and CH5 (PTA11, tach). The interrupt extends the 16-bit capture to 32 bits with an overflow counter (`capture_extend`: a capture in the lower half of the range seen with the overflow flag still set belongs after the wrap) and hands it to `capture.c`, which rejects edges closer than 100 us, reports a period, and says whether the sender is absent (fewer than two edges since boot), running, stopped (slower than 2 Hz), or a fault (faster than 2 kHz). The speed is `im_speed_kph(period, pulses_per_mile)`; a reading falls as soon as the next pulse is late, not when a timeout expires. A sender that is present and not pulsing reports a valid 0 km/h; one that never pulsed is invalid, so the car bus can take over. **A Hall 0 is overruled by a fresh car-bus speed of 8 km/h or more** (a dead sensor looks like a stopped one). Tested with 60 mph at 16000 pulses/mile (96.56 km/h), 5 Hz, standing still, recalibration, 4 kHz noise, 200,000 captures across timer wraps.
+- **Lamps and ignition.** Six GPIOs, each debounced 20 ms; the invert mask makes a ground-switched lamp (DNP pull-up fitted) read correctly. The ignition needs 50 ms to change (a crank dip does not switch the cluster off).
+- **Senders.** One channel per 10 ms poll, so each is read every 40 ms; the ADC averages 8 conversions in hardware. The reading is ratiometric: `R = 1000 * code / (4095 - code)` for the 1 k pull-up to the 3V3 rail (the series resistor, clamp and 100 nF do not matter at DC), and an open wire reads full scale. An open or a short must persist 1 s before it is reported; a channel whose conversions stop succeeding goes invalid after 2 s. The values are damped (fuel about 5 s against slosh, oil and battery 0.6 s, coolant 1.3 s) in integer arithmetic with 12 fractional bits so the damping has no dead band. Battery voltage is the 49.9 k / 10 k divider times the code; its accuracy is the 3V3 rail's (VREFH is that rail), not a reference's.
+- **Curves.** `senders_set_curve()` takes ascending (ohm, value) points. **None are known**: until a sender has a curve its gauge shows dashes and `senders_ohms()` gives the live resistance for the measurement (plan A9). Nothing here invents a curve.
+- **ADC bring-up.** `adc_hw_init()` follows the RM's calibration recipe (clear the CLP registers, SC3 = CAL | AVGE | 32 samples, wait for COCO, one ADC at a time) at ADCK 6 MHz, then runs conversions at 12 MHz. The ADCK limits come from the data sheet, which is not among the references; both clocks are well below any plausible limit.
+- **What is checked about the hardware layer:** `tools/check_pins.py` compares every pin in the register code with `gauges_pins.h`; the port mux alternatives (CAN0 alt 5 on PTE4/5, CAN1 alt 3 on PTC6/7, FTM1_CH4/5 alt 2 on PTA10/11) were read from NXP's IO signal table. **Not checked:** that a single edge is delivered by the real FTM, the interrupt timing, ADC accuracy, anything electrical.
+- **Mutation check:** 22 deliberate breakages of `capture.c`, `inputs.c` and `senders.c` (a wrong threshold, a missing lock, an inverted mask, no stale check ...), 21 caught and one equivalent (a clamp that triggers at 200 s instead of 2 s).
 
 ## Fault handling
 

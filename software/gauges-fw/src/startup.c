@@ -6,6 +6,7 @@
  *     be written before it is read; a read of an uninitialised word is likely
  *     a multi-bit ECC error (RM 32.4.1.1). Only 32-bit writes may be used,
  *     16/8-bit writes are read-modify-write. No stack is used until it is done.
+ *     The fill stops at _estack: the last 32 bytes (.noinit) are the retained fault record, see Reset_C.
  *  2. Reset_C disables the watchdog (it is enabled at reset: CS = 0x2980,
  *     TOVAL = 0x400 on the LPO clock), copies .data, enables the FPU, brings
  *     up the clocks and the tick, and calls main.
@@ -16,7 +17,7 @@
 #include "s32k144_regs.h"
 #include "tick.h"
 
-extern uint32_t __data_load, __data_start, __data_end;
+extern uint32_t __data_load, __data_start, __data_end, __noinit_start, __noinit_end;
 extern int main(void);
 void Reset_C(void);
 
@@ -48,6 +49,13 @@ static void wdog_disable(void)
 void Reset_C(void)
 {
     wdog_disable();
+
+    /* The top of SRAM holds the fault record across a watchdog reset, so the fill above stops short of it. After a
+     * power-on or low-voltage reset it holds nothing valid and must be written (32-bit stores) before anything reads it. */
+    if (RCM_SRS & (RCM_SRS_POR | RCM_SRS_LVD)) {
+        for (uint32_t *p = &__noinit_start; p < &__noinit_end; )
+            *p++ = 0u;
+    }
 
     /* .data initialisers; .bss is already zero from the SRAM fill. */
     const uint32_t *src = &__data_load;

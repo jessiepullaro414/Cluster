@@ -5,6 +5,7 @@
  * and CRC come from ../../protocol/cluster_can.h (generated, do not copy). */
 #include <stdbool.h>
 #include "aggregate.h"
+#include "cluster_codec.h"
 
 typedef struct {
     sample_t speed_kph, rpm, battery_v, fuel_pct, coolant_c, oil_kpa;
@@ -38,4 +39,5 @@ void can_link_send_fluids(float fuel_pct, float coolant_c, float oil_kpa,
 void can_link_send_indicators(bool l, bool r, bool hb, bool brake, bool alt, bool oil,
                               bool lights_on, uint8_t dimmer_pct);
 void can_link_send_power(bool ignition_on, bool suspend_request, uint8_t suspend_in_s);
+void can_link_send_status(const cluster_gauges_status_t *s);   /* GaugesStatus, once a second */
 #endif

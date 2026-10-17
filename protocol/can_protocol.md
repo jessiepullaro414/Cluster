@@ -87,6 +87,10 @@ Health, identity and where each value currently comes from.
 | ActiveProfile | 24 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 | DisplayOffline | 32 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 | RpmFromTach | 33 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| ResetCause | 40 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+| LimpLevel | 48 | 2 | 1.0 | 0.0 | 0.0..3.0 |  |
+| QuarantineMask | 50 | 5 | 1.0 | 0.0 | 0.0..31.0 |  |
+| WatchdogResets | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 
 ### 0x310 PowerState (GAUGES, 500 ms)
 

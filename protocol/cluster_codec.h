@@ -166,6 +166,10 @@ typedef struct {
     uint32_t active_profile;
     uint8_t display_offline;
     uint8_t rpm_from_tach;
+    uint32_t reset_cause;
+    uint32_t limp_level;
+    uint32_t quarantine_mask;
+    uint32_t watchdog_resets;
 } cluster_gauges_status_t;
 
 static inline void cluster_gauges_status_pack(const cluster_gauges_status_t *m, uint8_t out[8]) {
@@ -183,6 +187,10 @@ static inline void cluster_gauges_status_pack(const cluster_gauges_status_t *m, 
     cluster_set_bits(out, CAN_GAUGESSTATUS_ACTIVEPROFILE_START, CAN_GAUGESSTATUS_ACTIVEPROFILE_LEN, (uint64_t)(int64_t)m->active_profile);
     cluster_set_bits(out, CAN_GAUGESSTATUS_DISPLAYOFFLINE_START, CAN_GAUGESSTATUS_DISPLAYOFFLINE_LEN, (uint64_t)(m->display_offline ? 1 : 0));
     cluster_set_bits(out, CAN_GAUGESSTATUS_RPMFROMTACH_START, CAN_GAUGESSTATUS_RPMFROMTACH_LEN, (uint64_t)(m->rpm_from_tach ? 1 : 0));
+    cluster_set_bits(out, CAN_GAUGESSTATUS_RESETCAUSE_START, CAN_GAUGESSTATUS_RESETCAUSE_LEN, (uint64_t)(int64_t)m->reset_cause);
+    cluster_set_bits(out, CAN_GAUGESSTATUS_LIMPLEVEL_START, CAN_GAUGESSTATUS_LIMPLEVEL_LEN, (uint64_t)(int64_t)m->limp_level);
+    cluster_set_bits(out, CAN_GAUGESSTATUS_QUARANTINEMASK_START, CAN_GAUGESSTATUS_QUARANTINEMASK_LEN, (uint64_t)(int64_t)m->quarantine_mask);
+    cluster_set_bits(out, CAN_GAUGESSTATUS_WATCHDOGRESETS_START, CAN_GAUGESSTATUS_WATCHDOGRESETS_LEN, (uint64_t)(int64_t)m->watchdog_resets);
 }
 
 /* returns 0 on success, -1 if the CRC does not match */
@@ -200,6 +208,10 @@ static inline int cluster_gauges_status_unpack(const uint8_t in[8], cluster_gaug
     m->active_profile = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_ACTIVEPROFILE_START, CAN_GAUGESSTATUS_ACTIVEPROFILE_LEN);
     m->display_offline = (uint8_t)cluster_get_bits(in, CAN_GAUGESSTATUS_DISPLAYOFFLINE_START, CAN_GAUGESSTATUS_DISPLAYOFFLINE_LEN);
     m->rpm_from_tach = (uint8_t)cluster_get_bits(in, CAN_GAUGESSTATUS_RPMFROMTACH_START, CAN_GAUGESSTATUS_RPMFROMTACH_LEN);
+    m->reset_cause = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_RESETCAUSE_START, CAN_GAUGESSTATUS_RESETCAUSE_LEN);
+    m->limp_level = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_LIMPLEVEL_START, CAN_GAUGESSTATUS_LIMPLEVEL_LEN);
+    m->quarantine_mask = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_QUARANTINEMASK_START, CAN_GAUGESSTATUS_QUARANTINEMASK_LEN);
+    m->watchdog_resets = (uint32_t)cluster_get_bits(in, CAN_GAUGESSTATUS_WATCHDOGRESETS_START, CAN_GAUGESSTATUS_WATCHDOGRESETS_LEN);
     return 0;
 }
 

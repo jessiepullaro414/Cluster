@@ -56,6 +56,16 @@
 #define WDOG_CS_RCS     (1u << 10)      /* reconfiguration successful */
 #define WDOG_CS_ULK     (1u << 11)      /* unlocked */
 #define WDOG_UNLOCK     0xD928C520u     /* 32-bit write to CNT (CMD32EN = 1 at reset) */
+#define WDOG_REFRESH    0xB480A602u     /* 32-bit write to CNT while CMD32EN = 1 (RM 23.4.2.2) */
+#define WDOG_CS_CMD32EN (1u << 13)
+#define WDOG_CS_CLK_LPO (1u << 8)       /* CLK 01 = LPO_CLK, the 128 kHz low-power oscillator (RM 23.3.1.2, chip-specific 23.1.1) */
+#define WDOG_LPO_HZ     128000u
+
+/* ---- RCM, base 0x4007_F000 (S32K1xx_Memory_Map.xlsx; RM chapter 26) ---- */
+#define RCM_BASE        0x4007F000u
+#define RCM_SRS         REG32(RCM_BASE + 0x8u)      /* 26.4.3 system reset status, reset value 0x82 */
+#define RCM_SRS_POR     (1u << 7)
+#define RCM_SRS_LVD     (1u << 1)
 
 /* ---- FIRC divider for peripheral clocks (RM 28.3.15) ---- */
 #define SCG_FIRCDIV     REG32(SCG_BASE + 0x304u)

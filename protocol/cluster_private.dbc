@@ -53,6 +53,10 @@ BO_ 769 GaugesStatus: 8 GAUGES
  SG_ ActiveProfile : 24|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
  SG_ DisplayOffline : 32|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
  SG_ RpmFromTach : 33|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ ResetCause : 40|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
+ SG_ LimpLevel : 48|2@1+ (1.0,0.0) [0.0|3.0] "" DISPLAY
+ SG_ QuarantineMask : 50|5@1+ (1.0,0.0) [0.0|31.0] "" DISPLAY
+ SG_ WatchdogResets : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
 
 BO_ 784 PowerState: 8 GAUGES
  SG_ IgnitionOn : 0|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY

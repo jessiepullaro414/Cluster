@@ -4,17 +4,17 @@ CC      ?= gcc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 
 # Real, host-testable code (no hardware access).
-CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c
+CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c
 # Still stubs (need the board).
 STUBS := src/senders.c src/inputs.c src/can_link.c src/power.c
 # Real code that touches registers: compiled and linked for the target, never run on the host.
-HW := src/panel_hal_s32k.c
+HW := src/panel_hal_s32k.c src/wdog_s32k.c
 
 # Sources of the screen chain for tests that use the mock panel.
 SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/gc9a01.c src/screens.c
 
 .PHONY: test stubs arm-check arm preview bench harness golden golden-update golden-dump sim clean
-test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/harness_cli
+test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/harness_cli
 	./build/test_aggregate
 	./build/test_codec
 	./build/test_inputmath
@@ -22,6 +22,7 @@ test: build/test_aggregate build/test_codec build/test_inputmath build/test_scre
 	./build/test_gfx
 	./build/test_dial
 	./build/test_gc9a01
+	./build/test_fault
 	./build/harness_cli --selftest
 	./build/harness_cli --golden check test/golden_screens.txt
 
@@ -44,6 +45,10 @@ build/test_dial: test/test_dial.c src/dial.c src/dial_modern.c src/dial_carplay.
 build/test_gc9a01: test/test_gc9a01.c $(SCREEN) test/panel_mock.h inc/gc9a01.h inc/panel_hal.h inc/aux_display.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -Itest -o $@ test/test_gc9a01.c $(SCREEN) -lm
+
+build/test_fault: test/test_fault.c src/crc.c src/fault.c src/status.c inc/fault.h inc/status.h inc/crc.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -o $@ test/test_fault.c src/crc.c src/fault.c src/status.c
 
 build/test_codec: test/test_codec.c ../../protocol/cluster_codec.h ../../protocol/cluster_can.h
 	mkdir -p build

@@ -90,7 +90,7 @@ int main(void)
         CHECK(cluster_indicators_unpack(bad, &u) == -1);
     }
     { /* 0x301 GaugesStatus */
-        const uint8_t vec[8] = { 0x66, 0x7F, 0x55, 0x3F, 0x02, 0x00, 0x00, 0x00 };
+        const uint8_t vec[8] = { 0x66, 0x7F, 0x55, 0x3F, 0x02, 0x7F, 0x5C, 0x66 };
         cluster_gauges_status_t m; memset(&m, 0, sizeof m);
         m.fw_major = 102;
         m.fw_minor = 127;
@@ -105,6 +105,10 @@ int main(void)
         m.active_profile = 63;
         m.display_offline = 0;
         m.rpm_from_tach = 1;
+        m.reset_cause = 127;
+        m.limp_level = 0;
+        m.quarantine_mask = 23;
+        m.watchdog_resets = 102;
         uint8_t out[8];
         cluster_gauges_status_pack(&m, out);
         CHECK(same(out, vec));
@@ -123,6 +127,10 @@ int main(void)
         CHECK(u.active_profile == 63);
         CHECK(u.display_offline == 0);
         CHECK(u.rpm_from_tach == 1);
+        CHECK(u.reset_cause == 127);
+        CHECK(u.limp_level == 0);
+        CHECK(u.quarantine_mask == 23);
+        CHECK(u.watchdog_resets == 102);
     }
     { /* 0x310 PowerState */
         const uint8_t vec[8] = { 0x02, 0xBF, 0x00, 0x00, 0x00, 0x00, 0x90, 0x02 };

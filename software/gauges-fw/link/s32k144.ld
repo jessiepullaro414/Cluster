@@ -15,6 +15,7 @@ MEMORY
 }
 
 STACK_MIN = 2K;
+NOINIT_SIZE = 32;      /* top of RAM, kept across a watchdog reset: the fault manager's record (src/fault.c) */
 
 SECTIONS
 {
@@ -53,8 +54,18 @@ SECTIONS
         __bss_end = .;
     } > RAM
 
+    /* The stack grows down from _estack; the retained record sits above it and is NOT zeroed by the startup fill
+     * (only after a power-on reset, where SRAM holds nothing valid: startup.c). */
     __ram_start = ORIGIN(RAM);
-    _estack = ORIGIN(RAM) + LENGTH(RAM);
+    _estack = ORIGIN(RAM) + LENGTH(RAM) - NOINIT_SIZE;
+    .noinit _estack (NOLOAD) : ALIGN(4)
+    {
+        __noinit_start = .;
+        KEEP(*(.noinit*))
+        . = ALIGN(4);
+        __noinit_end = .;
+    } > RAM
+    ASSERT(SIZEOF(.noinit) <= NOINIT_SIZE, "retained data larger than NOINIT_SIZE")
     ASSERT(__bss_end + STACK_MIN <= _estack, "less than STACK_MIN left for the stack")
 
     /DISCARD/ : { *(.comment) *(.note*) }

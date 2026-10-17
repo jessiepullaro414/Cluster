@@ -217,6 +217,8 @@ struct Args {
     std::string can_override;
     std::string replay;               // bench: a can_replay.py --dry-run log, played in a loop
     std::string harness;              // bench: HOST:PORT of gauges-fw's harness (the four small gauges), UDP
+    std::string sim_gpio;             // bench: DIR with files adc (dial counts) and click (0/1), like sysfs pins
+    int can_udp = 0;                  // bench: UDP port of the simulated CAN bus (13-byte datagrams, parse_udp_can)
     bool dial_stdin = false;
 };
 
@@ -242,6 +244,8 @@ static Args parse_args(int argc, char** argv) {
         else if (k == "--dial-stdin") a.dial_stdin = true;
         else if (k == "--replay") a.replay = next();
         else if (k == "--harness-udp") a.harness = next();
+        else if (k == "--sim-gpio") a.sim_gpio = next();
+        else if (k == "--can-udp") a.can_udp = std::atoi(next().c_str());
         else { std::fprintf(stderr, "clusterd: unknown option %s\n", k.c_str()); std::exit(2); }
     }
     return a;
@@ -267,6 +271,25 @@ int main(int argc, char** argv) {
     tx.set_vehicle(vehicle);
 
     int can = can_open(cfg.can_if);
+    // Bench: the simulated CAN bus, in place of SocketCAN (software/linux/sim/car_sim.py plays the gauges board).
+    int can_udp = -1;
+    if (args.can_udp > 0) {
+        can_udp = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+        sockaddr_in a = {};
+        a.sin_family = AF_INET;
+        a.sin_port = htons(uint16_t(args.can_udp));
+        a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+        if (bind(can_udp, reinterpret_cast<sockaddr*>(&a), sizeof a) < 0) { std::perror("clusterd: --can-udp"); close(can_udp); can_udp = -1; }
+        else std::printf("clusterd: simulated CAN bus on udp 127.0.0.1:%d\n", args.can_udp);
+    }
+    // Bench: simulated GPIO, files that stand in for the dial's ADC and click pins.
+    std::string sim_click;
+    if (!args.sim_gpio.empty()) {
+        if (args.adc.empty()) args.adc = args.sim_gpio + "/adc";
+        sim_click = args.sim_gpio + "/click";
+        std::printf("clusterd: simulated GPIO in %s\n", args.sim_gpio.c_str());
+    }
+    bool sim_click_down = false;
     int ui = uinput_open();
     int page = http_listen(cfg.page_port);
     int click = args.click.empty() ? -1 : open(args.click.c_str(), O_RDONLY | O_NONBLOCK);
@@ -340,10 +363,11 @@ int main(int argc, char** argv) {
     bool stdin_down = false, livi_up = false;
 
     for (;;) {
-        pollfd fds[4];
+        pollfd fds[5];
         int nf = 0;
-        int i_can = -1, i_page = -1, i_click = -1, i_stdin = -1;
+        int i_can = -1, i_page = -1, i_click = -1, i_stdin = -1, i_udp = -1;
         if (can >= 0) { i_can = nf; fds[nf++] = {can, POLLIN, 0}; }
+        if (can_udp >= 0) { i_udp = nf; fds[nf++] = {can_udp, POLLIN, 0}; }
         if (page >= 0) { i_page = nf; fds[nf++] = {page, POLLIN, 0}; }
         if (click >= 0) { i_click = nf; fds[nf++] = {click, POLLIN, 0}; }
         if (args.dial_stdin) { i_stdin = nf; fds[nf++] = {0, POLLIN, 0}; }
@@ -363,6 +387,18 @@ int main(int argc, char** argv) {
             can_frame cf;
             while (read(can, &cf, sizeof cf) == ssize_t(sizeof cf))
                 if (!(cf.can_id & (CAN_EFF_FLAG | CAN_RTR_FLAG | CAN_ERR_FLAG))) bridge.on_frame(cf.can_id & CAN_SFF_MASK, cf.data, cf.can_dlc, now);
+        }
+        if (i_udp >= 0 && (fds[i_udp].revents & POLLIN)) {
+            uint8_t buf[64], data[8], len;
+            uint32_t id;
+            ssize_t n;
+            while ((n = recv(can_udp, buf, sizeof buf, 0)) > 0)
+                if (parse_udp_can(buf, size_t(n), &id, data, &len)) bridge.on_frame(id, data, len, now);
+        }
+        if (!sim_click.empty()) {
+            std::string v = read_file(sim_click);
+            bool down = !v.empty() && v[0] == '1';
+            if (down != sim_click_down) { sim_click_down = down; act(down ? shell.press(now) : shell.release(now)); }
         }
         while (!replay.empty() && now - replay_t0 >= replay[replay_i].t_ms) {
             const ReplayFrame& f = replay[replay_i];

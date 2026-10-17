@@ -394,6 +394,18 @@ static void test_state_io() {
         CHECK(!parse_replay_line("  0.000s  0x300  X 0g", &t, &id, d, &n));
     }
 
+    {   // the simulated CAN bus datagram
+        const uint8_t ok[13] = {0x00, 0x03, 0, 0, 8, 1, 2, 3, 4, 5, 6, 7, 8};
+        uint32_t id;
+        uint8_t d[8], n;
+        CHECK(parse_udp_can(ok, 13, &id, d, &n) && id == 0x300 && n == 8 && d[0] == 1 && d[7] == 8);
+        const uint8_t big[13] = {0x00, 0x08, 0, 0, 8};     // 0x800: not an 11-bit id
+        CHECK(!parse_udp_can(big, 13, &id, d, &n));
+        const uint8_t zero[13] = {0x00, 0x03, 0, 0, 0};
+        CHECK(!parse_udp_can(zero, 13, &id, d, &n));
+        CHECK(!parse_udp_can(ok, 12, &id, d, &n));
+    }
+
     Shell sh;
     std::string s = page_state_json(sh, vhal::Bridge(), 0);
     HAS(s, "\"view\":\"gauge\"");          // no phone, "No phone shows: Gauge"

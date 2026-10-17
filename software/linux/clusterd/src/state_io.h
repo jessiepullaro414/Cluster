@@ -39,6 +39,10 @@ std::string format_settings(const hmi::Model& m, const VehicleSetup& v);
 // for the bench input --replay (a PC whose kernel has no virtual CAN). Returns false for anything else.
 bool parse_replay_line(const std::string& line, uint32_t* t_ms, uint32_t* id, uint8_t data[8], uint8_t* len);
 
+// One frame of the simulated CAN bus (--can-udp): a UDP datagram of 13 bytes, the 11-bit id as a little-endian
+// uint32, the length (1..8), then 8 data bytes. Sent by software/linux/sim/car_sim.py in place of the gauges board.
+bool parse_udp_can(const uint8_t* buf, size_t n, uint32_t* id, uint8_t data[8], uint8_t* len);
+
 // The centre page (web/centre.html) polls GET /state and draws it:
 //   {"view":"gauge","screen":"home","editing":false,"row":0,"rows":[["Gauge theme","Modern"],...],"phone":"cp",
 //    "theme":1,"imperial":true,"veh":{"link":true,"speed_mps":12.5,"lights":false,"dimmer":40,"hi":false,

@@ -20,6 +20,7 @@ also Toradex-supported, where Android Automotive on it is a port.
 | `livi/livi-round-ui.patch` | LIVI setting `customHideNav`: the custom page fills the window with no navigation rail (for the round panel); upstreamable, off by default | built into the bench LIVI and checked (`aa-bench/shots/cluster-bench-livi-and-small-gauges.png`) |
 | `livi/livi_config.py` | LIVI's config for the round panel: projection size, map-shape safe/view areas, dial keys, custom page, MFi bus | selftest passes; not yet loaded by a real LIVI |
 | `aa-bench/` | relay from a phone's or emulator's "head unit server" into LIVI, stand-in LIVI, bench script | relay selftest passes; **not yet run against a real phone or emulator** (see its README) |
+| `sim/` | **the car on a PC**: a control panel (dial via simulated GPIO, pedals, lamps, ignition via simulated CAN, phone button) that drives LIVI, clusterd and the small gauges; double-click `sim/start_car_sim.cmd` | works on the bench (2026-10-17) |
 | `deploy/` | systemd unit, example config | written, untested |
 | Platform image | Torizon OS or Toradex BSP with LIVI's arm64 build | not started (needs the Verdin + carrier) |
 

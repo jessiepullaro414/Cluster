@@ -99,6 +99,16 @@ bool parse_replay_line(const std::string& line, uint32_t* t_ms, uint32_t* id, ui
     return true;
 }
 
+bool parse_udp_can(const uint8_t* buf, size_t n, uint32_t* id, uint8_t data[8], uint8_t* len) {
+    if (n != 13) return false;
+    uint32_t v = uint32_t(buf[0]) | uint32_t(buf[1]) << 8 | uint32_t(buf[2]) << 16 | uint32_t(buf[3]) << 24;
+    if (v > 0x7FF || buf[4] == 0 || buf[4] > 8) return false;
+    *id = v;
+    *len = buf[4];
+    for (int i = 0; i < 8; i++) data[i] = buf[5 + i];
+    return true;
+}
+
 static void json_str(std::string& s, const std::string& v) {
     s += '"';
     for (char ch : v) {

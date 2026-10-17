@@ -4,7 +4,7 @@ CC      ?= gcc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 
 # Real, host-testable code (no hardware access).
-CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c
+CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/nvlog.c src/settings_store.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c
 # Still stubs (need the board).
 STUBS := src/can_link.c src/power.c
 # Real code that touches registers: compiled and linked for the target, never run on the host.
@@ -14,7 +14,7 @@ HW := src/panel_hal_s32k.c src/wdog_s32k.c src/nvflash_s32k.c src/inputs_hw_s32k
 SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/gc9a01.c src/screens.c
 
 .PHONY: test stubs arm-check arm preview bench harness golden golden-update golden-dump sim clean
-test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/harness_cli
+test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/test_settings build/harness_cli
 	./build/test_aggregate
 	./build/test_codec
 	./build/test_inputmath
@@ -26,6 +26,7 @@ test: build/test_aggregate build/test_codec build/test_inputmath build/test_scre
 	./build/test_odometer
 	./build/test_odometer16
 	./build/test_inputs
+	./build/test_settings
 	./build/harness_cli --selftest
 	./build/harness_cli --golden check test/golden_screens.txt
 
@@ -58,14 +59,18 @@ build/test_inputs: $(INPSRC) inc/capture.h inc/inputs.h inc/inputs_hw.h inc/send
 	mkdir -p build
 	$(CC) $(CFLAGS) -o $@ $(INPSRC) -lm
 
-ODOSRC := test/test_odometer.c test/nv_mock.c src/odometer.c src/crc.c
+build/test_settings: test/test_settings.c test/nv_mock.c src/settings_store.c src/nvlog.c src/crc.c inc/settings_store.h inc/nvlog.h test/nv_mock.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -Itest -o $@ test/test_settings.c test/nv_mock.c src/settings_store.c src/nvlog.c src/crc.c -lm
+
+ODOSRC := test/test_odometer.c test/nv_mock.c src/odometer.c src/nvlog.c src/crc.c
 # The odometer is tested with a 4-sector log (the ring wraps often, so power can be cut at every event of a drive that wraps it
 # twice) and with the real 16-sector log (long drive, wear count).
-build/test_odometer: $(ODOSRC) test/nv_mock.h inc/odometer.h inc/nvflash.h
+build/test_odometer: $(ODOSRC) test/nv_mock.h inc/odometer.h inc/nvlog.h inc/nvflash.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -Itest -DODO_SECTORS=4u -o $@ $(ODOSRC)
 
-build/test_odometer16: $(ODOSRC) test/nv_mock.h inc/odometer.h inc/nvflash.h
+build/test_odometer16: $(ODOSRC) test/nv_mock.h inc/odometer.h inc/nvlog.h inc/nvflash.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -Itest -o $@ $(ODOSRC)
 

@@ -17,6 +17,7 @@ void can_link_init(void) {}
 void can_link_poll(uint32_t now_ms) { (void)now_ms; }
 car_bus_t can_link_car(void) { car_bus_t c = {0}; return c; }
 display_settings_t can_link_settings(void) { return g_settings; }
+void can_link_load_settings(const display_settings_t *s) { g_settings = *s; g_settings.center_shows_speed = false; g_settings.display_heartbeat_seen = false; }
 void can_link_send_motion(float kph, float rpm, float battery_v,
                           bool kph_ok, bool rpm_ok, bool batt_ok, bool from_hall)
 { (void)kph; (void)rpm; (void)battery_v; (void)kph_ok; (void)rpm_ok; (void)batt_ok; (void)from_hall; }

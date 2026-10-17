@@ -11,6 +11,7 @@
 #include "screens.h"
 #include "power.h"
 #include "senders.h"
+#include "settings_store.h"
 #include "status.h"
 #include "tick.h"
 #include "cluster_can.h"
@@ -25,6 +26,7 @@
 
 static fault_t g_fault;
 static odo_t g_odo;                 /* odometer and trip meter */
+static settings_store_t g_ss;      /* the display settings kept in the data flash after the odometer's sectors */
 static bool g_nv_ok;                /* the odometer can be saved (data flash is partitioned and in use) */
 #ifndef HOST_BUILD
 static fault_retained_t g_retained __attribute__((section(".noinit")));   /* link/s32k144.ld keeps it across a watchdog reset */
@@ -87,6 +89,8 @@ static void step(uint32_t now)
     RUN_TASK(TASK_STORAGE, {
         if (can_link_trip_reset_requested()) odo_trip_reset(&g_odo);
         odo_service(&g_odo);
+        settings_store_offer(&g_ss, &cfg, now);
+        settings_store_service(&g_ss, now);
     });
 
     RUN_TASK(TASK_SCREENS, {
@@ -127,7 +131,7 @@ static void step(uint32_t now)
     });
 
     /* Do not stop the clock with a save in flight (a quarantined storage task cannot finish one, so it does not hold the chip awake). */
-    RUN_TASK(TASK_POWER, if (!fault_task_enabled(&g_fault, TASK_STORAGE) || odo_idle(&g_odo)) power_enter_stop_if_idle(now));
+    RUN_TASK(TASK_POWER, if (!fault_task_enabled(&g_fault, TASK_STORAGE) || (odo_idle(&g_odo) && settings_store_idle(&g_ss))) power_enter_stop_if_idle(now));
 
     if (fault_service(&g_fault, now)) {
 #ifndef HOST_BUILD
@@ -148,6 +152,9 @@ int main(void)
         SCB_AIRCR = SCB_AIRCR_RESET;
     g_nv_ok = nv_s32k_partition() == NV_PARTITION_DATA_FLASH;
     odo_init(&g_odo, g_nv_ok ? &nv_s32k : 0, 0u);
+    display_settings_t saved = can_link_settings();
+    settings_store_init(&g_ss, g_nv_ok ? &nv_s32k : 0, ODO_SECTORS * NV_SECTOR_BYTES, &saved);   /* the sectors right after the odometer's */
+    can_link_load_settings(&saved);
     power_init();
     adc_hw_init();                                  /* calibrates: the 3V3 rail has had the SRAM fill and clock start to settle */
     senders_init(&adc_s32k);

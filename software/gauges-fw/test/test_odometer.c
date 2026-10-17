@@ -13,7 +13,8 @@ static int failures;
 typedef struct { uint32_t odo, trip; } snap_t;
 static snap_t *hist;
 static size_t nhist, cap_hist;
-static odo_state_t prev_state;
+static uint32_t prev_writes;
+#define SLOTS (NV_SECTOR_BYTES / 16u)
 
 static void hist_add(uint32_t odo, uint32_t trip)
 {
@@ -30,8 +31,8 @@ static bool hist_has(uint32_t odo, uint32_t trip)
 
 static void track(const odo_t *o)
 {
-    if (o->state == ODO_PROG0 && prev_state == ODO_IDLE) hist_add(o->snap_odo_m, o->snap_trip_m);
-    prev_state = o->state;
+    if (o->writes_started != prev_writes) hist_add(o->snap_odo_m, o->snap_trip_m);       /* a write was started with these values */
+    prev_writes = o->writes_started;
 }
 
 static void step(odo_t *o, uint32_t dt_ms, uint32_t speed_c)
@@ -46,7 +47,7 @@ static void boot(odo_t *o, uint32_t step_m)
 {
     odo_init(o, &nv_mock, 0);
     o->save_step_m = step_m;
-    prev_state = o->state;
+    prev_writes = o->writes_started;
     hist_add(o->odo_m, o->trip_m);
 }
 
@@ -77,7 +78,7 @@ static void test_basic(void)
 {
     nv_mock_reset(2); nhist = 0;
     odo_t o; boot(&o, 5u);
-    CHECK(o.odo_m == 0u && o.trip_m == 0u && o.sector == 0u && o.slot == 0u);
+    CHECK(o.odo_m == 0u && o.trip_m == 0u && o.log.sector == 0u && o.log.slot == 0u);
     for (int i = 0; i < 20000; i++) step(&o, 10, 25000);             /* 250 km/h, 0.69 m per tick: ~13.9 km */
     CHECK(o.odo_m > 13000u);
     odo_ignition(&o, false);
@@ -147,7 +148,7 @@ static long scenario(long cut, uint32_t *live_out, uint32_t *saved_out)
     nv_mock_reset(77); nhist = 0;
     odo_t o; boot(&o, 5u);
     if (cut) nv_mock_cut_at(cut);
-    long ticks = (long)ODO_SECTORS * ODO_SLOTS_PER_SECTOR * 2 * 7 + 3000;       /* about two laps of the ring */
+    long ticks = (long)ODO_SECTORS * SLOTS * 2 * 7 + 3000;       /* about two laps of the ring */
     for (long i = 0; i < ticks && !nv_mock_dead(); i++) step(&o, 10, 25000);
     *live_out = o.odo_m; *saved_out = o.saved_odo_m;
     if (!cut) return nv_mock_events;
@@ -202,7 +203,8 @@ static void test_command_failures(void)
     odo_t g; boot(&g, 5u);
     nv_mock_fail_next(100000);                                       /* nothing works any more */
     for (int i = 0; i < 20000; i++) step(&g, 10, 25000);
-    CHECK(g.failures >= ODO_GIVE_UP);
+    CHECK(nvlog_dead(&g.log));
+    CHECK(!nvlog_busy(&g.log));                                       /* a dead log does not stay "busy" with a write it will never finish */
     CHECK(g.odo_m > 10000u);                                         /* the count in RAM carries on */
     odo_ignition(&g, false);
     CHECK(odo_idle(&g));                                             /* and the clock is allowed to stop */
@@ -229,13 +231,26 @@ static void test_erase_ahead(void)
     odo_t o; boot(&o, 5u);
     nv_mock_set_latency(40, 1);                                      /* an erase takes 40 ticks: 28 m at 250 km/h, more than 5 m */
     unsigned waits = 0, laps_erases = 0;
-    for (long i = 0; i < (long)ODO_SECTORS * ODO_SLOTS_PER_SECTOR * 2 * 7 + 3000; i++) {
+    for (long i = 0; i < (long)ODO_SECTORS * SLOTS * 2 * 7 + 3000; i++) {
         step(&o, 10, 25000);
-        if (o.state == ODO_ERASE && o.erase_sector == o.sector && o.slot == 0 && o.odo_m != o.saved_odo_m) waits++;
+        if (o.log.state == NVLOG_ERASE && o.log.erase_sector == o.log.sector && o.log.slot == 0 && o.odo_m != o.saved_odo_m) waits++;
     }
     for (unsigned s = 0; s < ODO_SECTORS; s++) laps_erases += nv_mock_sector_erases[s];
     CHECK(laps_erases >= ODO_SECTORS);                               /* the ring really went round */
     CHECK(waits == 0u);                                              /* and not one save stood waiting for an erase */
+}
+
+/* A part whose commands all fail and whose sectors must be erased before use: the request is given back, not held for ever. */
+static void test_dead_before_first_write(void)
+{
+    nv_mock_reset(11); nhist = 0;
+    for (unsigned i = 0; i < NV_MOCK_BYTES; i++) nv_mem[i] = (uint8_t)rnd();
+    odo_t o; boot(&o, 5u);
+    nv_mock_fail_next(100000);
+    for (int i = 0; i < 20000; i++) step(&o, 10, 25000);
+    CHECK(nvlog_dead(&o.log));
+    CHECK(!nvlog_busy(&o.log));
+    CHECK(o.odo_m > 10000u && odo_idle(&o));
 }
 
 /* ---- garbage in the flash ------------------------------------------------------------------------------------- */
@@ -289,6 +304,7 @@ int main(void)
     test_command_failures();
     test_failed_key_off_save();
     test_erase_ahead();
+    test_dead_before_first_write();
     test_garbage_flash();
 #if ODO_SECTORS == 16
     test_wear();

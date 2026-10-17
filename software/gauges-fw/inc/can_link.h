@@ -31,6 +31,7 @@ void       can_link_init(void);
 void       can_link_poll(uint32_t now_ms);            /* drain RX, update tables */
 car_bus_t  can_link_car(void);
 display_settings_t can_link_settings(void);
+void       can_link_load_settings(const display_settings_t *s);   /* the copy kept in flash, installed at boot before the display speaks */
 /* private-link transmit (counter + CRC added inside): */
 void can_link_send_motion(float kph, float rpm, float battery_v,
                           bool kph_ok, bool rpm_ok, bool batt_ok, bool from_hall);

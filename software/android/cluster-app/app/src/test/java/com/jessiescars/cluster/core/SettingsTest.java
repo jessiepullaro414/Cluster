@@ -85,4 +85,35 @@ public class SettingsTest {
         assertNull(Settings.parseTheme("nonsense"));
         assertNull(Settings.parseTheme(null));
     }
+
+    @Test public void stepGoesBothWaysAndWraps() {
+        Settings s = new Settings();
+        s.theme = 0;
+        s.step(Row.THEME, -1);
+        assertEquals(3, s.theme);
+        s.step(Row.THEME, +1);
+        assertEquals(0, s.theme);
+        s.aspect = Aspect.ROUND;
+        s.step(Row.MAP_SHAPE, -1);
+        assertEquals(Aspect.SIXTEEN_NINE, s.aspect);        // backwards past the first value wraps to the last
+        s.step(Row.UNITS, +1);
+        assertEquals(false, s.imperial);
+        s.step(Row.UNITS, -1);
+        assertEquals(true, s.imperial);                     // two-value rows flip in either direction
+    }
+
+    @Test public void copyFromRestoresEverything() {
+        Settings a = new Settings(), b = new Settings();
+        b.theme = 2;
+        b.matchCarPlay = false;
+        b.imperial = false;
+        b.noPhone = NoPhone.HOME;
+        b.aspect = Aspect.FOUR_THREE;
+        a.copyFrom(b);
+        assertEquals(2, a.theme);
+        assertEquals(false, a.matchCarPlay);
+        assertEquals(false, a.imperial);
+        assertEquals(NoPhone.HOME, a.noPhone);
+        assertEquals(Aspect.FOUR_THREE, a.aspect);
+    }
 }

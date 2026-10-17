@@ -15,7 +15,6 @@ import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.ViewConfiguration;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
@@ -26,7 +25,6 @@ import com.jessiescars.cluster.core.CenterLogic;
 import com.jessiescars.cluster.core.CenterLogic.Aspect;
 import com.jessiescars.cluster.core.CenterLogic.Content;
 import com.jessiescars.cluster.core.CenterLogic.NoPhone;
-import com.jessiescars.cluster.core.DialUi;
 import com.jessiescars.cluster.core.DriveScenario;
 import com.jessiescars.cluster.core.Settings;
 import com.jessiescars.cluster.core.Telemetry;
@@ -37,6 +35,10 @@ import com.jessiescars.cluster.core.VehicleState;
  * phone is projecting, otherwise the user's choice (the gauge or home). The dial click flips between maps
  * and the gauge. A long press (or the MENU key) opens the settings list: gauge theme for the four small
  * screens, units, what to show with no phone, and the shape of the map.
+ *
+ * The dial: see "the dial" below and SettingsView. It follows the Android Automotive rotary model (focus moves from view to
+ * view, a press clicks the focused view, a press on a "direct manipulation" row edits it), and also takes keys sent
+ * straight to the app.
  *
  * Data comes from a fake source (core/DriveScenario) that adb can override:
  *
@@ -54,7 +56,7 @@ import com.jessiescars.cluster.core.VehicleState;
  * default 10.0.2.2:5005, the PC the emulator runs on). The real source (the VHAL bridge) replaces only the fake
  * one; the views only ever see a VehicleState. There are no turn indicators: the dash has physical ones.
  */
-public class MainActivity extends Activity implements DialUi.Host {
+public class MainActivity extends Activity implements SettingsView.Listener {
     static final String ACTION_SET = "com.jessiescars.cluster.SET";
     static final String ACTION_CLEAR = "com.jessiescars.cluster.CLEAR";
     private static final long TICK_MS = 50;            // 20 updates per second
@@ -64,11 +66,14 @@ public class MainActivity extends Activity implements DialUi.Host {
     private ProjectionView maps;
     private HomeView home;
     private SettingsView settingsView;
+    private DialTarget dialTarget;
     private SharedPreferences prefs;
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final DriveScenario.Override override = new DriveScenario.Override();
     private long t0;
+    private boolean resumed;                          // the app is in front
+    private boolean ticking;
 
     // centre-display state
     private boolean phoneProjecting = true;            // fake: a phone is connected
@@ -77,8 +82,6 @@ public class MainActivity extends Activity implements DialUi.Host {
     private Content shown;
     private boolean settingsOpen;
     private final Settings settings = new Settings();
-    private final DialUi dial = new DialUi(settings, this);
-    private long dialDownAt = -1;                      // when the dial button went down, -1 when it is up
     private final TelemetryPublisher telemetry = new TelemetryPublisher();
 
     private final Runnable tick = new Runnable() {
@@ -91,10 +94,7 @@ public class MainActivity extends Activity implements DialUi.Host {
             gauge.setState(s);
             maps.setState(s);
             // development feed for the small screens; while the centre shows the speedometer they do not repeat speed
-            telemetry.publish(Telemetry.encode(s, settings.imperial, look, shown == Content.GAUGE && !settingsOpen));
-            if (dialDownAt >= 0 && settingsOpen) {
-                settingsView.setHoldProgress(Math.min(1f, (SystemClock.elapsedRealtime() - dialDownAt) / (float) ViewConfiguration.getLongPressTimeout()));
-            }
+            telemetry.publish(Telemetry.encode(s, settings.imperial, look, resumed && shown == Content.GAUGE && !settingsOpen));
             handler.postDelayed(this, TICK_MS);
         }
     };
@@ -156,18 +156,25 @@ public class MainActivity extends Activity implements DialUi.Host {
         gauge = new ClusterView(this);
         maps = new ProjectionView(this);
         home = new HomeView(this);
-        settingsView = new SettingsView(this, settings, dial);
+        settingsView = new SettingsView(this, settings, this);
+        dialTarget = new DialTarget(this);
 
         FrameLayout root = new FrameLayout(this);
         root.addView(gauge);
         root.addView(maps);
         root.addView(home);
+        root.addView(dialTarget);
         root.addView(settingsView);
-        root.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
         gauge.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
         maps.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
         home.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
+        // The dial: dialTarget is what it focuses and presses on the main screen (click flips maps / gauge, hold opens the
+        // settings); the settings rows are focusable views of their own. Nothing else takes focus.
+        for (View v : new View[] { gauge, maps, home }) v.setFocusable(View.NOT_FOCUSABLE);
+        dialTarget.setOnClickListener(v -> flip());
+        dialTarget.setOnLongClickListener(v -> { setSettingsOpen(true); return true; });
         setContentView(root);
+        dialTarget.requestFocus();
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         applySettings(false);
         refreshContent();
@@ -201,9 +208,12 @@ public class MainActivity extends Activity implements DialUi.Host {
     @Override public void onClose() { setSettingsOpen(false); }
 
     private void setSettingsOpen(boolean open) {
-        if (open && !settingsOpen) dial.open();
+        boolean was = settingsOpen;
         settingsOpen = open;
         settingsView.setVisibility(open ? View.VISIBLE : View.GONE);
+        dialTarget.setVisibility(open ? View.GONE : View.VISIBLE);
+        if (open && !was) settingsView.focusFirst();                       // the dial now moves between the rows
+        else if (!open && was) dialTarget.requestFocus();                   // and back to the main screen
         if (open) settingsView.invalidate();
     }
 
@@ -241,10 +251,12 @@ public class MainActivity extends Activity implements DialUi.Host {
     }
 
     // ---- the dial -----------------------------------------------------------------------------------------
-    // The AAOS rotary controller delivers: rotation as KEYCODE_NAVIGATE_NEXT / PREVIOUS (or as scroll events from a
-    // rotary encoder), nudges as DPAD keys, and the button as DPAD_CENTER (a long press arrives as a repeating key).
-    // Flow (same as the desktop simulator, hmi-sim): Home: turn or click flips maps / gauge, hold opens the settings;
-    // settings: see core/DialUi.
+    // With the AAOS rotary controller (the emulator's Car rotary panel, and a car that uses the stock service): turning moves
+    // focus between views, pressing clicks the focused one (it injects DPAD_CENTER, which Android turns into onClick or, held,
+    // onLongClick), pressing on a "direct manipulation" settings row enters its edit mode, and BACK leaves it. See SettingsView.
+    // Without it (keys sent straight to the app, as android/rotary-service can do): NAVIGATE_NEXT / PREVIOUS and the nudges
+    // arrive here and turn(), DPAD_CENTER clicks the focused view, the same as above.
+    // On Home a turn (keys only: the controller has nothing to move focus to) or a click flips maps and gauge.
 
     /** +1 clockwise, -1 counter-clockwise, 0 not a turn. Nudges count as turns: one dial, two directions. */
     private static int turnOf(int keyCode) {
@@ -262,47 +274,18 @@ public class MainActivity extends Activity implements DialUi.Host {
         }
     }
 
-    private static boolean isClick(int keyCode) {
-        return keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER;
-    }
-
     private void turn(int dir) {
-        if (settingsOpen) {
-            dial.handle(dir > 0 ? DialUi.Event.RIGHT : DialUi.Event.LEFT);
-            settingsView.invalidate();
-        } else if (phoneProjecting) {
-            flippedToGauge = !flippedToGauge;               // turning on Home flips between the maps and the speedometer
-            refreshContent();
-        }
+        if (settingsOpen) settingsView.turn(dir);
+        else flip();
     }
 
-    private void click() {
-        if (settingsOpen) {
-            dial.handle(DialUi.Event.CLICK);
-            settingsView.invalidate();
-        } else if (phoneProjecting) {
-            flippedToGauge = !flippedToGauge;
-            refreshContent();
-        }
-    }
-
-    private void longPress() {
-        if (settingsOpen) {
-            dial.handle(DialUi.Event.LONG);                 // cancels an edit, or closes the list
-            settingsView.invalidate();
-        } else {
-            setSettingsOpen(true);
-        }
+    private void flip() {
+        if (!phoneProjecting) return;                      // with no phone the centre shows what the owner chose
+        flippedToGauge = !flippedToGauge;
+        refreshContent();
     }
 
     @Override public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (isClick(keyCode)) {
-            if (event.getRepeatCount() == 0) {
-                event.startTracking();                      // a long press then arrives in onKeyLongPress
-                dialDownAt = SystemClock.elapsedRealtime();
-            }
-            return true;
-        }
         int d = turnOf(keyCode);
         if (d != 0) {
             turn(d);
@@ -311,23 +294,10 @@ public class MainActivity extends Activity implements DialUi.Host {
         return super.onKeyDown(keyCode, event);
     }
 
-    @Override public boolean onKeyLongPress(int keyCode, KeyEvent event) {
-        if (isClick(keyCode)) {
-            dialDownAt = -1;
-            settingsView.setHoldProgress(0f);
-            longPress();
-            return true;
-        }
-        return super.onKeyLongPress(keyCode, event);
-    }
-
     @Override public boolean onKeyUp(int keyCode, KeyEvent event) {
         if (keyCode == KeyEvent.KEYCODE_MENU) { setSettingsOpen(!settingsOpen); return true; }
-        if (keyCode == KeyEvent.KEYCODE_BACK && settingsOpen) { longPress(); return true; }       // back = hold: cancel, then close
-        if (isClick(keyCode)) {
-            dialDownAt = -1;
-            settingsView.setHoldProgress(0f);
-            if (event.isTracking() && !event.isCanceled()) click();                                 // not a long press
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (settingsOpen && !settingsView.back()) setSettingsOpen(false);       // leave an edit first, then the list
             return true;
         }
         if (turnOf(keyCode) != 0) return true;
@@ -355,17 +325,31 @@ public class MainActivity extends Activity implements DialUi.Host {
         f.addAction(ACTION_CLEAR);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(debug, f, Context.RECEIVER_EXPORTED);
         else registerReceiver(debug, f);
-        t0 = SystemClock.elapsedRealtime();
-        handler.post(tick);
+        resumed = true;
+        if (!ticking) {                                 // the loop (and the feed to the small screens) outlives the screen
+            ticking = true;
+            t0 = SystemClock.elapsedRealtime();
+            handler.post(tick);
+        }
+    }
+
+    @Override public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (hasFocus && getCurrentFocus() == null) {
+            if (settingsOpen) settingsView.focusFirst();
+            else dialTarget.requestFocus();
+        }
     }
 
     @Override protected void onPause() {
-        handler.removeCallbacks(tick);
+        resumed = false;                               // the feed goes on, now saying the centre shows something else
         unregisterReceiver(debug);
         super.onPause();
     }
 
     @Override protected void onDestroy() {
+        handler.removeCallbacks(tick);
+        ticking = false;
         telemetry.close();
         super.onDestroy();
     }

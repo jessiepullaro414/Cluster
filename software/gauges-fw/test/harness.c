@@ -970,7 +970,7 @@ int main(int argc, char **argv)
 #endif
 
         /* data */
-        bool alive = true;
+        bool alive = true, android_gone = false;
         if (sock >= 0) {
             char buf[512];
             ssize_t n;
@@ -988,7 +988,24 @@ int main(int argc, char **argv)
             if (rec) fflush(rec);
         }
         if (src == SRC_DRIVE) { if (!paused) drive_t += 0.01f; drive_at(drive_t, &in); }
-        else if (src == SRC_ANDROID) alive = had_android && t - last_rx <= STALE_MS;
+        else if (src == SRC_ANDROID) {
+            /* The gauges board does not depend on Android: its senders, Hall pickup and the car bus are its own. If the feed
+             * stops (the app was left, closed or crashed) the screens keep running, on the built-in drive here, with the last
+             * theme and units (the board keeps those in flash) and with speed back on the small screens. */
+            android_gone = had_android && t - last_rx > STALE_MS;
+            {
+                static bool was_gone = false;
+                if (android_gone != was_gone) {
+                    fprintf(stderr, "harness: %s\n", android_gone ? "Android feed lost: the gauges run on their own sensors" : "Android feed is back");
+                    was_gone = android_gone;
+                }
+            }
+            if (android_gone) {
+                if (!paused) drive_t += 0.01f;
+                drive_at(drive_t, &in);
+                in.center = false;
+            }
+        }
         else if (src == SRC_REPLAY && replay && !paused) {
             uint64_t el = t - replay_t0;
             while (replay_i < (size_t)replay_n && replay[replay_i].ms <= el) {
@@ -1020,7 +1037,7 @@ int main(int argc, char **argv)
                 else snprintf(val[i], sizeof val[i], i == I_BATT ? "%.1f" : "%.0f", in.v[i]);
             }
             snprintf(l0, sizeof l0, "SOURCE %s%s   UNITS %s   THEME %s%s   DATA %s", SRC_NAME[src], paused ? " (PAUSED)" : "", in.imperial ? "MPH" : "KM/H", in.theme == THEME_FACTORY ? "FACTORY" : in.theme == THEME_CARPLAY ? "CARPLAY" : (in.theme == THEME_MODERN ? "MODERN" : "CLASSIC"), in.center ? " (SPEED ON CENTRE)" : "",
-                     src == SRC_ANDROID ? (alive ? "LIVE FROM ANDROID" : (had_android ? "LOST: DASHES" : "WAITING FOR ANDROID")) : "BUILT IN");
+                     src == SRC_ANDROID ? (android_gone ? "ANDROID GONE: ON OWN SENSORS" : (alive ? "LIVE FROM ANDROID" : "WAITING FOR ANDROID")) : "BUILT IN");
             snprintf(l1, sizeof l1, "SPEED %s KM/H  RPM %s  BATT %s V  FUEL %s %%  COOL %s C  OIL %s KPA", val[0], val[1], val[2], val[3], val[4], val[5]);
             snprintf(l2, sizeof l2, "PANEL BUS %.1f %% (9.6 MHZ)  PEAK %.1f %%  BACKLOG %d TILES  RUNS/S %u  DATA/S %u  FRAMES/S %u",
                      rig.last_window_pct, rig.peak_window_pct, aux_display_pending_tiles(), runs_rate, rx_rate, frames_rate);

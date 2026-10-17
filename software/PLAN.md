@@ -108,3 +108,5 @@ Every register address and bit comes from the Reference Manual, not memory; stub
 - A round 720x720 cluster is not a stock device definition; B1 will need a secondary/distant display or a custom hardware profile.
 
 - 2026-10-16: the dial on Android (core/DialUi, MainActivity key handling) follows the hmi-sim flow: rotation (KEYCODE_NAVIGATE_NEXT/PREVIOUS, nudges, or a rotary-encoder scroll), click and hold; Home turn or click flips maps / gauge. Checked on the AAOS emulator with synthetic key events only; the emulator's own rotary panel and real hardware are NOT yet verified (ROTARY_CLOCKWISE_SIGN for encoder scroll events is a guess).
+
+- 2026-10-16: the gauges must not depend on the Android app being in front or alive. The app keeps feeding the dev feed while paused (centre flag off); if it is gone the harness window runs on the built-in drive with the last theme and units. The real board has its own senders, Hall pickup and CAN, and only uses Android for settings and the centre-speedometer flag (valid only while Android's heartbeat is fresh).

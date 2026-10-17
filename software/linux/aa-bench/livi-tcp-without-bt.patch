@@ -1,8 +1,11 @@
 Bench-only change to LIVI (github.com/f-io/LIVI, dev branch at b43c7153, the 9.5.0 nightly #2489):
 when Bluetooth cannot start and LIVI_AA_TCP_WITHOUT_BT=1 is set, still open the Android Auto TCP
-listener, so aa-bench/relay.py can join a phone's or emulator's head unit server to it. Without the
-variable LIVI behaves exactly as before. Apply in the LIVI tree with `git apply`.
+listener, so aa-bench/relay.py can join a phone's or emulator's head unit server to it; and with
+LIVI_AA_H264_ONLY=1, offer the phone H.264 instead of H.265 (an Android emulator's Android Auto cannot
+encode H.265 and drops the session with "no working configuration"). Without the variables LIVI behaves
+exactly as before. Apply in the LIVI tree with `git apply`; rebuild livi-helperd and livi-core.
 
+diff --git a/native/livi-helperd/bin/livi-helperd/src/linux_main.rs b/native/livi-helperd/bin/livi-helperd/src/linux_main.rs
 --- a/native/livi-helperd/bin/livi-helperd/src/linux_main.rs
 +++ b/native/livi-helperd/bin/livi-helperd/src/linux_main.rs
 @@ -552,6 +552,17 @@
@@ -23,3 +26,15 @@ variable LIVI behaves exactly as before. Apply in the LIVI tree with `git apply`
          crate::shutdown_signal().await;
          println!("[helperd] shutting down");
          iap2_usbmux::restore_all_default_config();
+diff --git a/native/livi-helperd/bin/livi-core/src/carplay.rs b/native/livi-helperd/bin/livi-core/src/carplay.rs
+--- a/native/livi-helperd/bin/livi-core/src/carplay.rs
++++ b/native/livi-helperd/bin/livi-core/src/carplay.rs
+@@ -442,4 +442,8 @@
+ pub fn offers_hevc(probe: &serde_json::Value) -> bool {
++    // Bench: an Android emulator's Android Auto cannot encode H.265 ("no working configuration").
++    if std::env::var("LIVI_AA_H264_ONLY").is_ok_and(|v| v == "1") {
++        return false;
++    }
+     let flag = |codec: &str, kind: &str| probe[codec][kind].as_bool().unwrap_or(false);
+     flag("h265", "hw") || (flag("h265", "sw") && !flag("h264", "hw"))
+ }

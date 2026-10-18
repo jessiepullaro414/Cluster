@@ -33,10 +33,13 @@ int DialAngle::sample(uint32_t raw) {
     if (last_deg_ < 0.0f) last_deg_ += 360.0f;
     travel_ += d;
 
+    // A step fires at 85 % of a detent (the filter only approaches a whole detent, so an exact one-detent move would
+    // otherwise never fire), and the anchor then moves a whole detent: going back needs 115 %, so no chatter.
     const float step = 360.0f / float(c_.detents_per_turn);
+    const float fire = 0.85f * step;
     int steps = 0;
-    while (travel_ >= step) { travel_ -= step; steps++; }
-    while (travel_ <= -step) { travel_ += step; steps--; }
+    while (travel_ >= fire) { travel_ -= step; steps++; }
+    while (travel_ <= -fire) { travel_ += step; steps--; }
     return steps;
 }
 

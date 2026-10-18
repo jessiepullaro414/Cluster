@@ -73,6 +73,19 @@ static void test_dial() {
         d.sample(1000);
         CHECK(d.sample(4050) == 0);
     }
+    {   // exact one-detent jumps (a mouse wheel on the bench panel, 12 detents = 30 degrees) give one step each
+        DialConfig c;
+        c.detents_per_turn = 12;
+        DialAngle d(c);
+        d.sample(raw_at(0));
+        int n = 0;
+        for (int k = 1; k <= 6; k++)
+            for (int i = 0; i < 20; i++) n += d.sample(raw_at(30.0f * k));
+        CHECK(n == 6);
+        for (int k = 5; k >= 0; k--)
+            for (int i = 0; i < 20; i++) n += d.sample(raw_at(30.0f * k));
+        CHECK(n == 0);
+    }
     {   // rezero after a resume: a reading far away is the new zero, not a turn
         DialAngle d;
         d.sample(raw_at(0));

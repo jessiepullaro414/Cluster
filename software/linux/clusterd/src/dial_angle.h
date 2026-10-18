@@ -2,8 +2,9 @@
 // ADC_1 through display/'s divider) becomes +1 / -1 detent steps. Pure C++17.
 //
 //   * The angle is unwrapped across 0 / 360, so a turn through the seam is one smooth motion.
-//   * A step fires when the angle has moved a whole detent from the last step's anchor; the anchor
-//     then moves by exactly one detent, so slow turning cannot drift and a fast turn gives every step.
+//   * A step fires when the angle has moved 85 % of a detent from the last step's anchor; the anchor
+//     then moves by exactly one detent, so slow turning cannot drift, a fast turn gives every step, and
+//     an exact one-detent move (the filter only approaches it) still counts.
 //   * Readings outside the sensor's valid band (raw_min..raw_max, e.g. a missing magnet or a broken
 //     wire) are ignored, and so is any jump larger than kMaxJumpDeg between two samples.
 //   * The first reading after start-up or a resume only sets the anchor (the sensor's 5 V is switched

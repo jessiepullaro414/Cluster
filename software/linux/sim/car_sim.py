@@ -33,7 +33,7 @@ sys.path.insert(0, os.path.join(REPO, "protocol"))
 import cantools  # noqa: E402
 from can_replay import PrivateEncoder, periods  # noqa: E402
 
-DETENTS = 24                       # clusterd's dial_detents default: one step per 15 degrees
+DETENTS = 12                       # clusterd-sim.conf dial_detents: one step per 30 degrees (one wheel notch)
 WIN_PY = "/mnt/c/Users/root/AppData/Local/Python/bin/python.exe"
 PHONE = os.path.join(HERE, "phone.py")
 

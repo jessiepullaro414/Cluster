@@ -83,9 +83,7 @@ def main():
     cards = (card("Cluster", "a digital instrument cluster for a 1966 Mustang",
                   "now with real Android Auto on the round centre screen"),
              card("Cluster", "Linux + LIVI centre, S32K144 firmware gauges",
-                  "Prototype: the boards are designed but not built. Everything runs on a PC: LIVI (an open-source\n"
-                  "CarPlay / Android Auto receiver) on Linux, an Android emulator as the phone running Google's Android Auto,\n"
-                  "and the small gauges' real firmware drawing code on simulated panels, all fed by one replayed drive."))
+                  "Prototype, running on a PC: the boards are designed but not built yet."))
     k = 0
     intro_n, outro_n, fade = int(3.5 * FPS), int(6.0 * FPS), int(0.5 * FPS)
 

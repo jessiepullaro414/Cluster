@@ -225,6 +225,7 @@ def main():
         adb("emu", "geo", "fix", f"{ROUTE[0][1]:.6f}", f"{ROUTE[0][0]:.6f}")
         gps = None
         t_wait = time.time()
+        nav = ["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "'google.navigation:q=Shoreline+Amphitheatre&mode=d'"]   # quoted: adb runs it through the phone's shell
         # adb's forward accepts a TCP connection before the phone's server is ready, and a session dropped early wedges
         # the server; so: let it settle, relay one session at a time, and on failure start a fresh server and retry.
         # The emulator runs the arm64 Android Auto through ARM translation, and its car process sometimes crashes
@@ -233,10 +234,12 @@ def main():
             log = wsl(f"cat {WSL_WORK}/livi.log")
             n_conn, n_over = log.count("session connected"), log.count("session over")
             start_head_unit_server()
-            # Maps in the foreground first, so Android Auto opens on the map rather than wherever it was last (its app
-            # grid, on some runs). Navigation starts once the session is up (see below).
-            adb("shell", "am", "start", "-n", "com.google.android.apps.maps/com.google.android.maps.MapsActivity")
-            time.sleep(5)
+            # Navigation running on the phone before the session: Android Auto then opens on it, rather than wherever
+            # it was last (its app grid, on some runs). Started during a session, Maps on the car stops at its route
+            # card and waits for a press on Start. mode=d: driving (Maps picked walking on one run, no route).
+            adb("shell", "am", "force-stop", "com.google.android.apps.maps")
+            adb(*nav)
+            time.sleep(8)
             relay = subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
                                       os.path.join(REPO, "software", "linux", "aa-bench", "relay.ps1"), "-Once"],
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=0x08000000)
@@ -257,29 +260,30 @@ def main():
         marks["cuts"] = [[t_wait + 3.0, marks["phone"] - 10.0]]     # waiting for a session that stays up
         gps = threading.Thread(target=gps_drive, args=(gps_stop,), daemon=True)
         gps.start()
-        caption("Google Maps on the round centre", "the phone's Android Auto, laid out inside the circle")
-        time.sleep(5)
-        # Maps on the emulator often crashes once as navigation starts (SIGSEGV in its car map renderer, ARM
+        # Maps on the emulator sometimes crashes as the car picture starts (SIGSEGV in its car map renderer, ARM
         # translation) and comes back by itself; the picture is black meanwhile. Wait for Android Auto's green
         # navigation banner, and cut the wait.
         t_nav = time.time()
-        nav = ["shell", "am", "start", "-a", "android.intent.action.VIEW", "-d", "'google.navigation:q=Shoreline+Amphitheatre&mode=d'"]   # quoted: adb runs it through the phone's shell
-        adb(*nav)                  # mode=d: driving (Maps picked walking on one run and never found a route)
         h = find_window("LIVI")
+        best = 0.0
         for i in range(120):
-            img = capture(h).astype(int)
+            raw = capture(h)
+            img = raw.astype(int)
             b, g, r = img[..., 0], img[..., 1], img[..., 2]
-            if ((g > r + 40) & (g > b + 15) & (g > 70) & (g < 150)).mean() > 0.02:
+            frac = ((g > r + 40) & (g > b + 15) & (g > 70) & (g < 150)).mean()
+            best = max(best, frac)
+            if frac > 0.02:
                 break
-            if i == 60:
-                adb(*nav)
             time.sleep(0.5)
         else:
-            raise SystemExit("record: no navigation banner on the centre")
+            cv2.imwrite(os.path.join(WORK, "no_banner.jpg"), raw)
+            raise SystemExit(f"record: no navigation banner on the centre (best green fraction {best:.4f}, "
+                             f"last frame in no_banner.jpg)")
         if time.time() - t_nav > 4.0:
             marks["cuts"].append([t_nav + 1.0, time.time() - 1.0])
-        caption("Google Maps navigation on the round centre", "speed moves back to the small gauges while the map is up")
-        time.sleep(16)
+        caption("Google Maps navigation on the round centre", "the phone's Android Auto, laid out inside the circle; "
+                "speed moves to the small gauges")
+        time.sleep(18)
         caption("Hold the dial 1.5 s: our speedometer, even with a phone", "")
         dial("m")
         time.sleep(3)
@@ -293,10 +297,13 @@ def main():
         rec.join(5)
         if relay:
             relay.kill()
+        # The harness dumps every changed panel frame (about 800 KB, up to 25 a second): left running after a
+        # recording it filled the bench distro's disk and the Windows drive under it (2026-10-18). Always stop it.
+        wsl("pkill -x harness")
         json.dump({"timeline": timeline, "marks": marks, "harness_dir": f"\\\\wsl.localhost\\{DISTRO}{WSL_WORK}/hf".replace("/", "\\")},
                   open(os.path.join(WORK, "timeline.json"), "w"), indent=1)
         print(f"record: {marks.get('centre_frames')} centre frames; timeline in {WORK}", flush=True)
-    del livi, harness, clusterd   # they keep running: the bench stays up for stills
+    del livi, harness, clusterd   # LIVI and clusterd keep running; the frame-dumping harness was stopped above
 
 
 if __name__ == "__main__":

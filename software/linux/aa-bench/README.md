@@ -108,6 +108,11 @@ AppImage's `resources/app.asar` (`npx @electron/asar extract`), replace its `out
 back, and drop in the rebuilt `livi-core` and `livi-helperd` (the config struct changed). The repacked archive
 has the same 41,562 entries; only `out/` differs.
 
+`setup_bench_distro.sh` does all of this in a fresh Ubuntu-24.04 distro, as root (system packages, libva and
+wayland from source, the nightly AppImage, LIVI's source at the nightly's own commit with both patches, the
+rebuilt binaries and UI, clusterd, LIVI's config, a drive log). It rebuilt the bench on 2026-10-18 after the old
+distro's disk died. The emulator and Android Auto setup above stay manual.
+
 ## What the bench run on 2026-10-17 found first
 
 - **The Play Store route is closed.** The Google Play phone image (Android 15, `system-images;android-35;google_apis_playstore;x86_64`)

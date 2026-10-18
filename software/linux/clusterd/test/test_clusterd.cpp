@@ -121,7 +121,7 @@ static void test_shell() {
     sh.press(t);
     a = sh.release(t + 120);
     CHECK(a.key == Key::Select);
-    // hold 0.6 s: Back for the phone, then nothing until 1.5 s, then our Settings
+    // hold 0.6 s: Back for the phone, then nothing until 1.5 s, then our speedometer, even with the phone
     t = 2000;
     sh.press(t);
     CHECK(sh.tick(t + 300).key == Key::None);
@@ -129,35 +129,52 @@ static void test_shell() {
     CHECK(a.key == Key::Back && a.path == nullptr);
     CHECK(sh.tick(t + 1000).path == nullptr);
     a = sh.tick(t + 1500);
-    CHECK(a.path && std::string(a.path) == kPathSettings && a.key == Key::None);
+    CHECK(a.path && std::string(a.path) == kPathGauge && a.key == Key::None);
+    CHECK(sh.view() == View::Gauge && sh.centre_shows_speed());
     CHECK(sh.tick(t + 1600).path == nullptr);
     a = sh.release(t + 1700);
     CHECK(a.key == Key::None && a.path == nullptr);   // letting go after a long press does nothing
     CHECK(!sh.phone_owns_dial());
 
+    // on our speedometer the dial is ours: a turn goes back to the map (and the phone gets the dial again) ...
+    a = sh.turn(+1);
+    CHECK(a.path && std::string(a.path) == kPathMaps && a.key == Key::None && sh.phone_owns_dial());
+    // ... the 1.5 s hold again for the speedometer, and from it a 0.6 s hold opens Settings
+    sh.press(2800);
+    sh.tick(3400);                        // Back to the phone
+    a = sh.tick(4300);
+    CHECK(a.path && std::string(a.path) == kPathGauge);
+    sh.release(4400);
+    sh.press(4500);
+    a = sh.tick(5100);
+    CHECK(sh.ui().screen() == hmi::Screen::Settings && a.path == nullptr && a.key == Key::None);   // gauge and settings share /custom
+    sh.release(5200);
+
     // in Settings the dial is ours: turn moves rows, no keys to the phone
     a = sh.turn(+1);
     CHECK(a.key == Key::None && sh.ui().row() == hmi::Row::MatchCarPlay);
     // edit "With CarPlay": off, keep -> the small screens go back to the owner's theme
-    sh.press(3000);
-    sh.release(3050);
+    sh.press(5300);
+    sh.release(5350);
     sh.turn(+1);
-    sh.press(3100);
-    sh.release(3150);
+    sh.press(5400);
+    sh.release(5450);
     CHECK(sh.mutable_ui().take_committed());
     CHECK(!sh.ui().model().match_carplay && sh.gauge_theme() == 1);
-    // hold in the list: back to Home, the maps, the phone has the dial again
-    sh.press(4000);
-    a = sh.tick(4600);
-    CHECK(a.path && std::string(a.path) == kPathMaps);
-    sh.release(4700);
-    CHECK(sh.phone_owns_dial());
+    // hold in the list: back to Home on our speedometer; a click there goes back to the map and the phone
+    sh.press(6000);
+    sh.tick(6600);
+    sh.release(6700);
+    CHECK(sh.ui().screen() == hmi::Screen::Home && sh.view() == View::Gauge);
+    sh.press(6800);
+    a = sh.release(6850);
+    CHECK(a.path && std::string(a.path) == kPathMaps && sh.phone_owns_dial());
 
     // a short hold that ends before 1.5 s is only Back
-    sh.press(5000);
-    CHECK(sh.tick(5600).key == Key::Back);
-    sh.release(5800);
-    CHECK(sh.tick(7000).path == nullptr);
+    sh.press(8000);
+    CHECK(sh.tick(8600).key == Key::Back);
+    sh.release(8800);
+    CHECK(sh.tick(10000).path == nullptr);
 
     // a busy loop: a 0.7 s hold whose release arrives before any tick saw 0.6 s is still a hold, never a click
     {
@@ -440,10 +457,11 @@ static void test_state_io() {
     CHECK(sh.view() == View::Maps);
     sh.press(0);
     sh.tick(600);
-    sh.tick(1500);
+    sh.tick(1500);                         // the 1.5 s hold: our speedometer while the phone stays connected
+    sh.release(1600);
     s = page_state_json(sh, vhal::Bridge(), 0);
-    HAS(s, "\"view\":\"settings\"");
-    HAS(s, "\"screen\":\"settings\"");
+    HAS(s, "\"view\":\"gauge\"");
+    HAS(s, "\"screen\":\"home\"");
     HAS(s, "\"phone\":\"cp\"");
     HAS(s, "\"theme\":2");
 

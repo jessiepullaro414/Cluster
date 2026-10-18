@@ -63,6 +63,9 @@ def settings_for(shape, mfi_bus=None, car_name=None):
         "wirelessCpEnabled": True,
         "customUrl": PAGE_URL,
         "customHideNav": True,          # livi-round-ui.patch: no navigation rail over our round page
+        # 120 instead of LIVI's 180: Android Auto lays itself out smaller, so its bottom bar fits the 508 px safe
+        # square (at 180 two app icons were cut off, at 140 the outer two still were; checked on the bench)
+        "projectionDpi": 120,
     }
     for name, v in (("View", view), ("Safe", safe)):
         for side, px in zip(("Top", "Bottom", "Left", "Right"), v):
@@ -105,7 +108,7 @@ def selftest():
     assert new["bindings"] == {"up": "ArrowUp", "back": "Backspace", "knobLeft": "F13", "knobRight": "F14", "selectDown": "Enter"}
     assert new["custom"] == {"main": True, "cluster": True, "aux": False} and new["darkMode"] is True
     assert new["carPlayMfiI2cBus"] == 1 and new["projectionViewAreaTop"] == 144
-    assert new["customHideNav"] is True
+    assert new["customHideNav"] is True and new["projectionDpi"] == 120
     assert cfg["bindings"]["back"] == "Escape"   # the input is not modified
     print("livi_config selftest ok")
 

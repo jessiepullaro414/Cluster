@@ -92,7 +92,7 @@ class CarSim:
         self.cv.bind("<MouseWheel>", lambda e: self.turn(1 if e.delta > 0 else -1))
         self.cv.bind("<Button-4>", lambda e: self.turn(1))
         self.cv.bind("<Button-5>", lambda e: self.turn(-1))
-        ttk.Label(dial, text="drag the rim or scroll to turn; press the centre\n(hold 0.6 s: long press, 1.5 s with a phone: settings)",
+        ttk.Label(dial, text="drag the rim or scroll to turn; press the centre\n(hold 0.6 s: long press / settings; with a phone 1.5 s: speedometer)",
                   foreground=DIM, justify="center").pack(pady=(0, 6))
         self.dial_label = ttk.Label(dial, text="", foreground=DIM)
         self.dial_label.pack(pady=(0, 6))

@@ -22,6 +22,6 @@ The panel's status box reads `clusterd`'s `/state`: what the centre shows, the s
 What happens on the centre (clusterd's dial flows, `../clusterd/src/shell.h`):
 - **No phone.** Turn or click flips between our speedometer and LIVI's home. Hold 0.6 s for Settings.
 - **In Settings.** Turn to choose a row, click to edit it (turn changes the value, click keeps it), hold to go back.
-- **With a phone on the map.** The dial goes to the phone. A 1.5 s hold opens our Settings.
+- **With a phone on the map.** The dial goes to the phone: turn moves its highlight, click selects, a 0.6 s hold is Back. Keep holding to 1.5 s for our speedometer; from there a turn or click goes back to the map and a 0.6 s hold opens Settings.
 
 On a PC there's no real suspend. Key off only shows the countdown in the panel and logs "would suspend" (`clusterd-sim.conf`).

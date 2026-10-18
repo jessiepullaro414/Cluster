@@ -7,8 +7,9 @@
 // dial belongs to the phone.
 //
 //   Maps with a phone   turn: knob to the phone   click: select   hold 0.6 s: Back to the phone
-//                       keep holding to 1.5 s: open our Settings
-//   everything else     exactly hmi.h (Home: click or turn flips maps / gauge, hold: Settings; ...)
+//                       keep holding to 1.5 s: our speedometer (the owner asked for a way to it with a phone)
+//   everything else     exactly hmi.h (Home: click or turn flips maps / gauge, hold: Settings; ...), so from
+//                       the speedometer a turn or click goes back to the map and a 0.6 s hold opens Settings
 //
 // Which LIVI page shows what:
 //   maps     LIVI "/"           the projection (or LIVI's own home with no phone)
@@ -81,11 +82,11 @@ public:
             t_long_ = now_ms;
             return input(in);
         }
-        // Still held long after the first long press, on the maps with a phone: the way out to Settings.
+        // Still held long after the first long press, on the maps with a phone: the way out to our speedometer.
         if (click_.held() && !menu_fired_ && phone_mode_at_long_ && now_ms - t_long_ >= kMenuHoldMs - hmi::ClickDetector::kLongMs) {
             menu_fired_ = true;
             phone_mode_at_long_ = false;
-            ui_.handle(hmi::Input::LongPress);   // Home -> Settings
+            ui_.handle(hmi::Input::Click);       // Home: maps -> gauge (hmi.h flips the view)
             Action a;
             a.path = page_change();
             return a;

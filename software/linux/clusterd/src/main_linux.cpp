@@ -105,13 +105,14 @@ static void can_send(int s, const Frame& f) {
 }
 
 // ---- uinput: the dial's keys for LIVI and the phone ------------------------------------------
-// LIVI key bindings to set (livi_config.py does): knobLeft F13, knobRight F14, selectDown Enter, back Backspace.
+// LIVI key bindings to set (livi_config.py does): knobLeft F13, knobRight F14, selectDown Enter, selectUp F15,
+// back Backspace. A click sends Enter then F15: the press and the release of the phone's centre button.
 
 static int uinput_open() {
     int fd = open("/dev/uinput", O_WRONLY | O_NONBLOCK);
     if (fd < 0) { std::perror("clusterd: /dev/uinput (dial keys disabled)"); return -1; }
     ioctl(fd, UI_SET_EVBIT, EV_KEY);
-    for (int k : {KEY_F13, KEY_F14, KEY_ENTER, KEY_BACKSPACE}) ioctl(fd, UI_SET_KEYBIT, k);
+    for (int k : {KEY_F13, KEY_F14, KEY_ENTER, KEY_F15, KEY_BACKSPACE}) ioctl(fd, UI_SET_KEYBIT, k);
     uinput_setup us = {};
     us.id.bustype = BUS_VIRTUAL;
     us.id.vendor = 0x1d6b;   // Linux Foundation: a virtual device, not real hardware
@@ -173,12 +174,18 @@ static void send_key(int ui_fd, LiviCore& core, Key k) {
     int code = k == Key::KnobLeft ? KEY_F13 : k == Key::KnobRight ? KEY_F14 : k == Key::Select ? KEY_ENTER : KEY_BACKSPACE;
     const char* web = k == Key::KnobLeft ? "F13" : k == Key::KnobRight ? "F14" : k == Key::Select ? "Enter" : "Backspace";
     std::printf("clusterd: key %s\n", k == Key::KnobLeft ? "knobLeft" : k == Key::KnobRight ? "knobRight" : k == Key::Select ? "select" : "back");
-    if (core.send(livi_key_frame(web, true)) && core.send(livi_key_frame(web, false))) return;
+    bool click = k == Key::Select;
+    if (core.send(livi_key_frame(web, true)) && core.send(livi_key_frame(web, false)) &&
+        (!click || (core.send(livi_key_frame("F15", true)) && core.send(livi_key_frame("F15", false)))))
+        return;
     if (ui_fd < 0) return;
-    uinput_emit(ui_fd, EV_KEY, code, 1);
-    uinput_emit(ui_fd, EV_SYN, SYN_REPORT, 0);
-    uinput_emit(ui_fd, EV_KEY, code, 0);
-    uinput_emit(ui_fd, EV_SYN, SYN_REPORT, 0);
+    for (int c : {code, click ? KEY_F15 : 0}) {
+        if (!c) continue;
+        uinput_emit(ui_fd, EV_KEY, c, 1);
+        uinput_emit(ui_fd, EV_SYN, SYN_REPORT, 0);
+        uinput_emit(ui_fd, EV_KEY, c, 0);
+        uinput_emit(ui_fd, EV_SYN, SYN_REPORT, 0);
+    }
 }
 
 // ---- HTTP: push to LIVI, serve the settings page --------------------------------------------

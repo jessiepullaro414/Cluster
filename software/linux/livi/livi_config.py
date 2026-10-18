@@ -17,7 +17,8 @@ LIVI semantics are from its source (livi-aa-stack config.rs: "The view area beco
 content insets"; a 720 x 720 screen on Android Auto's 1280 x 720 tier gets 560 px of width margin, so the
 phone lays out a 720 x 720 content area). Checked against LIVI 9.5.0, 2026-10-17.
 
-Also set: customHideNav (needs LIVI built with livi-round-ui.patch; a stock LIVI ignores it), the dial's keys (clusterd sends F13 / F14 / Enter / Backspace through uinput), the custom page
+Also set: customHideNav (needs LIVI built with livi-round-ui.patch; a stock LIVI ignores it), the dial's keys (clusterd sends F13 / F14 / Enter + F15 / Backspace to LIVI's core; a click is selectDown then
+selectUp, because LIVI passes Android Auto only the press of selectDown and the release comes from selectUp), the custom page
 (clusterd's settings page), wireless Android Auto and CarPlay on, and optionally the I2C bus of the Apple
 authentication coprocessor on display/ J16 (Verdin I2C_1; the Linux bus number depends on the device tree).
 """
@@ -32,7 +33,7 @@ PANEL = 720                 # TSD TST040HDBC-42, 720 x 720 round (display/)
 SHAPES = ("round", "square", "4:3", "16:9")
 ASPECT = {1: 1.0, 2: 4 / 3, 3: 16 / 9}
 PAGE_URL = "http://127.0.0.1:4010/"
-KEYS = {"knobLeft": "F13", "knobRight": "F14", "selectDown": "Enter", "back": "Backspace"}
+KEYS = {"knobLeft": "F13", "knobRight": "F14", "selectDown": "Enter", "selectUp": "F15", "back": "Backspace"}
 
 
 def even_up(x):
@@ -105,7 +106,8 @@ def selftest():
     assert r0["projectionViewAreaLeft"] == 0 and r0["projectionSafeAreaLeft"] == 106
     cfg = {"bindings": {"up": "ArrowUp", "back": "Escape"}, "custom": {"main": False, "cluster": True, "aux": False}, "darkMode": True}
     new = apply(cfg, 2, mfi_bus=1)
-    assert new["bindings"] == {"up": "ArrowUp", "back": "Backspace", "knobLeft": "F13", "knobRight": "F14", "selectDown": "Enter"}
+    assert new["bindings"] == {"up": "ArrowUp", "back": "Backspace", "knobLeft": "F13", "knobRight": "F14", "selectDown": "Enter",
+                               "selectUp": "F15"}
     assert new["custom"] == {"main": True, "cluster": True, "aux": False} and new["darkMode"] is True
     assert new["carPlayMfiI2cBus"] == 1 and new["projectionViewAreaTop"] == 144
     assert new["customHideNav"] is True and new["projectionDpi"] == 120

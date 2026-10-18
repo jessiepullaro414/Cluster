@@ -33,7 +33,7 @@ also Toradex-supported, where Android Automotive on it is a port.
    │  LIVI (Electron + Rust): projection "/", custom page "/custom" (our gauge + settings) │
    │      ^ POST :4000/telemetry  (speed, rpm, coolant, fuel, volts, lamps, night, page)   │
    │      | reads state/status.json (which phone is projecting)       ^ uinput keys        │
-   │  clusterd ───────────────────────────────────────────────────────┘ (F13/F14/Enter/BS)│
+   │  clusterd ───────────────────────────────────────────────────────┘ (F13-F15/Enter/BS)│
    │      ^ SocketCAN (CAN_1)     ^ IIO ADC_1 (dial angle)   ^ evdev gpio-keys (click)     │
    └──────┼──────────────────────────────────────────────────────────────────────────────┘
           │ private link: 0x300-0x310 in, 0x400-0x4F0 out (protocol/cluster_private.dbc)

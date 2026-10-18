@@ -21,7 +21,9 @@ std::string path_json(const char* path);
 // Frames for LIVI's core socket ($XDG_RUNTIME_DIR/livi/core.sock, livi-core-proto frame.rs): a little-endian
 // uint32 byte count, then JSON. The hello first (LIVI_CORE_PROTOCOL is livi-core-proto's PROTOCOL, 8 in LIVI 9.5.0),
 // then a key as LIVI's renderer reports it: KeyboardEvent.code, which LIVI maps through its key bindings (knobLeft F13,
-// knobRight F14, selectDown Enter, back Backspace, set by livi_config.py) and passes to Android Auto or CarPlay.
+// knobRight F14, selectDown Enter, selectUp F15, back Backspace, set by livi_config.py) and passes to Android Auto or
+// CarPlay. LIVI hands Android Auto only the press of a key, so a click is two keys: selectDown (DPAD_CENTER down), then
+// selectUp (DPAD_CENTER up); without the second the phone sees the centre button held and never clicks.
 constexpr unsigned LIVI_CORE_PROTOCOL = 8;
 std::string livi_hello_frame(const char* client);
 std::string livi_key_frame(const char* code, bool down);

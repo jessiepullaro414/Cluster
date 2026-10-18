@@ -77,6 +77,22 @@ Traps:
 - **LIVI offers H.265 only** when it can decode H.265 in software and has no H.264 hardware decoder, and the
   emulator cannot encode H.265 ("no working configuration" in logcat). `LIVI_AA_H264_ONLY=1` (the patch).
 - WSL's kernel has no virtual CAN (`CONFIG_CAN_VCAN` not set), hence clusterd's `--replay` bench input.
+- **A click is two keys.** LIVI hands Android Auto only the *press* of a bound key: `selectDown` sends the phone
+  DPAD_CENTER down, the release comes from `selectUp`. With `selectUp` unbound the phone sees the centre button
+  held and nothing is ever clicked. `livi_config.py` binds it to F15, and clusterd sends Enter then F15 per click.
+- **Give the emulator 4 GB of RAM** (`hw.ramSize=4G` in the AVD's config.ini). With 2 GB, Android Auto, Maps and
+  Play services (arm64 code through translation) starved it and system_server was killed by its watchdog.
+- **Start navigation before the session**, not during it: an intent sent while Android Auto is connected leaves
+  Maps on the car at its route card, waiting for a press on Start. Started on the phone first, the car opens
+  straight into turn-by-turn (`record_livi_demo.py` does this).
+- The emulator's Android Auto crashes now and then (SIGSEGV in `gearhead:car`'s video EncodingThread, ARM
+  translation): the session drops. Retry; the recorder counts a session once it stayed up.
+
+Setting the phone up again after a wipe (done 2026-10-18; a full C: had corrupted the emulator's data, so
+Android crash-looped on a missing `settings_secure.xml`): boot with `-wipe-data`, the `install-multiple` and
+`pm grant` / notification-listener steps above, developer mode, then three first-run screens. Maps' "Make it your
+map" sign-in prompt can be skipped; Android Auto's "Welcome to Android Auto" consent (Continue) and Maps'
+"Welcome to Google Maps Navigation" terms (Got it) are acceptances for the owner to approve or tap.
 
 Findings for the round panel (open):
 - **LIVI's own pages have a navigation rail** down the left edge; on the round glass its top and bottom icons
@@ -89,8 +105,8 @@ Findings for the round panel (open):
   DejaVu Sans, which is so much wider that the factory face's 100-140 numerals run into each other. The image
   needs `fonts-roboto` (checked on the bench: installed, LIVI restarted, the numerals space out).
 - **With a phone connected the dial cannot reach the gauge view**: on the maps the dial belongs to the phone,
-  and Settings returns to the maps. hmi.h's flows need a way to the gauge while projecting (a Settings row,
-  or a longer hold). A UX decision for the owner.
+  and Settings returns to the maps. **Resolved 2026-10-18** (the owner asked for it): with a phone on the map, a
+  1.5 s hold shows our speedometer; a turn or click goes back to the map (`../clusterd/src/shell.h`).
 - LIVI's dashboard read coolant 0 degrees during the replay; not checked (that dashboard is no longer our gauge,
   but the coolant value also goes to Android Auto and CarPlay, so it is worth a look).
 

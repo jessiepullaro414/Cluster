@@ -65,7 +65,8 @@ def main():
     print(f"centre frames {len(cnames)}, harness frames {len(hnames)}, clock offset {offset * 1000:.0f} ms")
 
     t_start, t_end = marks["start"] + 0.5, marks["end"]
-    # End on our settings over the phone: back on the map, the emulator's Maps tends to crash its car renderer again.
+    # End on our speedometer over the phone (the 1.5 s hold): back on the map, the emulator's Maps tends to crash its
+    # car renderer again.
     back = next((e["t"] for e in events if e["title"].startswith("Back to the map")), None)
     if back is not None:
         t_end = min(t_end, back - 0.3)

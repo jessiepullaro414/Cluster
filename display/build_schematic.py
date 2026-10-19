@@ -186,6 +186,11 @@ X1_NETS = {
     # Reserved GPIO for Apple's MFi authentication coprocessor reset (TBD:
     # polarity and level come from Apple's MFi documentation).
     "GPIO_2": "MFI_RST_N",
+    # 2026-10-18 (product review): LIVI powers the coprocessor from a GPIO
+    # (config carPlayMfiPowerGpio; LIVI README "MFi Authentication"), so the
+    # access point needs a switched supply, not just I2C and reset. GPIO_3
+    # (X1 pin 210, 1.8 V) drives U15's ON pin.
+    "GPIO_3": "MFI_PWR_EN",
 }
 
 # X1 pins this board deliberately does not use, outside the unused bank.
@@ -516,6 +521,11 @@ PASSIVE_PINS = [(1, "1", "passive"), (2, "2", "passive")]
 # reversed the LM74930 ideal-diode/pass pair (Q1/Q2) and the ignition-wake
 # transistor (Q3).
 NFET_PINS = [(1, "G", "input"), (2, "S", "passive"), (3, "D", "passive")]
+# Vishay SQJ460AEP, PowerPAK SO-8L (datasheet page 1): pins 1-3 source,
+# pin 4 gate, the mounting tab (pad 5) drain. Pin names are unique so the
+# name-keyed nets{} below can reach each source pin.
+NFET_PWR_PINS = [(1, "S1", "passive"), (2, "S2", "passive"), (3, "S3", "passive"),
+                 (4, "G", "input"), (5, "D", "passive")]
 
 rail_syms = {}     # net -> power symbol lib_id
 
@@ -587,6 +597,7 @@ def build_common_symbols():
     build_generic_symbol(f"{LIB}:TVS", "D", "TVS", PASSIVE_PINS)
     build_generic_symbol(f"{LIB}:FUSE", "F", "Fuse", PASSIVE_PINS)
     build_generic_symbol(f"{LIB}:NFET", "Q", "NFET", NFET_PINS)
+    build_generic_symbol(f"{LIB}:NFET_PWR", "Q", "NFET_PWR", NFET_PWR_PINS)
     build_generic_symbol(f"{LIB}:TLV767-Q1", "U", "TLV767-Q1", parts.TLV767_Q1)
 
 
@@ -651,6 +662,7 @@ def build_power_tree(x0, y0, usable_h):
     """
     r, c, l = f"{LIB}:R", f"{LIB}:C", f"{LIB}:L"
     tvs, fuse, nfet = f"{LIB}:TVS", f"{LIB}:FUSE", f"{LIB}:NFET"
+    nfet_pwr = f"{LIB}:NFET_PWR"
     # Real package choices (2026-10-02 power-stage audit): see POWER STAGE
     # VALUES below. Each distinct package is its own symbol so the footprint
     # follows the real part, not a one-size-fits-all 0603.
@@ -745,10 +757,18 @@ def build_power_tree(x0, y0, usable_h):
     # U2's buck feeding the Verdin module) hasn't been independently
     # measured/verified against this part's own SOA curve - flagged
     # honestly as a real follow-up, not silently assumed fine.
-    flow(nfet, "Q2", "PMV55ENEA (AEC-Q101, 60V/20V VGS) pass",
-         {"D": "SENSE_OUT", "G": "HGATE", "S": "COMMON"})
-    flow(nfet, "Q1", "PMV55ENEA (AEC-Q101, 60V/20V VGS) diode",
-         {"S": "COMMON", "G": "DGATE", "D": "+12V_PROT"})
+    # REPLACED 2026-10-18 (review D-05, X-01, X-02): at 1.4 to 2.5 A each
+    # PMV55ENEA reached an estimated 128-222 C junction (RthJA 262 C/W)
+    # against 150 C, carried about twice its 12.6 A pulse rating in ISO
+    # 7637-2 pulse 2a, and Nexperia lists it NRND. Vishay SQJ460AEP:
+    # 8.7 mohm max (18.3 at 175 C), IDM 180 A, RthJA 68 C/W, AEC-Q101.
+    # At 2.6 A: 2.6^2 x 18.3 mohm = 0.12 W worst case, about 8 C rise.
+    # Forward drop 2.6 A x 8.7 mohm = 23 mV, under the datasheet's 50 mV
+    # starting point for reverse-current detection (8.2.2.10).
+    flow(nfet_pwr, "Q2", "SQJ460AEP (AEC-Q101, 60V/20V VGS) pass",
+         {"D": "SENSE_OUT", "G": "HGATE", "S1": "COMMON", "S2": "COMMON", "S3": "COMMON"})
+    flow(nfet_pwr, "Q1", "SQJ460AEP (AEC-Q101, 60V/20V VGS) diode",
+         {"S1": "COMMON", "S2": "COMMON", "S3": "COMMON", "G": "DGATE", "D": "+12V_PROT"})
 
     # --- LM74930-Q1 ------------------------------------------------------
     flow(u_fe, "U1", "LM74930-Q1", {
@@ -1068,6 +1088,11 @@ def build_panel_bias(x0, y0, usable_h):
     r, c = f"{LIB}:R", f"{LIB}:C"
     c1206 = build_generic_symbol(f"{LIB}:C_1206", "C", "C", PASSIVE_PINS)
     c0805 = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
+    # D-03 (review 2026-10-17, fixed 2026-10-18): the 22 uF 1206 in the
+    # catalogue is a 10 V part that keeps 3-12 uF at 6.5 V; TPS65131-Q1 wants
+    # 22 uF at each output (Fig 8-1). C46/C47 are now Murata
+    # GCM32ER71C226ME19L, 22 uF 16 V X7R 1210 (AEC-Q200, distributor-listed).
+    c1210 = build_generic_symbol(f"{LIB}:C_1210", "C", "C", PASSIVE_PINS)
     l47 = build_generic_symbol(f"{LIB}:L_4U7", "L", "L", PASSIVE_PINS)
     schottky = build_generic_symbol(f"{LIB}:SCHOTTKY_SOD123W", "D", "Schottky",
                                     PASSIVE_PINS)
@@ -1109,7 +1134,7 @@ def build_panel_bias(x0, y0, usable_h):
          {"1": "+5V", "2": "PANEL_BOOST_SW"})
     flow(schottky, "D2", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
          {"1": "PANEL_VSP", "2": "PANEL_BOOST_SW"})
-    flow(c1206, "C46", "22u VPOS out 16V (AEC-Q200)",
+    flow(c1210, "C46", "22u VPOS out 16V (AEC-Q200)",
          {"1": "PANEL_VSP", "2": "GND"})
     flow(r, "R38", "562k VPOS top R1 (see docstring)",
          {"1": "PANEL_VSP", "2": "PANEL_FBP"})
@@ -1121,7 +1146,7 @@ def build_panel_bias(x0, y0, usable_h):
          {"1": "PANEL_INV_SW", "2": "GND"})
     flow(schottky, "D3", "PMEG6010ELRX (AEC-Q101, 60V/1A)",
          {"1": "PANEL_INV_SW", "2": "PANEL_VSN"})
-    flow(c1206, "C47", "22u VNEG out 16V (AEC-Q200)",
+    flow(c1210, "C47", "22u VNEG out 16V (AEC-Q200)",
          {"1": "PANEL_VSN", "2": "GND"})
     flow(r, "R40", "536k VNEG top R3 (see docstring)",
          {"1": "PANEL_VSN", "2": "PANEL_FBN"})
@@ -1446,7 +1471,10 @@ def build_audio(x0, y0, usable_h):
     conn_mfi = build_generic_symbol(
         f"{LIB}:CONN_MFI", "J", "MFi access",
         [(1, "SDA", "passive"), (2, "SCL", "passive"),
-         (3, "RST_N", "passive"), (4, "GND", "passive")])
+         (3, "RST_N", "passive"), (4, "GND", "passive"),
+         (5, "VSW", "passive"), (6, "V1V8", "passive")])
+    u_msw = build_generic_symbol(f"{LIB}:TPS22918-Q1", "U", "TPS22918-Q1",
+                                 parts.TPS22918_Q1)
 
     COL_W, ROW_H = 80.0, 26.0
     cur = {"col": 0, "y": y0}
@@ -1523,7 +1551,9 @@ def build_audio(x0, y0, usable_h):
              {"1": f"AOUT_{leg}", "2": f"AOUT_{leg}_R"})
         flow(c0805, cc, "4.7u line-out DC block",
              {"1": f"AOUT_{leg}_R", "2": f"LINE_{leg}"})
-    flow(u_esd, "U12", "TPD4E05U06-Q1 line-out ESD", {
+    u_esd_bi = build_generic_symbol(f"{LIB}:TPD4E02B04-Q1", "U", "TPD4E02B04-Q1",
+                                    parts.TPD4E05U06_Q1)   # same pin functions (SLVSDZ2A), bidirectional
+    flow(u_esd_bi, "U12", "TPD4E02B04-Q1 line-out ESD (bidirectional, review D-11)", {
         "CH1": "LINE_L_P", "CH2": "LINE_L_N", "CH3": "LINE_R_P", "CH4": "LINE_R_N",
         "GND1": "GND", "GND2": "GND",
         "NC1": None, "NC2": None, "NC3": None, "NC4": None})
@@ -1531,10 +1561,28 @@ def build_audio(x0, y0, usable_h):
         "L_P": "LINE_L_P", "L_N": "LINE_L_N", "R_P": "LINE_R_P",
         "R_N": "LINE_R_N", "GND": "GND"})
 
-    # --- reserved MFi coprocessor access point ------------------------------
-    flow(conn_mfi, "J16", "MFi coprocessor access I2C_1 + reset (TBD, DNP)", {
-        "SDA": "I2C1_SDA", "SCL": "I2C1_SCL", "RST_N": "MFI_RST_N", "GND": "GND"},
+    # --- MFi coprocessor daughterboard header ---------------------------------
+    # 2026-10-18 (product review): a bare 4-pad access point could not run
+    # CarPlay. LIVI talks to the coprocessor on I2C and switches its power
+    # from a GPIO (carPlayMfiPowerGpio). Apple's coprocessor pinout and supply
+    # voltage are under its MFi NDA, so no Apple footprint is drawn here:
+    # J16 is a 1x6 2.54 mm header for a small daughterboard that carries the
+    # coprocessor, its own LDO and any level shifting. It gets I2C_1 at
+    # 1.8 V, the reset GPIO, +1V8 as the I/O reference, and MFI_5V, a 5 V
+    # supply switched by U15 (TPS22918-Q1, same part and wiring as the dial's
+    # U8; 2 A switch, ON VIH 1.0 V min so the 1.8 V GPIO drives it). R74
+    # holds U15 off while the module is in reset (Verdin GPIOs float at
+    # reset). J16 stays DNP until the MFi part exists.
+    flow(conn_mfi, "J16", "MFi daughterboard header I2C_1, reset, switched 5V, 1V8 (DNP)", {
+        "SDA": "I2C1_SDA", "SCL": "I2C1_SCL", "RST_N": "MFI_RST_N", "GND": "GND",
+        "VSW": "MFI_5V", "V1V8": "+1V8"},
         dnp=True)
+    flow(u_msw, "U15", "TPS22918-Q1 (AEC-Q100 G2) MFi 5V switch", {
+        "VIN": "+5V", "GND": "GND", "ON": "MFI_PWR_EN",
+        "CT": None, "QOD": None, "VOUT": "MFI_5V"})
+    flow(c, "C83", "1u MFi switch CIN", {"1": "+5V", "2": "GND"})
+    flow(c, "C84", "1u MFi 5V out", {"1": "MFI_5V", "2": "GND"})
+    flow(r, "R74", "100k MFi switch off in reset", {"1": "MFI_PWR_EN", "2": "GND"})
 
 
 def build_usb_host(x0, y0, usable_h):

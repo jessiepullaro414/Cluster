@@ -227,7 +227,7 @@ CELLS = {
             "U13": {"MIC_P": pull("J15", [1], 4), "MIC_N": pull("J15", [2], 4)},
         }),
     # Reserved MFi coprocessor access point (DNP header), by itself.
-    "MFI": dict(anchor="J16", order=[], pulls={}),
+    "MFI": dict(anchor="J16", order=["U15", "C83", "C84", "R74"], pulls={}),
     # USB-C host port. The receptacle sits on the board edge, with the edge
     # 3.1 mm below its origin (GCT USB4105 footprint "PCB Edge" line), so every
     # other part stays above y = 2.6 mm in the cell frame. The cell is kept

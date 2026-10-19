@@ -46,12 +46,17 @@ def pad_xy(parts, placed, ref, number):
 
 
 def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads,
-              j4_first_pad):
+              j4_first_pad, j1_local_x_hi=None):
     """res: {cell: (placed, bbox)} from cells.plan_cells.
     j1_bbox: local bbox of the J1 footprint (unrotated).
     j1_dsi_y: local y coordinates (unrotated frame) of J1's DSI pads.
     Returns dict with placements {ref: (ox, oy, rot)} in board coordinates
-    (origin at board top-left), board size, keepout rectangle and J1 origin."""
+    (origin at board top-left), board size, keepout rectangle and J1 origin.
+    j1_local_x_hi: if given, the keepout's top edge is this far along J1's
+    local +x (the side the module lies on) from J1's origin, instead of the
+    keepout being centred on J1's bounding box. The module is NOT centred
+    on the socket: it reaches 35 mm from the locating pegs on the latch side
+    (Toradex Verdin Carrier Board Design Guide V1.2, Fig 110 and 113)."""
     cells = {}
     for name, (placed, bbox) in res.items():
         cells[name] = (placed, bbox)
@@ -120,7 +125,7 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads
     KY = M + top_h + KEEP_GAP
 
     ox = KX + keep_w / 2 - j1_cy
-    oy = KY + keep_h / 2 + j1_cx
+    oy = KY + (j1_local_x_hi if j1_local_x_hi is not None else keep_h / 2 + j1_cx)
     j1 = (round(ox, 3), round(oy, 3), 90)
 
     out = {"J1": j1}

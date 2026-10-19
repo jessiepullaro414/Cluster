@@ -68,6 +68,7 @@ MPN = {
                    "AEC-Q100 Grade 1"),
     "LMR33630-Q1": ("LMR33630BRNXRQ1", "TI", "3A synchronous buck regulator, +5V rail", "AEC-Q100 G1"),
     "LM74930-Q1":  ("LM74930QRGERQ1", "TI", "Automotive ideal-diode surge stopper with OV clamp and circuit breaker, VQFN-24 RGE; TI lists it Active/Production (same part as display/)", "AEC-Q100 Grade 1"),
+    "SQJ460AEP":    ("SQJ460AEP-T1_GE3 (confirm the reel suffix on Vishay doc 79771 at order time)", "Vishay", "60V N-ch MOSFET, VGS +-20V, 8.7mR max at 10V, IDM 180A, PowerPAK SO-8L - back-to-back ideal-diode/pass FET pair for the LM74930-Q1 (replaces PMV55ENEA: NRND, 12.6A pulse rating vs ~27A in ISO 7637-2 pulse 2a, 262 C/W; review X-01, X-02, D-05)", "AEC-Q101"),
     "PMV55ENEA":   ("PMV55ENEAR", "Nexperia", "60V N-ch MOSFET, VGS +-20V, SOT-23: LM74930 pass and ideal-diode FET pair (orderable suffix R = reel)", "AEC-Q101"),
     "TLV733P-Q1":  ("TLV73333PQDBVRQ1","TI", "300mA LDO, +3.3V rail", "AEC-Q100 G1"),
     "TJA1043T":    ("TJA1043T/1J", "NXP", "High-speed CAN transceiver with wake, real wiring reused verbatim from ecu-pcb", "AEC-Q100"),
@@ -93,7 +94,7 @@ MPN = {
     # (same real split ecu-pcb's own BOM makes).
     "Littelfuse 297": ("3568", "Keystone", "Mini blade fuse holder, PCB mount (fuse element ordered separately)", "-"),
 
-    "XAL5050-103ME": ("XAL5050-103MEC", "Coilcraft", "10uH shielded molded power inductor, Isat 4.9A, DCR 41mR typ, 5x5x5mm, AEC-Q200 - meets the LMR33630-Q1 datasheet's rule that Isat not be below the 4.1A low-side limit (datasheet Document 806-1 family; trailing C = 7in reel ordering code)", "AEC-Q200"),
+    "XAL5030-222ME": ("XAL5030-222MEC", "Coilcraft", "2.2uH shielded molded power inductor, Isat 9.2A, DCR 14.5mR max, 5.28x5.48x3.1mm, AEC-Q200 grade 1 (distributor-listed; Coilcraft's own page refused the download) - the LMR33630-Q1 Table 8-2 value for the 1.4 MHz B option at 5 V (review G-14), Isat above the 4.1A low-side limit; trailing C = 7in reel ordering code", "AEC-Q200"),
     "Tag-Connect": ("TC2030-IDC-NL", "Tag-Connect", "SWD programming/debug connector, 2x3 1.27mm, no-legs cable version", "-"),
 
     # Rev B (2026-09-30), gateway architecture: private CAN1 link to

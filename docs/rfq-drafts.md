@@ -34,6 +34,9 @@ We are building a custom carrier for the Verdin iMX95 Hexa 8GB WB IT (0089, V1.1
 3. Does the module support suspend-to-RAM with wake on CTRL_WAKE1_MICO# (X1 pin 252)? What is the typical suspend current of the module, and what is the resume time to first frame? Is the wake input active-low and level or edge triggered?
 4. Where can we find the System Manager board configuration for the production module, since NXP's tree builds the System Manager with the EVK regulator configuration?
 5. Is a power consumption table (typical and maximum VCC current) available yet?
+6. (added 2026-10-18) Ordering: your PCN for 00891000 says V1.0A is end of life, V1.0B (00891001) had limited samples from February 2026 and V1.0C (00891002) samples from Q2 2026. Which revision should a new design order, what is the current lead time for 5 and for 50 pieces, and when is the WB IT variant planned to leave the sample phase? Distributors show no stock and up to 34 weeks.
+7. (added 2026-10-18) Thermal: we follow your carrier design guide V1.2 sections 4.3 to 4.5 (S1/S2 2.5 mm M2 standoffs, S3/S4 7.0 mm for the Verdin Industrial Heatsink). Our module sits in a closed dashboard at up to 85 C ambient. Please send the Verdin Industrial Heatsink Type 1 datasheet (outline, height above the carrier, thermal resistance) and say whether the iMX95 at about 5 W typical can run there without throttling, or what heat path you recommend instead (a heat spreader to a metal housing, for example).
+8. (added 2026-10-18) The Linux alternative: we are also evaluating Linux (your BSP / Torizon) with an open-source CarPlay and Android Auto receiver on this module. Does your BSP support the Verdin iMX95's hardware video decoder through V4L2 (for GStreamer's v4l2h264dec / v4l2h265dec), the MAYA-W260 Wi-Fi access-point mode together with Bluetooth, and suspend-to-RAM?
 
 Thank you,
 (name)
@@ -88,3 +91,17 @@ We are driving four RFA401280B-AYW-DNF1 modules over 4-line SPI from an NXP S32K
 4. **Reset and power-up timing**: how long RESET must be held low, and how long to wait after it and after Sleep Out (11h) before the next command and before Display On (29h). We currently use 10 ms, 120 ms and 150 ms.
 5. **Backlight**: the VLED+ and VLED- current limits and whether PWM dimming is allowed (frequency range). We switch it with a transistor and may add PWM.
 6. Whether the **TE** pin is useful for tear-free updates when writing small windows, and whether the **touch controller** (CST816D) can be left unpowered.
+
+## 5. Small round gauge displays for a dashboard (drafted 2026-10-18, not sent)
+
+To: Raystar (maker of the RFA401280B-AYW-DNF1 we designed around), Winstar, DisplayModule.
+
+Subject: 1.28 in round 240x240 GC9A01 TFT, operating range -30 to +85 C
+
+We use four 1.28 in round 240x240 TFTs (GC9A01, 4-wire SPI, 18-pin 0.5 mm FPC) in a classic-car instrument cluster. Behind a windscreen in the sun the dashboard runs hotter than the -20 to +70 C operating range every standard module we found lists. Could you tell us:
+
+1. Can the module be built for -30 to +85 C operation (storage -40 to +90 C)? Which part limits it today (the LC fluid, the polarizer, the backlight)?
+2. Brightness: the standard modules are about 400 cd/m2; what is the highest backlight option, and its forward voltage and current?
+3. Can the FPC keep the RFA401280B-AYW-DNF1 pinout and outline (50.20 x 50.20 x 3.99 mm, 32.40 mm active)? If not, please send the drawing.
+4. Price at 20 and 200 pieces, NRE, minimum order quantity, sample lead time, and expected product life.
+

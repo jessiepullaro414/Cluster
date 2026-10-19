@@ -285,6 +285,34 @@ _conn_bbox = {ref: footprint_bbox(fp) for ref, fp in _conn_fp.items()}
 MODULE_KEEPOUT_W = 38.0   # 35.00mm real module width + ~3mm real margin
 MODULE_KEEPOUT_H = 82.0   # 79.0mm real connector housing length (longer
                           # than the module) + a small real margin
+# CORRECTED 2026-10-18 (product review): the module is not centred on the
+# socket. Toradex Verdin Carrier Board Design Guide V1.2, Fig 110/113/114:
+# the socket's two locating pegs (footprint local x = -7.925, y = +-34.4)
+# sit on the line between the pad rows; the module's M2 mounting holes are
+# 31.00 mm from that line and 4.00 mm from the module's far edge, so the
+# module covers local x -7.925 .. +27.075 on the latch side, and Fig 114
+# marks that whole area "No Components allowed on Carrier Board". The old
+# 38 mm keepout centred on the socket's bbox stopped at local x +19: the
+# 8 mm under the module's far edge (where S1/S2 go) was open, and C12 had a
+# pad there. Section 4.3/4.5 standoffs, all M2x0.4, Ø3.00 hole, Ø5.30 pad:
+#   S1/S2 (2.5 mm, module hold-down for vibration): 31.00 mm from the peg
+#         line, 1.80 mm inside each peg;
+#   S3/S4 (7.0 mm, Verdin Industrial Heatsink): on the peg line, 5.60 mm
+#         outside each peg.
+VERDIN_PEG_X = -7.925
+VERDIN_PEG_Y = 34.4
+VERDIN_STANDOFFS = {
+    "S1": (VERDIN_PEG_X + 31.0, -VERDIN_PEG_Y + 1.8, "2.5 mm"),
+    "S2": (VERDIN_PEG_X + 31.0, VERDIN_PEG_Y - 1.8, "2.5 mm"),
+    "S3": (VERDIN_PEG_X, -VERDIN_PEG_Y - 5.6, "7.0 mm"),
+    "S4": (VERDIN_PEG_X, VERDIN_PEG_Y + 5.6, "7.0 mm"),
+}
+STANDOFF_PAD_D, STANDOFF_DRILL_D = 5.30, 3.00
+_KEEP_MARGIN = 0.5
+J1_LOCAL_X_HI = VERDIN_PEG_X + 35.0 + _KEEP_MARGIN          # module far edge
+J1_LOCAL_X_LO = min(-13.125, VERDIN_PEG_X - STANDOFF_PAD_D / 2) - _KEEP_MARGIN   # socket housing back edge
+MODULE_KEEPOUT_W = round(J1_LOCAL_X_HI - J1_LOCAL_X_LO, 3)   # across the socket (board y after the 90 deg turn)
+MODULE_KEEPOUT_H = round(2 * max(79.0 / 2, VERDIN_PEG_Y + 5.6 + STANDOFF_PAD_D / 2) + 2 * _KEEP_MARGIN, 3)   # along it
 
 # --- J4 (panel connector) - also pulled out, real mechanical reason:
 # it needs to sit toward the board's "front" edge (facing the round
@@ -320,7 +348,7 @@ _DSI_J4_PADS = ["24", "26", "28", "30", "32", "34", "36", "38"]
 _fplan = _floorplan.floorplan(_cell_parts, _cell_res, _conn_bbox["J1"], _j1_dsi_y,
                               keep_w=MODULE_KEEPOUT_H, keep_h=MODULE_KEEPOUT_W,
                               margin=BOARD_MARGIN, j4_dsi_pads=_DSI_J4_PADS,
-                              j4_first_pad="1")
+                              j4_first_pad="1", j1_local_x_hi=J1_LOCAL_X_HI)
 placed_rel.update({ref: (x, y) for ref, (x, y, a) in _fplan["placed"].items()})
 part_rot = {ref: a for ref, (x, y, a) in _fplan["placed"].items()}
 board_width = round(_fplan["width"], 2)
@@ -428,6 +456,39 @@ for mh_ref, mh_x, mh_y in _mh_positions:
     board.footprints.append(mh_fp)
 print(f"Added {len(_mh_positions)} M3 mounting holes (4 corners - this "
       f"board is compact, not long/thin like gauges/)")
+
+# 5b1. Verdin module standoffs S1-S4 (see VERDIN_STANDOFFS above): plated
+#      Ø3.00 mm hole, Ø5.30 mm pad on GND (the module's mounting holes are
+#      copper rings), positioned from J1's final placement and rotation.
+_j1x, _j1y = placed["J1"]
+_j1a = part_rot.get("J1", 90)
+for so_ref, (lx, ly, so_h) in VERDIN_STANDOFFS.items():
+    so_fp = load_footprint("MountingHole:MountingHole_2.2mm_M2_Pad")
+    for pad in so_fp.pads:
+        pad.size = Position(STANDOFF_PAD_D, STANDOFF_PAD_D)
+        pad.drill.diameter = STANDOFF_DRILL_D
+        pad.net = Net(number=net_number("GND"), name="GND")
+        # keep the copper ring on every layer: the standoff is soldered to the
+        # outer ring, and KiCad strips unconnected outer rings otherwise
+        pad.removeUnusedLayers = False
+        pad.keepEndLayers = True
+    for item in so_fp.graphicItems:
+        # the stock circles are drawn around the 4.4 mm pad: grow them with the pad
+        if type(item).__name__ == "FpCircle":
+            r_old = math.hypot(item.end.X - item.center.X, item.end.Y - item.center.Y)
+            grow = STANDOFF_PAD_D / 2 - 2.2
+            item.end = Position(item.center.X + r_old + grow, item.center.Y)
+    _a = math.radians(_j1a)
+    sx = _j1x + lx * math.cos(_a) + ly * math.sin(_a)
+    sy = _j1y - lx * math.sin(_a) + ly * math.cos(_a)
+    so_fp.position = Position(round(sx, 3), round(sy, 3), 0)
+    so_fp.path = f"/{uuid_module.uuid4()}"
+    so_fp.properties["Reference"] = so_ref
+    so_fp.properties["Value"] = f"M2x0.4 SMD standoff {so_h}"
+    ref_label_pos[so_ref] = (0.0, -3.8)
+    board.footprints.append(so_fp)
+print(f"Added Verdin standoffs S1-S4 (Toradex design guide 4.3-4.5): "
+      + ", ".join(f"{r} {h}" for r, (_, _, h) in VERDIN_STANDOFFS.items()))
 
 # ---------------------------------------------------------------------------
 # 5b2. DSI lanes (REVIEW FIX 2026-10-04). The autorouter left the pairs 10-30 mm
@@ -797,7 +858,7 @@ print(f"Added tach-face + CLUSTER wordmark art to B.SilkS "
 # ---------------------------------------------------------------------------
 # 7. Verification on the IN-MEMORY board (before writing/upgrading)
 # ---------------------------------------------------------------------------
-MECHANICAL_FOOTPRINT_COUNT = len(_mh_positions)
+MECHANICAL_FOOTPRINT_COUNT = len(_mh_positions) + len(VERDIN_STANDOFFS)
 assert len(board.footprints) == len(parts) + MECHANICAL_FOOTPRINT_COUNT, \
     (f"footprint count mismatch: {len(board.footprints)} vs {len(parts)} parts "
      f"+ {MECHANICAL_FOOTPRINT_COUNT} mechanical")
@@ -814,6 +875,12 @@ for i in range(len(boxes)):
     for j in range(i + 1, len(boxes)):
         ra, ax0, ay0, ax1, ay1 = boxes[i]
         rb, bx0, by0, bx1, by1 = boxes[j]
+        # The Verdin standoffs are positioned by Toradex's land pattern for this
+        # exact socket (TE 2309409-2, design guide Fig 113/114): S1/S2 inside
+        # the span of its latch arms, S3/S4 at its housing ends. J1's bounding
+        # box covers them by design; real copper clearance is left to DRC.
+        if {ra, rb} & {"J1"} and {ra, rb} & set(VERDIN_STANDOFFS):
+            continue
         if ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1:
             overlaps.append((ra, (round(ax0,1),round(ay0,1),round(ax1,1),round(ay1,1)),
                               rb, (round(bx0,1),round(by0,1),round(bx1,1),round(by1,1))))
@@ -824,6 +891,8 @@ pcb_net_pins = {}
 seen_logical_pins = set()
 for fp in board.footprints:
     ref = fp.properties.get("Reference")
+    if ref in VERDIN_STANDOFFS:      # board-only mechanical GND pads, not in the schematic
+        continue
     for pad in fp.pads:
         if pad.net and pad.net.name:
             logical_pin = (ref, pad.number)

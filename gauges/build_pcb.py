@@ -366,6 +366,18 @@ _edge_inset = max(_disp_w.values()) / 2 + 15.0
 _row_span = TARGET_W - 2 * _edge_inset
 _row_x = {ref: _edge_inset + _SLOT_INDEX[ref] * (_row_span / (_N_ORIGINAL_SLOTS - 1))
           for ref in DISPLAY_REFS}
+# 2026-10-18: the INNER pair moves out to the owner's cluster. Photos of
+# the real 1965/66 five-dial cluster (docs/mechanical-fit.md, 2026-10-08,
+# +/-5 mm) put the gauge centres at about +/-118 mm (inner) and +/-197 mm
+# (outer) from the speedometer. The even 5-slot grid above already gives
+# the outer pair +/-196.9 mm, but put the inner pair at +/-98.5 mm, 20 mm
+# too close: inside the display/ carrier's half-width (84.7 mm) once the
+# 50.2 mm module is counted. A caliper reading of the inner pair's
+# centre-to-centre distance replaces INNER_GAUGE_OFFSET_MM.
+INNER_GAUGE_OFFSET_MM = 118.0
+_row_centre = _edge_inset + 2 * (_row_span / (_N_ORIGINAL_SLOTS - 1))
+_row_x["U7"] = _row_centre - INNER_GAUGE_OFFSET_MM
+_row_x["U8"] = _row_centre + INNER_GAUGE_OFFSET_MM
 placed_rel = {}
 
 # --- Everything else: real functional zones, spread across the full
@@ -430,6 +442,12 @@ CORE_ZONES.sort(key=lambda z: _ZONE_ORDER.index(z[0]))
 # the faceplate. These X positions are PLACEHOLDERS from the concept drawing (media/cluster-dashboard.png), not measurements of the
 # original arrows: set them from the faceplate drawing. Values are mm from the left edge of the usable board area.
 TURN_LED_X = {"D26": 91.7, "D27": 350.5}                  # left arrow, right arrow
+# 2026-10-18: with the inner gauges at the measured +/-118 mm the fixed X above
+# landed on U7/U8. The owner's cluster has one small indicator window in each
+# side panel, between its two small gauges (docs/mechanical-fit.md, photos
+# 2026-10-08), so each arrow now sits midway between that side's two gauges.
+# Still a placeholder until the faceplate drawing gives the window positions.
+TURN_LED_X = {"D26": (_row_x["U6"] + _row_x["U7"]) / 2, "D27": (_row_x["U8"] + _row_x["U9"]) / 2}
 TURN_GROUPS = {"D26": ["R82", "D24"], "D27": ["R83", "D25"]}
 TURN_REFS = set(TURN_LED_X) | {r for refs in TURN_GROUPS.values() for r in refs}
 

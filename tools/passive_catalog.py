@@ -29,10 +29,12 @@ CAPS = {
     (220e-9, "0603"): ("GCM188R71H224KA64D", "220 nF X7R 50 V", "verified"),
     (1e-6, "0603"): ("GCM188R71C105KA64D", "1 uF X7R 16 V", "verified"),
     (4.7e-6, "0805"): ("GCM21BR71C475KA73L", "4.7 uF X7R 16 V", "verified"),
+    (1e-6, "0805"): ("GCM21BR71H105KA03L", "1 uF X7R 50 V", "verified"),
     (10e-6, "0805"): ("GCM21BR71A106KE22L", "10 uF X7R 10 V", "verified"),
     (4.7e-6, "1206"): ("GCJ31CC71H475KA01L", "4.7 uF X7R 50 V", "verified"),
     (22e-6, "1206"): ("GCM31CR71A226KE02L", "22 uF X7R 10 V", "verified"),
     (10e-6, "1210"): ("GCM32EC71H106KA03L", "10 uF X7S 50 V", "verified"),
+    (22e-6, "1210"): ("GCM32ER71C226ME19L", "22 uF X7R 16 V", "verified"),
     (100e-6, "CP8x10"): ("EEH-ZA1V101P", "100 uF 35 V hybrid polymer, 8 x 10.2 mm", "verified"),
 }
 CAP_MFR = {"EEH-ZA1V101P": "Panasonic"}

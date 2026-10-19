@@ -88,11 +88,11 @@ def gauges():
     # --- B. dissipation
     print("\nB. Dissipation and junction temperature (TA 85 C)")
     rows = []
-    # LMR33630: tON/RDS from DS 6.5 (75/50 mohm typ, 145/95 max at 125 C), fsw 1.4 MHz, L1 XAL5050-103ME DCR 41 mohm
+    # LMR33630: tON/RDS from DS 6.5 (75/50 mohm typ, 145/95 max at 125 C), fsw 1.4 MHz, L1 XAL5030-222MEC DCR 14.5 mohm max (was XAL5050-103ME 41 mohm before review G-14)
     for vin in (9.0, 13.8, 16.0, 29.9):
         for iout in (i5 / 1e3, 0.6):
             d = min(5.0 / vin, 0.95)
-            r_hs, r_ls, dcr = 0.145, 0.095, 0.041       # DS maxima at 125 C
+            r_hs, r_ls, dcr = 0.145, 0.095, 0.0145      # DS maxima at 125 C
             p_cond = iout ** 2 * (r_hs * d + r_ls * (1 - d) + dcr)
             p_sw = 0.5 * vin * iout * 10e-9 * 1.4e6 * 2          # 10 ns edges both transitions (estimate)
             p_q = vin * 34e-6 + 5.0 * 0.0                         # IQ 34 uA max
@@ -110,7 +110,7 @@ def gauges():
     # fault: LDO output pumped is covered in the findings. Q1/Q3
     for load_i, label in ((0.35, "VIN 5.8 V, 5 V load 0.35 A"),):
         i_in = 5.0 * i5 / 1e3 / 0.85 / 5.8
-        rds = hot(0.060)
+        rds = 0.0145        # SQJ460AEP RDS(on) max at 125 C, VGS 10 V (Vishay S22-0167 Rev. D), since 2026-10-18
         print(f" LM74930 stage at the UVLO edge ({label}): input current {i_in:.2f} A, Q1/Q3 {i_in ** 2 * rds * 1e3:.0f} mW each, "
               f"R49 {i_in ** 2 * 5e-3 * 1e3:.1f} mW; breaker threshold 1.49 A -> margin x{1.49 / i_in:.1f}")
     # --- C/D/E use the netlist
@@ -256,10 +256,12 @@ def display(sch=None, pcb=None):
     p_ldo = (5.0 - 1.8) * 0.020
     rows.append(["TLV767-Q1", "20 mA", f"{p_ldo * 1e3:.0f} mW", f"{85 + 51.9 * p_ldo:.0f} C", "RthJA 51.9 (DS)"])
     for i_in in (1.4, 2.0, 2.5):
-        rds = hot(0.060)
+        # Vishay SQJ460AEP since 2026-10-18 (review D-05): RDS(on) max 18.3 mohm at TJ 175 C (worst case,
+        # datasheet page 2), RthJA 68 C/W on 1 in2 FR4 (page 1); 120 C/W bracket for the smaller copper here
+        rds = 0.0183
         p = i_in ** 2 * rds
-        for rth, lab in ((262, "DS standard footprint"), (105, "DS drain pad 6 cm2 (RthJ-a 91..105 j-sp+board)")):
-            rows.append(["Q1 / Q2 PMV55ENEA (each)", f"{i_in:.1f} A input", f"{p * 1e3:.0f} mW", f"{85 + rth * p:.0f} C", f"RDS(on) {rds * 1e3:.0f} mohm hot, Rth {rth} ({lab}); 150 C max"])
+        for rth, lab in ((68, "DS 1 in2 FR4"), (120, "assumed: footprint pad only")):
+            rows.append(["Q1 / Q2 SQJ460AEP (each)", f"{i_in:.1f} A input", f"{p * 1e3:.0f} mW", f"{85 + rth * p:.0f} C", f"RDS(on) {rds * 1e3:.1f} mohm at 175 C, Rth {rth} ({lab}); 175 C max"])
     tab(rows, ["part", "load", "loss", "TJ at TA 85 C", "basis"])
     return p5_typ, p5_pk
 

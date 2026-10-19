@@ -478,6 +478,11 @@ FOOTPRINTS = {
     # its own real, different physical package size, not a shared one.
     "FUSE": "Fuse:Fuseholder_Blade_Mini_Keystone_3568",
     "NFET": "Package_TO_SOT_SMD:SOT-23",
+    # 2026-10-18 (review D-05, X-01, X-02): the LM74930 pass/diode pair.
+    # Vishay SQJ460AEP (datasheet S22-0167 Rev. D, 14-Feb-2022, read 2026-10-18): 60 V, VGS +-20 V,
+    # RDS(on) 8.7 mohm max at 10 V (18.3 mohm at 175 C), IDM 180 A, RthJA 68 C/W (1 in2 FR4),
+    # RthJC 2.2 C/W, AEC-Q101, PowerPAK SO-8L: pins 1-3 source, 4 gate, mounting tab (pad 5) drain.
+    "NFET_PWR": "Package_SO:PowerPAK_SO-8L_Single",
     # RGE0024B: 4x4 mm, 24 pins at 0.5 mm, thermal pad 2.45 mm per TI's own
     # package drawing. KiCad's stock HVQFN-24 4x4/0.5mm footprint carries a
     # 2.5 mm pad - the closest bundled match, 0.05 mm larger than TI's
@@ -501,6 +506,7 @@ FOOTPRINTS = {
     "R_1206": "Resistor_SMD:R_1206_3216Metric",
     "CP_HYBRID": "Capacitor_SMD:CP_Elec_8x10",
     "C_1206": "Capacitor_SMD:C_1206_3216Metric",
+    "C_1210": "Capacitor_SMD:C_1210_3225Metric",
     # Open 3-pad solder jumpers for the panel's +/-6.5 V pin-group polarity.
     "SOLDERJUMPER3": "Jumper:SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm",
 
@@ -525,12 +531,19 @@ FOOTPRINTS = {
     "TAC5112-Q1": "Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.7x3.7mm_ThermalVias",
     "TPS2557-Q1": "Package_DFN_QFN:Texas_DRB0008A",
     "TPD4E05U06-Q1": "Package_SON:USON-10_2.5x1.0mm_P0.5mm",
+    # D-11 (2026-10-18): the line-out legs swing about +-1.4 V around 0 V on
+    # the connector side of the DC-blocking capacitors; TPD4E05U06-Q1 is
+    # unidirectional and conducts below -0.6 V. TPD4E02B04-Q1 (TI SLVSDZ2A):
+    # bidirectional, VRWM +-3.6 V, VBR +-5.5 V min, 0.25 pF, AEC-Q101,
+    # IEC 61000-4-2 +-12 kV contact, same USON-10 DQA package and pin
+    # functions (1, 2, 4, 5 IO; 3, 8 GND; 6, 7, 9, 10 NC).
+    "TPD4E02B04-Q1": "Package_SON:USON-10_2.5x1.0mm_P0.5mm",
     "TVS_SMA": "Diode_SMD:D_SMA",
     # JST XH (2.5 mm) for the in-cabin audio harness, deliberately a different
     # family from the KK 254 CAN/dial headers so they cannot be cross-mated.
     "CONN_LINEOUT": "Connector_JST:JST_XH_B5B-XH-A_1x05_P2.50mm_Vertical",
     "CONN_MIC": "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical",
-    "CONN_MFI": "Connector_PinHeader_2.54mm:PinHeader_1x04_P2.54mm_Vertical",
+    "CONN_MFI": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
     # GCT USB4105 USB-C 2.0 receptacle (KiCad's footprint carries the
     # datasheet geometry; PCB edge is 3.1 mm below the footprint origin).
     "CONN_USBC": "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",

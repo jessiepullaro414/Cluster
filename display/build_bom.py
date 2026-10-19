@@ -101,6 +101,7 @@ MPN = {
     # Production" rows of each datasheet's own orderable-addendum table.
     "TAC5112-Q1":   ("TAC5112WQRTVRQ1", "TI", "Automotive low-power stereo audio codec (2-ch ADC, 2-ch DAC), 1.8 V I/O, AVDD 1.8/3.3 V, I2S/TDM, I2C, WQFN-32 RTV 5x5 mm (datasheet SLASFC2A, Active Production, 3000-piece reel; the Q1 datasheet is a separate document from the TAC5112 non-automotive one)", "AEC-Q100 Grade 1"),
     "TPS2557-Q1":   ("TPS2557QDRBRQ1", "TI", "Automotive adjustable current-limited power switch, active-HIGH enable, USB host VBUS, S-PVSON-8 DRB (datasheet SLVSC97B, Active Production; the active-low sibling is TPS2556-Q1, do NOT substitute)", "AEC-Q100"),
+    "TPD4E02B04-Q1": ("TPD4E02B04QDQARQ1", "TI", "Automotive 4-channel BIDIRECTIONAL ESD array, VRWM +-3.6 V, 0.25 pF, IEC 61000-4-2 +/-12 kV, USON-10 DQA 2.5x1.0 mm (datasheet SLVSDZ2A, Active Production). On the four line-out legs, which swing below ground on the connector side of the DC-blocking capacitors (review D-11)", "AEC-Q101"),
     "TPD4E05U06-Q1": ("TPD4E05U06QDQARQ1", "TI", "Automotive 4-channel ESD array, 0.5 pF, 5.5 V, IEC 61000-4-2 +/-12 kV, USON-10 DQA 2.5x1.0 mm (datasheet SLVSCO7C, Active Production). Used on the USB D+/D-/CC lines, the four line-out legs and the microphone pair", "AEC-Q101"),
     "SMAJ5.0A":     ("SMAJ5.0A (multi-source; PATTERN - choose an AEC-Q101 listed variant at order time)", "Littelfuse / Vishay / Bourns", "400 W SMA 5 V TVS, 6.4 V min breakdown, on USB VBUS: a hot-plugged cable can ring above the TPS2557-Q1's 7 V absolute maximum. The AEC-Q101 qualification of a specific vendor's SMAJ5.0A was not checked", "AEC-Q101 (confirm)"),
 
@@ -109,6 +110,7 @@ MPN = {
     # VGS rating since HGATE/DGATE drive up to 14V) - see
     # build_schematic.py's own comment on Q1/Q2 for the real datasheet
     # citation and the honest flag on current margin vs. F1's 5A rating.
+    "SQJ460AEP":    ("SQJ460AEP-T1_GE3 (confirm the reel suffix on Vishay doc 79771 at order time)", "Vishay", "60V N-ch MOSFET, VGS +-20V, 8.7mR max at 10V, IDM 180A, PowerPAK SO-8L - back-to-back ideal-diode/pass FET pair for the LM74930-Q1 (replaces PMV55ENEA: NRND, 12.6A pulse rating vs ~27A in ISO 7637-2 pulse 2a, 262 C/W; review X-01, X-02, D-05)", "AEC-Q101"),
     "PMV55ENEA":    ("PMV55ENEAR", "Nexperia", "60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair (orderable suffix R = reel; 12NC 934068714215)", "AEC-Q101"),
     "SMCJ33A":      ("SMCJ33A (multi-source)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
                       "SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/'s own D1 already uses", "AEC-Q101"),
@@ -126,7 +128,7 @@ BOARD_SIDE_CONNECTORS = {
     "J14": ("B5B-XH-A(LF)(SN)", "JST", "5-circuit XH 2.50 mm vertical header, balanced stereo line-out: L+, L-, R+, R-, GND. Mating: XHP-5 housing with SXH-001T-P0.6 crimps. PATTERN: ordering suffix (LF)(SN) is JST's lead-free tin variant, confirm in the cart. Deliberately a different family from the KK 254 headers so audio cannot be mated to the CAN or dial headers", "-"),
     "J15": ("B3B-XH-A(LF)(SN)", "JST", "3-circuit XH 2.50 mm vertical header, 2-wire electret microphone: bias+signal, return, shield. Mating: XHP-3 housing with SXH-001T-P0.6 crimps. PATTERN: confirm the ordering suffix in the cart", "-"),
     "J17": ("USB4105-GF-A", "GCT", "USB Type-C 2.0 16-pin receptacle, top-mount horizontal (the part KiCad's USB_C_Receptacle_GCT_USB4105-xx-A_16P footprint is drawn for; its tags list USB4105-GF-A). Host port on Verdin USB_2 with a TPS2557-Q1 VBUS switch. A panel-mount USB-C extension cable carries it to a console or glovebox port", "-"),
-    "J16": ("(not populated - no coprocessor chosen)", "Apple MFi programme (TBD)", "RESERVED, DO NOT POPULATE: 1x4 0.1 in pad set (I2C_1 SDA, I2C_1 SCL, reset GPIO, GND) for Apple's MFi authentication coprocessor, which wireless CarPlay needs (iAP2). The part is only available through Apple's MFi programme, so no part number, supply voltage or reset polarity is specified here. TBD", "TBD"),
+    "J16": ("(not populated - no coprocessor chosen)", "Apple MFi programme (TBD)", "RESERVED, DO NOT POPULATE: 1x6 0.1 in header for an MFi daughterboard (1 I2C_1 SDA, 2 I2C_1 SCL, 3 reset GPIO, 4 GND, 5 MFI_5V switched by U15 from Verdin GPIO_3, 6 +1V8 I/O reference). Apple's MFi authentication coprocessor, which CarPlay needs (iAP2), is only available through Apple's MFi programme, so its regulator, level shifting and the coprocessor itself go on the daughterboard; no Apple part number, supply voltage or reset polarity is specified here. Populate with a Samtec TSW-106-07-G-S once the daughterboard exists. TBD", "TBD"),
     "J12": ("TSW-103-07-G-S", "Samtec", "1x3 0.100in gold-finish pin header, A55 console UART_3 (1.8 V logic: use a 1.8 V USB-serial adapter or a level shifter) - bench and service use only", "-"),
     "J13": ("TSW-105-07-G-S", "Samtec", "1x5 0.100in gold-finish pin header, USB_1 (VBUS, D-, D+, ID, GND) for flashing/adb bring-up - bench use only, keep the cable short (USB 2.0 high speed over an uncontrolled header)", "-"),
     "J9": ("TSW-104-07-G-S", "Samtec", "1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness", "-"),
@@ -361,7 +363,12 @@ def build():
                   "Toradex product no. 0089 per developer.toradex.com (checked 2026-09-30): V1.0A is "
                   "end-of-life, V1.0B moved to B0 silicon, V1.1A fixed errata HAR-12581, and V1.1B "
                   "(Q3 2026) moved to mass-production SoC and PMIC - order the latest revision. "
-                  "Also listed on Mouser", "SoM (companion)", 1, "plugs into J1", "-"))
+                  "Also listed on Mouser. SUPPLY RISK (checked 2026-10-18): Toradex's PCN 118589 lists the WB IT "
+                  "variant in sample status (00891002 samples from Q2 2026); Mouser showed no stock and a 34-week "
+                  "factory lead time. Confirm availability with Toradex before committing (docs/rfq-drafts.md section 2). "
+                  "Also needed: 2 x M2x0.4 2.5 mm SMD standoffs for S1/S2 and, with the Verdin Industrial Heatsink, "
+                  "2 x 7.0 mm for S3/S4 (Toradex carrier design guide 4.3-4.5; part numbers not chosen yet)",
+                  "SoM (companion)", 1, "plugs into J1", "-"))
     lines.append(("Companion parts (ordered separately)",
                   "(momentary push switch - part not chosen yet)", "(not yet specified)",
                   "The dial's click: a normally-open momentary switch wired to J11 pins 3 and 4 (the PSC-360 has no "

@@ -65,17 +65,17 @@ Antenna rules for the mechanical design (none of this is drawn on the board; it 
 * **Antennas must not sit behind metal.** A metal dash panel, a steel bracket or the display's own frame detunes them and kills range. Use the Toradex pre-certified antenna and cable list (developer.toradex.com, "Wi-Fi cables and antennas for Toradex modules") and mount the antennas on a plastic part or through a plastic window, with the two spaced apart.
 * Wireless Android Auto and CarPlay both use Bluetooth to pair and Wi-Fi to carry the picture; the two radios share the antennas, so range matters.
 
-## 4. Reserved: Apple MFi coprocessor access point (J16, DNP, TBD)
-Wireless CarPlay (iAP2) needs Apple's MFi authentication coprocessor, which is only available through Apple's MFi programme. J16 is a **do-not-populate 1x4 pad set** that reserves the connections, and no Apple part number is chosen or invented:
+## 4. Apple MFi coprocessor daughterboard header (J16, DNP)
+Wireless and wired CarPlay (iAP2) need Apple's MFi authentication coprocessor, which is only available through Apple's MFi programme. The open-source LIVI receiver talks to it on I2C (it probes addresses 0x10 and 0x11, its iap2-mfi crate, read 2026-10-17) and switches its power from a GPIO (LIVI config `carPlayMfiPowerGpio`, README "MFi Authentication"). Until 2026-10-18 J16 was four bare pads with no supply, so CarPlay could not have run; it is now a **do-not-populate 1x6 2.54 mm header** for a small daughterboard. No Apple part number, pinout or supply voltage is invented: the coprocessor, its regulator and any level shifting go on the daughterboard.
 
 | J16 pin | Net | Notes |
 |---|---|---|
-| 1 | I2C1_SDA | the shared I2C_1 bus (X1 pin 12, with the codec at 0x50). The open-source LIVI receiver probes the coprocessor at 0x10 and 0x11 (its iap2-mfi crate, read 2026-10-17), so no clash is expected; Apple's documentation is still the authority |
+| 1 | I2C1_SDA | the shared I2C_1 bus (X1 pin 12, 1.8 V, with the codec at 0x50) |
 | 2 | I2C1_SCL | X1 pin 14 |
 | 3 | MFI_RST_N | Verdin GPIO_2, X1 pin 208 (1.8 V). Reset polarity and level are TBD from Apple's MFi documentation |
 | 4 | GND | |
-
-The coprocessor's supply voltage is also TBD: it is not on this header. When the part is chosen it needs its supply, any I2C level shifting, and its own footprint (a respin or a daughter board).
+| 5 | MFI_5V | +5 V switched by U15 (TPS22918-Q1, 2 A load switch) whose ON pin is MFI_PWR_EN = Verdin GPIO_3 (X1 pin 210); R74 (100 k) keeps it off while the module is in reset. Set LIVI's `carPlayMfiPowerGpio` to that GPIO |
+| 6 | +1V8 | the I/O reference for the daughterboard's level shifter |
 
 ## 5. Board size
 The audio and USB blocks add **17.4 mm of width and no height**: display/ goes from 151.9 x 101.8 mm to **169.3 x 101.8 mm**. The bottom strip sets the width (the USB-C cell, 24 mm wide, sits in it). The audio codec cell and its LDO live in a new left-strip column beside the socket, and the connector/ESD cell (AOUT) leads the top strip, both inside the old width. Two cells were deliberately given more room around their anchor part (the USB-C receptacle 3.5 mm, the codec 3.5 mm, instead of 1.6 mm) because the first, tighter versions would not route.

@@ -411,15 +411,23 @@ register_symbol(f"{LIB}:C_V", "C", "100nF", "Capacitor_SMD:C_0603_1608Metric",
 # max) and ideally not below the high-side limit (5.05 A max). A 10 uH XAL4040
 # (3.0 A) fails that, and a 1210 inductor cannot meet it either, so L1 is a
 # Coilcraft XAL5050-103ME (Isat 4.9 A, DCR 41 mohm). Output: two 22 uF 10 V
-# 1206 capacitors; input: 10 uF 50 V 1210 (the 50 V rating covers the TVS
+# 1206 capacitors. REVISED 2026-10-18 (electrical review G-14): Table 8-2 of
+# the same datasheet gives L = 2.2 uH and 2 x 22 uF of 16 V parts for the
+# B option (1.4 MHz) at 5 V; 10 uH quadrupled the LC product the internal
+# compensation is tuned for, and 10 V parts keep only 10-15 uF at 5 V. L1 is
+# now a Coilcraft XAL5030-222MEC (2.2 uH, Isat 9.2 A, DCR 14.5 mohm max,
+# AEC-Q200 grade 1; distributor-listed), COUT two 22 uF 16 V X7R 1210; input: 10 uF 50 V 1210 (the 50 V rating covers the TVS
 # clamp) and 220 nF 50 V.
 register_symbol(f"{LIB}:C_1210", "C", "10uF", "Capacitor_SMD:C_1210_3225Metric",
+                {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
+                hide_pin_names=True)
+register_symbol(f"{LIB}:C_0805", "C", "1uF", "Capacitor_SMD:C_0805_2012Metric",
                 {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
                 hide_pin_names=True)
 register_symbol(f"{LIB}:C_1206", "C", "22uF", "Capacitor_SMD:C_1206_3216Metric",
                 {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
                 hide_pin_names=True)
-register_symbol(f"{LIB}:L_5050", "L", "10uH", "Inductor_SMD:L_Coilcraft_XAL5050-XXX",
+register_symbol(f"{LIB}:L_5050", "L", "2.2uH", "Inductor_SMD:L_Coilcraft_XAL5030-XXX",
                 {'L': [P(1, "~", "passive")], 'R': [P(2, "~", "passive")]},
                 hide_pin_names=True)
 register_symbol(f"{LIB}:L_FB", "L", "ferrite bead", "Inductor_SMD:L_0603_1608Metric",
@@ -466,6 +474,15 @@ register_symbol(f"{LIB}:LM74930", "U", "LM74930-Q1", "Package_DFN_QFN:Texas_RGE0
 register_symbol(f"{LIB}:MOSFET_N55", "Q", "PMV55ENEA (60V, VGS +-20V, AEC-Q101)", "Package_TO_SOT_SMD:SOT-23",
                 {'L': [P(2, "S", "passive")], 'R': [P(3, "D", "passive")],
                  'B': [P(1, "G", "input")]})
+# 2026-10-18 (review X-01, X-02): the LM74930 FET pair moves from the
+# PMV55ENEA (SOT-23, NRND, IDM 12.6 A against ~27 A for a few us in ISO
+# 7637-2 pulse 2a) to a power package.
+# Vishay SQJ460AEP (datasheet S22-0167 Rev. D, 14-Feb-2022, read 2026-10-18): 60 V, VGS +-20 V,
+# RDS(on) 8.7 mohm max at 10 V (18.3 mohm at 175 C), IDM 180 A, RthJA 68 C/W (1 in2 FR4),
+# RthJC 2.2 C/W, AEC-Q101, PowerPAK SO-8L: pins 1-3 source, 4 gate, mounting tab (pad 5) drain.
+register_symbol(f"{LIB}:MOSFET_PWR", "Q", "SQJ460AEP (60V, VGS +-20V, AEC-Q101)", "Package_SO:PowerPAK_SO-8L_Single",
+                {'L': [P(1, "S", "passive"), P(2, "S", "passive"), P(3, "S", "passive")],
+                 'R': [P(5, "D", "passive")], 'B': [P(4, "G", "input")]})
 register_symbol(f"{LIB}:R_1206", "R", "5m", "Resistor_SMD:R_1206_3216Metric",
                 {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
                 hide_pin_names=True)
@@ -825,11 +842,11 @@ place(f"{LIB}:C_V", "C11", "100nF BOOT cap (AEC-Q200)", 195, 90,
 place(f"{LIB}:C_V", "C12", "1uF VCC decouple (AEC-Q200)", 218, 90,
       conn={'1': ('label', 'VCC_INT'), '2': ('pwr', 'GND')})
 y_l1 = pin_pos[("U2", "12")][1] - off(f"{LIB}:L_H", 1)[1]
-place(f"{LIB}:L_5050", "L1", "10uH power XAL5050-103ME (AEC-Q200)", 205, y_l1,
+place(f"{LIB}:L_5050", "L1", "2.2uH power XAL5030-222ME (AEC-Q200)", 205, y_l1,
       conn={'1': ('wire',), '2': ('pwr', '+5V')})
-place(f"{LIB}:C_1206", "C2", "22uF 10V X7R COUT (AEC-Q200)", 232, 70,
+place(f"{LIB}:C_1210", "C2", "22uF 16V X7R COUT (AEC-Q200)", 232, 70,
       conn={'1': ('pwr', '+5V'), '2': ('pwr', 'GND')})
-place(f"{LIB}:C_1206", "C45", "22uF 10V X7R COUT (AEC-Q200)", 258, 70,
+place(f"{LIB}:C_1210", "C45", "22uF 16V X7R COUT (AEC-Q200)", 258, 70,
       conn={'1': ('pwr', '+5V'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_V", "C46", "220nF 50V CHF at VIN (AEC-Q200)", 128, 100,
       conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
@@ -863,12 +880,14 @@ place(f"{LIB}:LM74930", "U3", "LM74930-Q1 (AEC-Q100 G1)", 760, 600,
             '22': ('label', 'VIN_FUSED'), '23': ('label', 'CAP_CP'), '24': ('label', 'VIN_PROT'),
             '25': ('nc',)})
 # Q3 = high-side load-switch FET, Q1 = ideal-diode FET, common source (TI
-# reference topology, same as display/ Q2/Q1). PMV55ENEA: pin 2 = source,
-# pin 3 = drain (Nexperia datasheet Table 2).
-place(f"{LIB}:MOSFET_N55", "Q3", "PMV55ENEA pass (HGATE)", 860, 600,
-      conn={'3': ('label', 'SENSE_OUT'), '2': ('label', 'COMMON'), '1': ('label', 'HGATE', 5.08)})
-place(f"{LIB}:MOSFET_N55", "Q1", "PMV55ENEA ideal diode (DGATE)", 900, 600,
-      conn={'2': ('label', 'COMMON'), '3': ('label', 'VIN_PROT'), '1': ('label', 'DGATE', 5.08)})
+# reference topology, same as display/ Q2/Q1). SQJ460AEP: pins 1-3 =
+# source, pin 4 = gate, pad 5 (the tab) = drain (Vishay datasheet page 1).
+place(f"{LIB}:MOSFET_PWR", "Q3", "SQJ460AEP pass (HGATE)", 860, 600,
+      conn={'5': ('label', 'SENSE_OUT'), '1': ('label', 'COMMON'), '2': ('label', 'COMMON'),
+            '3': ('label', 'COMMON'), '4': ('label', 'HGATE', 5.08)})
+place(f"{LIB}:MOSFET_PWR", "Q1", "SQJ460AEP ideal diode (DGATE)", 900, 600,
+      conn={'1': ('label', 'COMMON'), '2': ('label', 'COMMON'), '3': ('label', 'COMMON'),
+            '5': ('label', 'VIN_PROT'), '4': ('label', 'DGATE', 5.08)})
 # RSENSE: 5 mohm, so the default 20 mV short-circuit threshold is 4 A (above
 # the 2 A fuse), and RILIM (Eq. 15) = 12 x RSET / (ILIM x RSENSE) = 12 x 49.9 /
 # (1.5 A x 5 mohm) = 80 kohm -> 80.6 kohm for a 1.5 A circuit breaker.
@@ -886,7 +905,7 @@ place(f"{LIB}:R_V", "R53", "100k UV top", 1080, 600,
       conn={'1': ('label', 'SW_SENSE'), '2': ('label', 'UVLO_DIV')})
 place(f"{LIB}:R_V", "R54", "11.5k UV bot (cut-off 5.5V)", 1110, 600,
       conn={'1': ('label', 'UVLO_DIV'), '2': ('pwr', 'GND')})
-place(f"{LIB}:C_V", "C47", "100nF CVS (50V)", 940, 650,
+place(f"{LIB}:C_0805", "C47", "1uF CVS (50V)", 940, 650,   # G-17: TI 8.2.2.1 "a minimum of 1 uF CVS"
       conn={'1': ('label', 'VIN_FUSED'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_V", "C48", "100nF CCAP (50V)", 970, 650,
       conn={'1': ('label', 'CAP_CP'), '2': ('label', 'VIN_FUSED')})

@@ -248,12 +248,14 @@ GAUGES["J2"] = dict(
     },
 )
 
-# discretes: pin 1 = gate, 2 = source, 3 = drain (SOT23, Nexperia PMV55ENEA table 2)
-for _q in ("Q1", "Q3"):
-    GAUGES[_q] = dict(part="Nexperia PMV55ENEA", status="READ",
-                      ds="Nexperia PMV55ENEA 21 Mar 2016 table 2, 5, 7",
-                      pins={1: ("G", [("free",)]), 2: ("S", [("net", "COMMON")]),
-                            3: ("D", [("free",)])})
+# LM74930 FET pair since 2026-10-18: Vishay SQJ460AEP, PowerPAK SO-8L, pins 1-3 source, 4 gate, 5 (tab) drain
+SQJ460AEP_DS = "Vishay SQJ460AEP S22-0167 Rev. D 14-Feb-2022 page 1 (pinning, ratings)"
+for _q, g, d in (("Q1", "DGATE", "VIN_PROT"), ("Q3", "HGATE", "SENSE_OUT")):
+    GAUGES[_q] = dict(part="Vishay SQJ460AEP", status="READ", ds=SQJ460AEP_DS,
+                      pins={1: ("S", [("net", "COMMON")]), 2: ("S", [("net", "COMMON")]),
+                            3: ("S", [("net", "COMMON")]), 4: ("G", [("net", g)]), 5: ("D", [("net", d)])})
+# PMV55ENEA (SOT23, Nexperia 21 Mar 2016 table 2): pin 1 = gate, 2 = source, 3 = drain; still display/ Q3
+PMV55ENEA_DS = "Nexperia PMV55ENEA 21 Mar 2016 table 2, 5, 7"
 GAUGES["Q2"] = dict(part="Nexperia PMV37ENEA", status="PRIOR",
                     ds="pin order assumed identical to PMV55ENEA (same SOT23 outline and series); datasheet not retrievable here",
                     pins={1: ("G", [("net", "BL_GATE")]), 2: ("S", [("net", "GND")]),
@@ -394,13 +396,24 @@ DISPLAY["U8"] = dict(
     },
     decap=[dict(pin="1", net="+5V", min_nom=1e-6, max_mm=5.0, why="CIN >= 1 uF")],
 )
+# U15 (2026-10-18): the same part switching the MFi daughterboard's 5 V on J16, ON from Verdin GPIO_3
+DISPLAY["U15"] = dict(
+    part="TI TPS22918QDBVRQ1, SOT-23-6", status="READ",
+    ds="TI SLVSCZ8B (Dec 2019) pin functions, 6.1",
+    pins={
+        1: ("VIN", [("net", "+5V")]), 2: ("GND", [("net", "GND")]),
+        3: ("ON", [("net", "MFI_PWR_EN"), ("r", "GND", 10e3, 1e6)]), 4: ("CT", [("nc",)]), 5: ("QOD", [("nc",)]),
+        6: ("VOUT", [("net", "MFI_5V")]),
+    },
+    decap=[dict(pin="1", net="+5V", min_nom=1e-6, max_mm=5.0, why="CIN >= 1 uF")],
+)
 
-for _q in ("Q1", "Q2", "Q3"):
-    DISPLAY[_q] = dict(part="Nexperia PMV55ENEA", status="READ", ds=GAUGES["Q1"]["ds"],
-                       pins={1: ("G", [("free",)]), 2: ("S", [("free",)]), 3: ("D", [("free",)])})
-DISPLAY["Q1"]["pins"][2] = ("S", [("net", "COMMON")])
-DISPLAY["Q2"]["pins"][2] = ("S", [("net", "COMMON")])
-DISPLAY["Q3"]["pins"][2] = ("S", [("net", "GND")])
+for _q, g, d in (("Q1", "DGATE", "+12V_PROT"), ("Q2", "HGATE", "SENSE_OUT")):
+    DISPLAY[_q] = dict(part="Vishay SQJ460AEP", status="READ", ds=SQJ460AEP_DS,
+                       pins={1: ("S1", [("net", "COMMON")]), 2: ("S2", [("net", "COMMON")]),
+                             3: ("S3", [("net", "COMMON")]), 4: ("G", [("net", g)]), 5: ("D", [("net", d)])})
+DISPLAY["Q3"] = dict(part="Nexperia PMV55ENEA", status="READ", ds=PMV55ENEA_DS,
+                     pins={1: ("G", [("free",)]), 2: ("S", [("net", "GND")]), 3: ("D", [("free",)])})
 for _d in ("D5", "D6", "D7"):
     DISPLAY[_d] = dict(part="Nexperia BAV99-Q clamp", status="READ", ds=GAUGES["D10"]["ds"],
                        pins={1: ("A1", [("net", "GND")]), 2: ("K2", [("free",)]), 3: ("CA", [("free",)])})
@@ -448,5 +461,7 @@ for _u, _chs in (("U12", ["LINE_L_P", "LINE_L_N", "LINE_R_P", "LINE_R_N"]), ("U1
     DISPLAY[_u] = dict(part="TI TPD4E05U06-Q1 4-channel ESD, USON-10", status="READ",
                        ds="TI SLVSCO7C pin functions (DQA): 1,2,4,5 channels, 3,8 GND, 6,7,9,10 NC; VRWM 5.5 V, unidirectional (-0.6 V)",
                        pins=_p)
+DISPLAY["U12"].update(part="TI TPD4E02B04-Q1 4-channel bidirectional ESD, USON-10",
+                      ds="TI SLVSDZ2A pin functions (DQA): 1,2,4,5 IO, 3,8 GND, 6,7,9,10 NC; VRWM +-3.6 V bidirectional")
 
 BOARDS = {"gauges": GAUGES, "display": DISPLAY}

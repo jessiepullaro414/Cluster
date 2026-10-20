@@ -15,6 +15,7 @@ Little-endian, 500 kbit/s (proposed). Messages with `Counter` and `Crc8` end wit
 | 0x303 | Indicators | GAUGES | 100 ms | 8 |
 | 0x301 | GaugesStatus | GAUGES | 1000 ms | 8 |
 | 0x304 | Odometer | GAUGES | 1000 ms | 8 |
+| 0x305 | SenderOhms | GAUGES | 1000 ms | 8 |
 | 0x310 | PowerState | GAUGES | 500 ms | 8 |
 | 0x400 | DisplaySettings | DISPLAY | 1000 ms | 8 |
 | 0x410 | SpeedCalibration | DISPLAY | 1000 ms | 8 |
@@ -103,6 +104,21 @@ Distance counters kept by gauges/ (they survive power loss there, see software/g
 |---|---|---|---|---|---|---|
 | OdometerM | 0 | 32 | 1.0 | 0.0 | 0.0..4.29497e+09 | m |
 | TripM | 32 | 20 | 1.0 | 0.0 | 0.0..1.04858e+06 | m |
+| Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
+| Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
+
+### 0x305 SenderOhms (GAUGES, 1000 ms)
+
+Live resistance of the three resistive senders, for measuring their curves in the car (docs/sender-calibration.md): read it off the display at known levels and generate software/gauges-fw/src/sender_curves.c from the readings. Added 2026-10-18.
+
+| Signal | Start bit | Length | Scale | Offset | Range | Unit |
+|---|---|---|---|---|---|---|
+| FuelOhms | 0 | 16 | 0.1 | 0.0 | 0.0..6553.5 | ohm |
+| OilOhms | 16 | 16 | 0.1 | 0.0 | 0.0..6553.5 | ohm |
+| CoolantOhms | 32 | 16 | 0.1 | 0.0 | 0.0..6553.5 | ohm |
+| FuelOhmsValid | 48 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| OilOhmsValid | 49 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
+| CoolantOhmsValid | 50 | 1 | 1.0 | 0.0 | 0.0..1.0 |  |
 | Counter | 52 | 4 | 1.0 | 0.0 | 0.0..15.0 |  |
 | Crc8 | 56 | 8 | 1.0 | 0.0 | 0.0..255.0 |  |
 

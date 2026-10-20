@@ -33,6 +33,9 @@ enum class Prop : uint8_t {
     IgnitionOn,
     SuspendRequest,
     SuspendInSeconds,
+    FuelOhms,            // SenderOhms (0x305): live sender resistance, for measuring the curves in the car
+    OilOhms,
+    CoolantOhms,
     kCount
 };
 
@@ -74,7 +77,7 @@ private:
         uint32_t last_ms = 0;
         uint32_t period_ms = 0;
     };
-    enum Msg { kMotion, kFluids, kIndicators, kPower, kMsgCount };
+    enum Msg { kMotion, kFluids, kIndicators, kPower, kSenders, kMsgCount };
 
     bool fresh(Msg m, uint32_t now_ms) const;
     Result accept(Msg m, uint8_t counter, uint32_t now_ms);
@@ -87,6 +90,8 @@ private:
     bool fuel_ok_ = false, coolant_ok_ = false, oil_ok_ = false;
     bool turn_l_ = false, turn_r_ = false, high_ = false, brake_ = false, alt_ = false, oilw_ = false, dash_ = false;
     bool ign_ = false, susp_ = false;
+    float ohm_[3] = {0, 0, 0};           // fuel, oil, coolant
+    bool ohm_ok_[3] = {false, false, false};
     Stats stats_;
 };
 

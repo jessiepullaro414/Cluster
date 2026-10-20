@@ -242,6 +242,41 @@ static inline int cluster_odometer_unpack(const uint8_t in[8], cluster_odometer_
 }
 
 typedef struct {
+    float fuel_ohms;
+    float oil_ohms;
+    float coolant_ohms;
+    uint8_t fuel_ohms_valid;
+    uint8_t oil_ohms_valid;
+    uint8_t coolant_ohms_valid;
+    uint8_t counter;   /* filled by unpack; pack takes it as an argument */
+} cluster_sender_ohms_t;
+
+static inline void cluster_sender_ohms_pack(const cluster_sender_ohms_t *m, uint8_t counter, uint8_t out[8]) {
+    for (unsigned i = 0; i < 8; i++) out[i] = 0;
+    cluster_set_bits(out, CAN_SENDEROHMS_FUELOHMS_START, CAN_SENDEROHMS_FUELOHMS_LEN, (uint64_t)cluster_scale_to_raw(m->fuel_ohms, 0.1f, 0.0f, 0.0f, 6553.5f));
+    cluster_set_bits(out, CAN_SENDEROHMS_OILOHMS_START, CAN_SENDEROHMS_OILOHMS_LEN, (uint64_t)cluster_scale_to_raw(m->oil_ohms, 0.1f, 0.0f, 0.0f, 6553.5f));
+    cluster_set_bits(out, CAN_SENDEROHMS_COOLANTOHMS_START, CAN_SENDEROHMS_COOLANTOHMS_LEN, (uint64_t)cluster_scale_to_raw(m->coolant_ohms, 0.1f, 0.0f, 0.0f, 6553.5f));
+    cluster_set_bits(out, CAN_SENDEROHMS_FUELOHMSVALID_START, CAN_SENDEROHMS_FUELOHMSVALID_LEN, (uint64_t)(m->fuel_ohms_valid ? 1 : 0));
+    cluster_set_bits(out, CAN_SENDEROHMS_OILOHMSVALID_START, CAN_SENDEROHMS_OILOHMSVALID_LEN, (uint64_t)(m->oil_ohms_valid ? 1 : 0));
+    cluster_set_bits(out, CAN_SENDEROHMS_COOLANTOHMSVALID_START, CAN_SENDEROHMS_COOLANTOHMSVALID_LEN, (uint64_t)(m->coolant_ohms_valid ? 1 : 0));
+    cluster_set_bits(out, CAN_SENDEROHMS_COUNTER_START, CAN_SENDEROHMS_COUNTER_LEN, counter);
+    out[7] = cluster_crc8(out, 7);
+}
+
+/* returns 0 on success, -1 if the CRC does not match */
+static inline int cluster_sender_ohms_unpack(const uint8_t in[8], cluster_sender_ohms_t *m) {
+    if (cluster_crc8(in, 7) != in[7]) return -1;
+    m->fuel_ohms = (float)(cluster_get_bits(in, CAN_SENDEROHMS_FUELOHMS_START, CAN_SENDEROHMS_FUELOHMS_LEN)) * 0.1f + 0.0f;
+    m->oil_ohms = (float)(cluster_get_bits(in, CAN_SENDEROHMS_OILOHMS_START, CAN_SENDEROHMS_OILOHMS_LEN)) * 0.1f + 0.0f;
+    m->coolant_ohms = (float)(cluster_get_bits(in, CAN_SENDEROHMS_COOLANTOHMS_START, CAN_SENDEROHMS_COOLANTOHMS_LEN)) * 0.1f + 0.0f;
+    m->fuel_ohms_valid = (uint8_t)cluster_get_bits(in, CAN_SENDEROHMS_FUELOHMSVALID_START, CAN_SENDEROHMS_FUELOHMSVALID_LEN);
+    m->oil_ohms_valid = (uint8_t)cluster_get_bits(in, CAN_SENDEROHMS_OILOHMSVALID_START, CAN_SENDEROHMS_OILOHMSVALID_LEN);
+    m->coolant_ohms_valid = (uint8_t)cluster_get_bits(in, CAN_SENDEROHMS_COOLANTOHMSVALID_START, CAN_SENDEROHMS_COOLANTOHMSVALID_LEN);
+    m->counter = (uint8_t)cluster_get_bits(in, CAN_SENDEROHMS_COUNTER_START, CAN_SENDEROHMS_COUNTER_LEN);
+    return 0;
+}
+
+typedef struct {
     uint8_t ignition_on;
     uint8_t suspend_request;
     uint32_t suspend_in_seconds;

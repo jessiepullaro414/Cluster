@@ -13,11 +13,12 @@
 #define LINK_BITRATE 500000u
 #define MAX_RX_PER_POLL 16u
 
-enum { M_MOTION, M_FLUIDS, M_INDICATORS, M_POWER, M_STATUS, M_ODOMETER, M_COUNT };
+enum { M_MOTION, M_FLUIDS, M_INDICATORS, M_POWER, M_STATUS, M_ODOMETER, M_SENDERS, M_COUNT };
 static const uint16_t TX_ID[M_COUNT] = { CAN_ID_VEHICLEMOTION, CAN_ID_VEHICLEFLUIDS, CAN_ID_INDICATORS, CAN_ID_POWERSTATE,
-                                         CAN_ID_GAUGESSTATUS, CAN_ID_ODOMETER };
+                                         CAN_ID_GAUGESSTATUS, CAN_ID_ODOMETER, CAN_ID_SENDEROHMS };
 static const uint16_t TX_PERIOD_MS[M_COUNT] = { CAN_PERIOD_MS_VEHICLEMOTION, CAN_PERIOD_MS_VEHICLEFLUIDS, CAN_PERIOD_MS_INDICATORS,
-                                                CAN_PERIOD_MS_POWERSTATE, CAN_PERIOD_MS_GAUGESSTATUS, CAN_PERIOD_MS_ODOMETER };
+                                                CAN_PERIOD_MS_POWERSTATE, CAN_PERIOD_MS_GAUGESSTATUS, CAN_PERIOD_MS_ODOMETER,
+                                                CAN_PERIOD_MS_SENDEROHMS };
 enum { R_SETTINGS, R_CALIB, R_INPUT, R_TRIP, R_HEARTBEAT, R_UPDATE, R_COUNT };
 static const uint16_t RX_ID[R_COUNT] = { CAN_ID_DISPLAYSETTINGS, CAN_ID_SPEEDCALIBRATION, CAN_ID_INPUTCONFIG, CAN_ID_TRIPCOMMAND,
                                          CAN_ID_DISPLAYHEARTBEAT, BOOT_ID_CMD };
@@ -336,4 +337,17 @@ void can_link_send_odometer(uint32_t odometer_m, uint32_t trip_m)
     uint8_t d[8];
     cluster_odometer_pack(&m, g_tx_counter[M_ODOMETER], d);
     (void)send(M_ODOMETER, d);
+}
+
+/* SenderOhms, once a second: the live sender resistances, for measuring the curves in the car (docs/sender-calibration.md).
+ * A negative value (no reading yet, open or shorted) goes out as 0 with its valid bit clear. */
+void can_link_send_sender_ohms(float fuel_ohm, float oil_ohm, float coolant_ohm)
+{
+    if (!due(M_SENDERS)) return;
+    cluster_sender_ohms_t m = { fuel_ohm > 0.0f ? fuel_ohm : 0.0f, oil_ohm > 0.0f ? oil_ohm : 0.0f,
+                                coolant_ohm > 0.0f ? coolant_ohm : 0.0f,
+                                fuel_ohm >= 0.0f, oil_ohm >= 0.0f, coolant_ohm >= 0.0f, 0 };
+    uint8_t d[8];
+    cluster_sender_ohms_pack(&m, g_tx_counter[M_SENDERS], d);
+    (void)send(M_SENDERS, d);
 }

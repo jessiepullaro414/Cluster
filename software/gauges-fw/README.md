@@ -1,4 +1,4 @@
-# gauges-fw (S32K144: boots to main in the image; inputs, senders, CAN, fault handling, odometer and settings real on the host and compiled for the part; power/STOP mode still a stub)
+# gauges-fw (S32K144: boots to main in the image; inputs, senders, CAN, fault handling, odometer, settings and the key-off sleep real on the host and compiled for the part)
 
 Target: NXP S32K144, 64-LQFP, on `../../gauges`. Pin numbers below come from the gauges schematic comments (which were read from NXP's S32K1xx IO table); `inc/gauges_pins.h` is the single place they live.
 
@@ -25,7 +25,8 @@ Target: NXP S32K144, 64-LQFP, on `../../gauges`. Pin numbers below come from the
 | `src/aux_display.c` | four screens: reset, init, first frame, then send only the changed tiles, a bounded number per tick | **real, tested** |
 | `src/panel_hal_s32k.c` | LPSPI2 + GPIO bus layer for the four screens (blocking, polled, 9.6 MHz) | written from the RM, **compiled and linked, never run on a part** |
 | `test/panel_mock.c` | mock of four GC9A01 panels: decodes the SPI stream, models the GRAM window, flags protocol mistakes | test tool |
-| `src/power.c` | STOP mode, ignition wake, `PowerState` message | stub |
+| `src/power.c`, `inc/power.h` | key-off sequence: ignition confirmed off for 300 ms, a 5 s `SuspendRequest` countdown in `PowerState` (display/ shows it and suspends), then sleep once nothing is being saved; key on cancels at once | **real, tested** (`test_power.c`, 46 checks: confirm delay, countdown values, cancel, cranking dips, clock wrap, aborted entry, power-up with the key off) |
+| `src/power_hw_s32k.c` | the sleep itself: backlights off, TJA1043T and TCAN1044V to standby, ignition pin (PTE1) rising-edge interrupt armed, system clock to SIRC with SPLL/SOSC/FIRC off, VLPS (RM 27.4, 40.3; wake source per RM table 7-8); a wake resets the chip so every peripheral starts as from power-up | written from the RM and the transceiver data sheets, **compiled and linked, never run on a part**; key-off current is to be measured on the first board (G-16) |
 | `src/fault.c`, `inc/fault.h` | fault manager: reset-cause decode, the task/watchdog policy, quarantine of a task that hangs twice, limp level (see "Fault handling") | **real, tested** |
 | `src/wdog_s32k.c`, `inc/wdog.h` | starts the watchdog (128 kHz LPO, 100 ms, final configuration), kicks it, reads `RCM_SRS` | written from the RM, **compiled and linked, never run on a part** |
 | `src/status.c`, `inc/status.h` | builds the `GaugesStatus` message (sources, open senders, reset cause, limp level, quarantine) | **real, tested** |

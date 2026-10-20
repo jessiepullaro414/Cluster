@@ -31,6 +31,7 @@
   li.sel.edit { outline: .5vmin solid var(--accent); }
   li.sel.edit .v { color: var(--accent); }
   #hint { margin-top: 3vmin; font-size: 3vmin; color: var(--dim); text-align: center; max-width: 60%; }
+  #senders { margin-top: 1.5vmin; font-size: 2.6vmin; color: var(--dim); text-align: center; max-width: 64%; font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -39,6 +40,7 @@
   <h1>SETTINGS</h1>
   <ul id="rows"></ul>
   <div id="hint"></div>
+  <div id="senders"></div>
 </div>
 <script>
 'use strict';
@@ -246,6 +248,13 @@ function drawGauge(s, dt) {
 
 // ---------------------------------------------------------------- settings list
 const dial = document.getElementById('dial'), rows = document.getElementById('rows'), hint = document.getElementById('hint');
+const senders = document.getElementById('senders');
+// Live sender resistance (SenderOhms 0x305), for measuring the sender curves in the car: docs/sender-calibration.md.
+function senderText(v) {
+  if (!v || !v.link) return '';
+  const f = x => (x === null || x === undefined) ? '—' : x.toFixed(1) + ' Ω';
+  return 'senders: fuel ' + f(v.fuel_ohm) + ' · oil ' + f(v.oil_ohm) + ' · temp ' + f(v.coolant_ohm);
+}
 function drawSettings(s) {
   rows.replaceChildren(...s.rows.map(([label, value], i) => {
     const li = document.createElement('li');
@@ -256,6 +265,7 @@ function drawSettings(s) {
     return li;
   }));
   hint.textContent = s.editing ? 'turn to change, click to keep, hold to cancel' : 'turn to choose, click to change, hold to go back';
+  senders.textContent = senderText(s.veh);
 }
 
 // ---------------------------------------------------------------- loop
@@ -268,7 +278,7 @@ function frame(t) {
     dial.style.display = gauge ? 'none' : 'flex';
     if (gauge) drawGauge(state, dt);
     else {
-      const key = JSON.stringify([state.rows, state.row, state.editing]);
+      const key = JSON.stringify([state.rows, state.row, state.editing, senderText(state.veh)]);
       if (key !== listKey) { listKey = key; drawSettings(state); }
     }
   }

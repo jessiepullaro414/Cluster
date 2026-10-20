@@ -135,6 +135,19 @@ PRIVATE = [
              S("OdometerM", 1, 0, 0, 4294967295, "m", 0, 32, rx=D),
              S("TripM", 1, 0, 0, 1048575, "m", 32, 20, rx=D),
          ] + e2e(D)),
+    dict(id=0x305, name="SenderOhms", sender="GAUGES", period=1000, dlc=8,
+         doc="Live resistance of the three resistive senders, for measuring their curves in the car "
+             "(docs/sender-calibration.md): read it off the display at known levels and generate "
+             "software/gauges-fw/src/sender_curves.c from the readings. Added 2026-10-18.",
+         signals=[
+             S("FuelOhms", 0.1, 0, 0, 6553.5, "ohm", 0, 16, rx=D),
+             S("OilOhms", 0.1, 0, 0, 6553.5, "ohm", 16, 16, rx=D),
+             S("CoolantOhms", 0.1, 0, 0, 6553.5, "ohm", 32, 16, rx=D),
+             S("FuelOhmsValid", 1, 0, 0, 1, "", 48, 1, rx=D,
+               doc="0 = no reading yet, or the wire is open or shorted"),
+             S("OilOhmsValid", 1, 0, 0, 1, "", 49, 1, rx=D),
+             S("CoolantOhmsValid", 1, 0, 0, 1, "", 50, 1, rx=D),
+         ] + e2e(D)),
     dict(id=0x310, name="PowerState", sender="GAUGES", period=500, dlc=8,
          doc="Ignition and sleep coordination; also sent on every change.",
          signals=[

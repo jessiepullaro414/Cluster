@@ -22,8 +22,7 @@
 #include "wdog.h"
 #endif
 
-/* STUB main: the init order and the 10 ms task are the point; senders, inputs, power and can_link are still
- * stubs. The fault handling around them is real (fault.c): each piece of work below runs as a TASK that the
+/* main: the init order and the 10 ms task are the point. The fault handling around them is real (fault.c): each piece of work below runs as a TASK that the
  * watchdog policy can see, and a task that hangs twice is switched off while the rest keeps going. */
 
 static fault_t g_fault;
@@ -131,7 +130,7 @@ static void step(uint32_t now)
         can_link_send_fluids(fuel.value, coolant.value, oil.value, fuel.valid, coolant.valid, oil.valid);
         can_link_send_indicators(lamps.turn_left, lamps.turn_right, lamps.high_beam, lamps.brake, lamps.alternator, lamps.oil,
                                  dash_lights, dimmer);
-        can_link_send_power(ign, false, 0);
+        can_link_send_power(ign, power_suspend_request(), power_suspend_in_s());
         if ((int32_t)(now - status_due_ms) >= 0) {
             status_due_ms = now + STATUS_PERIOD_MS;
             status_in_t in = { fuel, coolant, oil, battery, rpm.src == SRC_LOCAL, car.active, cfg.car_profile,
@@ -140,6 +139,7 @@ static void step(uint32_t now)
             cluster_gauges_status_t st = status_build(&in);
             can_link_send_status(&st);
             can_link_send_odometer(odo_get_m(&g_odo), odo_get_trip_m(&g_odo));
+            can_link_send_sender_ohms(senders_ohms(SENDER_FUEL), senders_ohms(SENDER_OIL), senders_ohms(SENDER_COOLANT));
         }
     });
 
@@ -168,7 +168,8 @@ int main(void)
     display_settings_t saved = can_link_settings();
     settings_store_init(&g_ss, g_nv_ok ? &nv_s32k : 0, ODO_SECTORS * NV_SECTOR_BYTES, &saved);   /* the sectors right after the odometer's */
     can_link_load_settings(&saved);
-    power_init();
+    power_hw_s32k_init();
+    power_init(&power_hw_s32k);
     adc_hw_init();                                  /* calibrates: the 3V3 rail has had the SRAM fill and clock start to settle */
     senders_init(&adc_s32k);
     sender_curves_load();

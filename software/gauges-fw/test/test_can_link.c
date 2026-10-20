@@ -74,9 +74,9 @@ static void test_start(void)
     reset_world();
     CHECK(starts[CAN_BUS_LINK] == 1 && starts[CAN_BUS_CAR] == 1);
     CHECK(cfg[CAN_BUS_LINK].bitrate == 500000u && !cfg[CAN_BUS_LINK].listen_only);
-    CHECK(cfg[CAN_BUS_LINK].n_rx == 6u && cfg[CAN_BUS_LINK].n_tx == 6u);
+    CHECK(cfg[CAN_BUS_LINK].n_rx == 6u && cfg[CAN_BUS_LINK].n_tx == 7u);
     CHECK(cfg[CAN_BUS_LINK].rx_ids[0] == 0x400u && cfg[CAN_BUS_LINK].rx_ids[4] == 0x4F0u && cfg[CAN_BUS_LINK].rx_ids[5] == 0x7C0u);
-    CHECK(cfg[CAN_BUS_LINK].tx_ids[0] == 0x300u && cfg[CAN_BUS_LINK].tx_ids[5] == 0x304u);
+    CHECK(cfg[CAN_BUS_LINK].tx_ids[0] == 0x300u && cfg[CAN_BUS_LINK].tx_ids[5] == 0x304u && cfg[CAN_BUS_LINK].tx_ids[6] == 0x305u);
     CHECK(cfg[CAN_BUS_CAR].listen_only);                                      /* the car bus listens only */
     CHECK(cfg[CAN_BUS_CAR].n_tx == 0u && cfg[CAN_BUS_CAR].n_rx == 0u);        /* profile 0: nothing to accept */
     can_link_init(0);                                                         /* no controllers at all is safe */
@@ -326,6 +326,11 @@ static void test_transmit(void)
     f = last_of(CAN_ID_ODOMETER);
     cluster_odometer_t od = {0};
     CHECK(cluster_odometer_unpack(f.data, &od) == 0 && od.odometer_m == 123456789u && od.trip_m == 54321u);
+    can_link_send_sender_ohms(33.4f, -1.0f, 120.0f);                          /* oil: no reading -> 0 with the valid bit clear */
+    f = last_of(CAN_ID_SENDEROHMS);
+    cluster_sender_ohms_t so = {0};
+    CHECK(cluster_sender_ohms_unpack(f.data, &so) == 0 && so.fuel_ohms_valid && !so.oil_ohms_valid && so.coolant_ohms_valid);
+    CHECK(so.fuel_ohms > 33.35f && so.fuel_ohms < 33.45f && so.oil_ohms == 0.0f && so.coolant_ohms > 119.95f && so.coolant_ohms < 120.05f);
     CHECK(car_tx_attempts == 0);                                               /* NOTHING was offered to the car bus */
 }
 

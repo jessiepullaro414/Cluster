@@ -36,6 +36,7 @@ Result Bridge::on_frame(uint32_t id, const uint8_t* data, uint8_t len, uint32_t 
         case CAN_ID_VEHICLEFLUIDS: msg = kFluids; period = CAN_PERIOD_MS_VEHICLEFLUIDS; break;
         case CAN_ID_INDICATORS: msg = kIndicators; period = CAN_PERIOD_MS_INDICATORS; break;
         case CAN_ID_POWERSTATE: msg = kPower; period = CAN_PERIOD_MS_POWERSTATE; break;
+        case CAN_ID_SENDEROHMS: msg = kSenders; period = CAN_PERIOD_MS_SENDEROHMS; break;
         default: return Result::UnknownId;
     }
     if (len != 8) {
@@ -83,6 +84,15 @@ Result Bridge::on_frame(uint32_t id, const uint8_t* data, uint8_t len, uint32_t 
             ign_ = d.ignition_on; susp_ = d.suspend_request; suspend_s_ = d.suspend_in_seconds;
             break;
         }
+        case kSenders: {
+            cluster_sender_ohms_t d;
+            if (cluster_sender_ohms_unpack(data, &d) != 0) { stats_.bad_crc++; return Result::BadCrc; }
+            const Result r = accept(msg, d.counter, now_ms);
+            if (r != Result::Ok) return r;
+            ohm_[0] = d.fuel_ohms; ohm_[1] = d.oil_ohms; ohm_[2] = d.coolant_ohms;
+            ohm_ok_[0] = d.fuel_ohms_valid; ohm_ok_[1] = d.oil_ohms_valid; ohm_ok_[2] = d.coolant_ohms_valid;
+            break;
+        }
         default: break;
     }
     return Result::Ok;
@@ -121,6 +131,9 @@ PropValue Bridge::get(Prop p, uint32_t now_ms) const {
         case Prop::IgnitionOn: return make(pwr, ign_ ? 1.0f : 0.0f);
         case Prop::SuspendRequest: return make(pwr, susp_ ? 1.0f : 0.0f);
         case Prop::SuspendInSeconds: return make(pwr, static_cast<float>(suspend_s_));
+        case Prop::FuelOhms: return make(fresh(kSenders, now_ms) && ohm_ok_[0], ohm_[0]);
+        case Prop::OilOhms: return make(fresh(kSenders, now_ms) && ohm_ok_[1], ohm_[1]);
+        case Prop::CoolantOhms: return make(fresh(kSenders, now_ms) && ohm_ok_[2], ohm_[2]);
         default: return make(false, 0.0f);
     }
 }

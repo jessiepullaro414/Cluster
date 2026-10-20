@@ -8,7 +8,9 @@
  *     static const sender_pt_t FUEL_CURVE[] = { { 10.0f, 100.0f }, { 73.0f, 0.0f } };      <- shape only, not data
  *     senders_set_curve(SENDER_FUEL, FUEL_CURVE, sizeof FUEL_CURVE / sizeof FUEL_CURVE[0]);
  *
- * senders_ohms() reports the live resistance of each sender for exactly this measurement. */
+ * senders_ohms() reports the live resistance of each sender for exactly this measurement; since 2026-10-18 it goes out on
+ * the private link (SenderOhms 0x305) and the centre screen's Settings page shows it, and tools/make_sender_curves.py
+ * writes this whole file from a CSV of the readings (docs/sender-calibration.md). */
 void sender_curves_load(void)
 {
 }

@@ -4,17 +4,17 @@ CC      ?= gcc
 CFLAGS  ?= -std=c11 -Wall -Wextra -Werror -O2 -Iinc -I../../protocol
 
 # Real, host-testable code (no hardware access).
-CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/nvlog.c src/settings_store.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c src/can_bittiming.c src/canmb.c src/can_link.c src/bootcore.c src/boot_request.c
-# Still stubs (need the board).
-STUBS := src/power.c
+CORE := src/aggregate.c src/inputmath.c src/screens.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gc9a01.c src/aux_display.c src/crc.c src/fault.c src/status.c src/odometer.c src/nvlog.c src/settings_store.c src/capture.c src/inputs.c src/senders.c src/sender_curves.c src/can_bittiming.c src/canmb.c src/can_link.c src/bootcore.c src/boot_request.c src/power.c
+# Still stubs (need the board): none since the key-off sleep was written (2026-10-18).
+STUBS :=
 # Real code that touches registers: compiled and linked for the target, never run on the host.
-HW := src/panel_hal_s32k.c src/wdog_s32k.c src/nvflash_s32k.c src/inputs_hw_s32k.c src/adc_s32k.c src/flexcan_s32k.c
+HW := src/power_hw_s32k.c src/panel_hal_s32k.c src/wdog_s32k.c src/nvflash_s32k.c src/inputs_hw_s32k.c src/adc_s32k.c src/flexcan_s32k.c
 
 # Sources of the screen chain for tests that use the mock panel.
 SCREEN := test/panel_mock.c src/aux_display.c src/dial.c src/dial_modern.c src/dial_carplay.c src/dial_factory.c src/gfx.c src/font_data.c src/face.c src/face_data.c src/gc9a01.c src/screens.c
 
 .PHONY: test stubs arm-check arm preview bench harness golden golden-update golden-dump sim clean
-test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/test_settings build/test_can build/test_can_link build/test_boot build/boot_replay build/harness_cli
+test: build/test_aggregate build/test_codec build/test_inputmath build/test_screens build/test_gfx build/test_dial build/test_gc9a01 build/test_fault build/test_odometer build/test_odometer16 build/test_inputs build/test_settings build/test_can build/test_can_link build/test_boot build/test_power build/boot_replay build/harness_cli
 	./build/test_aggregate
 	./build/test_codec
 	./build/test_inputmath
@@ -30,7 +30,9 @@ test: build/test_aggregate build/test_codec build/test_inputmath build/test_scre
 	./build/test_can
 	./build/test_can_link
 	./build/test_boot
+	./build/test_power
 	python3 tools/test_can_flash.py
+	python3 tools/make_sender_curves.py --selftest
 	./build/harness_cli --selftest
 	./build/harness_cli --golden check test/golden_screens.txt
 
@@ -97,6 +99,10 @@ build/test_odometer16: $(ODOSRC) test/nv_mock.h inc/odometer.h inc/nvlog.h inc/n
 build/test_codec: test/test_codec.c ../../protocol/cluster_codec.h ../../protocol/cluster_can.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -o $@ test/test_codec.c -lm
+
+build/test_power: test/test_power.c src/power.c inc/power.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -o $@ test/test_power.c src/power.c
 
 build/test_aggregate: test/test_aggregate.c src/aggregate.c inc/aggregate.h
 	mkdir -p build

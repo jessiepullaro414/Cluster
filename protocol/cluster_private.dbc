@@ -65,6 +65,16 @@ BO_ 772 Odometer: 8 GAUGES
  SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" DISPLAY
  SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
 
+BO_ 773 SenderOhms: 8 GAUGES
+ SG_ FuelOhms : 0|16@1+ (0.1,0.0) [0.0|6553.5] "ohm" DISPLAY
+ SG_ OilOhms : 16|16@1+ (0.1,0.0) [0.0|6553.5] "ohm" DISPLAY
+ SG_ CoolantOhms : 32|16@1+ (0.1,0.0) [0.0|6553.5] "ohm" DISPLAY
+ SG_ FuelOhmsValid : 48|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ OilOhmsValid : 49|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ CoolantOhmsValid : 50|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
+ SG_ Counter : 52|4@1+ (1.0,0.0) [0.0|15.0] "" DISPLAY
+ SG_ Crc8 : 56|8@1+ (1.0,0.0) [0.0|255.0] "" DISPLAY
+
 BO_ 784 PowerState: 8 GAUGES
  SG_ IgnitionOn : 0|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
  SG_ SuspendRequest : 1|1@1+ (1.0,0.0) [0.0|1.0] "" DISPLAY
@@ -111,6 +121,7 @@ CM_ BO_ 770 "Consolidated fluid data: ECU value if fresh, else local sender.";
 CM_ BO_ 771 "Indicator-lamp states from the six 12 V lamp inputs on gauges/ (1 = lamp on after the per-channel polarity setting), sent every 100 ms and on every change.";
 CM_ BO_ 769 "Health, identity and where each value currently comes from.";
 CM_ BO_ 772 "Distance counters kept by gauges/ (they survive power loss there, see software/gauges-fw/README.md). Metres; the display converts to miles or km. The trip meter is 20 bits, so it wraps at 1048.575 km.";
+CM_ BO_ 773 "Live resistance of the three resistive senders, for measuring their curves in the car (docs/sender-calibration.md): read it off the display at known levels and generate software/gauges-fw/src/sender_curves.c from the readings. Added 2026-10-18.";
 CM_ BO_ 784 "Ignition and sleep coordination; also sent on every change.";
 CM_ BO_ 1024 "Persistent settings owned by Android; sent on change and every second. gauges/ keeps the last copy in flash.";
 CM_ BO_ 1040 "Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile = 16000).";
@@ -125,6 +136,7 @@ BA_ "GenMsgCycleTime" BO_ 770 100;
 BA_ "GenMsgCycleTime" BO_ 771 100;
 BA_ "GenMsgCycleTime" BO_ 769 1000;
 BA_ "GenMsgCycleTime" BO_ 772 1000;
+BA_ "GenMsgCycleTime" BO_ 773 1000;
 BA_ "GenMsgCycleTime" BO_ 784 500;
 BA_ "GenMsgCycleTime" BO_ 1024 1000;
 BA_ "GenMsgCycleTime" BO_ 1040 1000;

@@ -172,6 +172,12 @@ std::string page_state_json(const Shell& sh, const vhal::Bridge& b, uint32_t now
     veh_bool(s, "alt", b.get(Prop::AlternatorWarning, now_ms));
     s += ',';
     veh_bool(s, "oil", b.get(Prop::OilWarning, now_ms));
+    s += ',';
+    veh_num(s, "fuel_ohm", b.get(Prop::FuelOhms, now_ms), 1);
+    s += ',';
+    veh_num(s, "oil_ohm", b.get(Prop::OilOhms, now_ms), 1);
+    s += ',';
+    veh_num(s, "coolant_ohm", b.get(Prop::CoolantOhms, now_ms), 1);
     s += "}}";
     return s;
 }

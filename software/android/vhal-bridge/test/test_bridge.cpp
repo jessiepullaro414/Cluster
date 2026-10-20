@@ -143,6 +143,14 @@ int main() {
         CHECK(b.on_frame(CAN_ID_POWERSTATE, raw, 8, 0) == Result::Ok);
         CHECK(b.get(Prop::SuspendRequest, 0).value == 1.0f && b.get(Prop::IgnitionOn, 0).value == 0.0f);
         CHECK(NEAR(b.get(Prop::SuspendInSeconds, 0).value, 20.0, 0.01));
+
+        cluster_sender_ohms_t so = {};
+        so.fuel_ohms = 33.4f; so.oil_ohms = 0.0f; so.coolant_ohms = 120.0f;
+        so.fuel_ohms_valid = 1; so.oil_ohms_valid = 0; so.coolant_ohms_valid = 1;
+        cluster_sender_ohms_pack(&so, 5, raw);
+        CHECK(b.on_frame(CAN_ID_SENDEROHMS, raw, 8, 0) == Result::Ok);
+        CHECK(NEAR(b.get(Prop::FuelOhms, 0).value, 33.4, 0.05) && !b.get(Prop::OilOhms, 0).available);
+        CHECK(NEAR(b.get(Prop::CoolantOhms, 0).value, 120.0, 0.05) && !b.get(Prop::FuelOhms, 3001).available);   // 3 x 1000 ms
     }
 
     if (failures) { std::printf("%d failure(s)\n", failures); return 1; }

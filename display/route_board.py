@@ -119,6 +119,34 @@ def run_kicad_python(label, script):
         raise SystemExit(f"{label} failed (exit {result.returncode})")
 
 
+# Battery path (D-02 residual, 2026-10-20): J2 -> F1 -> R1 -> Q2 -> Q1 -> C1
+# and the buck input, up to 2.6 A behind a 5 A fuse. Until now these nets
+# routed at 0.2 mm on any layer and widen_trunks() fattened what had room:
+# about 60 mm of VBAT_F ended up 1.5 mm wide on In2/In3, whose 0.5 oz copper
+# IPC-2221 rates at about 1.3 A for 20 K, and +12V_PROT hugged C1's GND pad
+# and the buck's input caps at the routing width, where no widening fits.
+#  * They now route on the 1 oz outer layers only (a net-class use_layer, the
+#    mechanism that keeps signals off the In1/In4 planes), at 0.3 mm: every
+#    one of these nets also reaches the LM74930's 0.5 mm-pitch pins, and 0.3 mm
+#    plus the 0.15 mm clearance still escapes them side by side.
+#  * Their vias are 1.0/0.5 mm (an extra padstack in the DSN): one 0.3 mm
+#    drill with 18 um plating rises about 39 K at 2.6 A, a 0.5 mm one 17 K.
+#  * After widen_trunks(), add_battery_pours() pours each of them on F.Cu
+#    (the one layer with no other pour) in a band around its own copper, so
+#    a track that hugs a pad on one side gets copper on its free side.
+# What did NOT work (2026-10-20): routing the current-carrying pins at 0.8 mm
+# with the milliamp pins left out of the DSN, then a second FreeRouting pass
+# for those. 2.2.4 cannot continue from a board that already has wiring:
+# with KiCad's exported tracks, protected or not, it throws a
+# NullPointerException ("to_trace_entries" is null) seconds into the first
+# pass and then spins without end. The single pass at 0.8 mm alone also left
+# three other connections unrouted (USB2_DN among them).
+BATTERY_PATH_NETS = ["VBAT_IN", "VBAT_F", "SENSE_OUT", "COMMON", "+12V_PROT"]
+BATTERY_PATH_LAYERS = ["F.Cu", "B.Cu"]
+BATTERY_ROUTE_WIDTH_UM = 300
+BATTERY_VIA = (1000, 500)             # pad, drill (um)
+
+
 def export_dsn():
     if not os.path.isfile(KICAD_PYTHON):
         raise SystemExit(f"KiCad's bundled Python not found at {KICAD_PYTHON}")
@@ -222,6 +250,25 @@ if ok:
     _close = txt.rindex(")", 0, txt.index("(wiring"))
     txt = (txt[:_close] + "  (class gnd_plane GND (circuit " + _via + ") (rule (width " + _wv
            + ") (clearance " + _clv + ")))" + chr(10) + "  " + txt[_close:])
+    _bat = {BATTERY_PATH_NETS!r}
+    _c = txt.index("(class kicad_default")
+    _k = txt.index("(circuit", _c)
+    _toks = txt[_c:_k].split()
+    assert all(n in _toks for n in _bat), "a battery-path net is missing from kicad_default"
+    txt = txt[:_c] + " ".join(t for t in _toks if t not in _bat) + chr(10) + "      " + txt[_k:]
+    _vp = 'Via[0-5]_{BATTERY_VIA[0]}:{BATTERY_VIA[1]}_um'
+    _s = txt.index('(padstack "Via[0-5]_600:300_um"')
+    _e = txt.index("(attach off)", _s)
+    _e = txt.index(")", _e + 12) + 1
+    txt = (txt[:_e] + chr(10) + "    " + txt[_s:_e].replace("Via[0-5]_600:300_um", _vp)
+           .replace(" 600)", " {BATTERY_VIA[0]})") + txt[_e:])
+    _sv = '(via "Via[0-5]_600:300_um")'
+    assert txt.count(_sv) == 1, "expected one via list in the structure"
+    txt = txt.replace(_sv, '(via "Via[0-5]_600:300_um" "' + _vp + '")')
+    _close = txt.rindex(")", 0, txt.index("(wiring"))
+    txt = (txt[:_close] + "  (class battery_path " + " ".join(_bat) + " (circuit (use_via " + chr(34) + _vp + chr(34) + ")"
+           + " (use_layer {" ".join(BATTERY_PATH_LAYERS)})) (rule (width {BATTERY_ROUTE_WIDTH_UM}) (clearance " + _clv + ")))"
+           + chr(10) + "  " + txt[_close:])
     open({DSN!r}, "w", encoding="utf-8").write(txt)
 print("DSN export:", "OK" if ok else "FAILED", "->", {DSN!r})
 if not ok:
@@ -241,6 +288,16 @@ if not ok:
 # cut-off that left a connection open would be caught by
 # real_unconnected_count(). Routing alone takes 3-8 minutes.
 JOB_TIMEOUT = "00:20:00"
+# A hard stop as well (2026-10-20): when FreeRouting 2.2.4's routing thread
+# dies (seen: a StackOverflowError in PolylineTrace.combine, a
+# NullPointerException on "to_trace_entries", both logged to
+# %TEMP%/freerouting/freerouting.log) the process sits idle or spins and never
+# reaches its job timeout or exits. Such an attempt counts as a failed pass.
+HARD_TIMEOUT_S = 25 * 60
+
+
+class RouterHung(Exception):
+    pass
 
 
 def run_freerouting(quiet=False):
@@ -256,7 +313,10 @@ def run_freerouting(quiet=False):
            f"--router.job_timeout={JOB_TIMEOUT}"]
     if not quiet:
         print("Running:", " ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=HARD_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        raise RouterHung(f"FreeRouting still running after {HARD_TIMEOUT_S} s; killed")
     # FreeRouting logs to stdout even on success - keep the tail, it's where
     # the final pass/route-completion summary shows up.
     tail = result.stdout.strip().splitlines()[-40:]
@@ -476,6 +536,45 @@ filler = pcbnew.ZONE_FILLER(board)
 filler.Fill(board.Zones())
 board.Save({PCB!r})
 print("Added + filled", {net_name!r}, "zone on", {layer_name!r}, "- saved to", {PCB!r})
+''')
+
+
+# Battery-path pours (2026-10-20, see BATTERY_PATH_NETS): one F.Cu zone per net,
+# its outline the net's own F.Cu tracks grown by BATTERY_POUR_BAND_MM, so it
+# fills the free copper beside the path and nowhere else. Where two nets' bands
+# overlap (around the LM74930) the priority order below decides; the filler
+# keeps every other net's copper at the zone clearance. One zone per process,
+# as for the plane pours.
+BATTERY_POUR_BAND_MM = 2.0
+
+
+def add_battery_pours():
+    for prio, net_name in enumerate(BATTERY_PATH_NETS):
+        run_kicad_python(f"Battery pour {net_name}", f'''
+import pcbnew
+board = pcbnew.LoadBoard({PCB!r})
+net = board.FindNet({net_name!r})
+band = pcbnew.FromMM({BATTERY_POUR_BAND_MM})
+outline = pcbnew.SHAPE_POLY_SET()
+n = 0
+for t in board.GetTracks():
+    if t.GetClass() == "PCB_TRACK" and t.GetNetCode() == net.GetNetCode() and t.GetLayer() == pcbnew.F_Cu:
+        t.TransformShapeToPolygon(outline, pcbnew.F_Cu, band, pcbnew.FromMM(0.01), pcbnew.ERROR_INSIDE)
+        n += 1
+if n:
+    outline.Simplify()
+    zone = pcbnew.ZONE(board)
+    zone.SetLayer(pcbnew.F_Cu)
+    zone.SetNet(net)
+    zone.SetAssignedPriority({len(BATTERY_PATH_NETS) - prio})
+    zone.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+    zone.SetLocalClearance(pcbnew.FromMM(0.2))
+    zone.SetMinThickness(pcbnew.FromMM(0.2))
+    zone.SetOutline(outline)
+    board.Add(zone)
+    pcbnew.ZONE_FILLER(board).Fill(board.Zones())
+    board.Save({PCB!r})
+print("Battery pour", {net_name!r}, "on F.Cu around", n, "track pieces")
 ''')
 
 
@@ -700,11 +799,18 @@ def regenerate_unrouted_board():
 
 if __name__ == "__main__":
     for pipeline_attempt in range(1, MAX_PIPELINE_ATTEMPTS + 1):
-        export_dsn()
-        route_until_clean()
-        import_ses()
+        try:
+            export_dsn()
+            route_until_clean()
+            import_ses()
+        except RouterHung as e:
+            print(f"\nWARNING: {e} (pipeline attempt {pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS})")
+            if pipeline_attempt < MAX_PIPELINE_ATTEMPTS:
+                regenerate_unrouted_board()
+            continue
         add_dsi()
         widen_trunks()
+        add_battery_pours()
         add_and_fill_zones()
         real_unconnected = real_unconnected_count()
         _cv = corridor_violations()

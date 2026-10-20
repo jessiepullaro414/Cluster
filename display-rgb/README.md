@@ -31,7 +31,7 @@ ERC 0 violations; BOM coverage OK; DRC accepted categories only. 720 x 720 at 60
 
 ## Routing status (2026-10-19): routed, 0 unconnected
 
-Six layers, routed by `route_board.py` with **0 unconnected items** under the independent `kicad-cli` DRC. Remaining DRC errors are the same accepted categories as display/: `solder_mask_bridge` x10 at the open JP1/JP2 jumpers and `hole_clearance` x4 at the USB-C receptacle's own pegs. `review/layout_checks.py display-rgb` confirms no track of any net on In1 or In4.
+Six layers, routed by `route_board.py` with **0 unconnected items** under the independent `kicad-cli` DRC. Remaining DRC errors are the same accepted categories as display/: `solder_mask_bridge` x10 at the open JP1/JP2 jumpers and `hole_clearance` x4 at the USB-C receptacle's own pegs. `review/layout_checks.py display-rgb` confirms no track of any net on In1 or In4. Battery path (2026-10-20): as on display/, VBAT_IN to +12V_PROT route on F.Cu/B.Cu only with 1.0/0.5 mm vias and get F.Cu pours; VBAT_IN and VBAT_F pass `layout_checks.py`'s 20 K check, and +12V_PROT, COMMON and SENSE_OUT keep short necks (12 mW or less each at 2.6 A), listed in `docs/electrical-review.md` section 8b.
 
 The 2026-10-08/09 four-layer attempts never closed: LVDS and RGB nets on In1 split the GND pour into islands, leaving 2 or 3 GND pads open at the receiver and at J1. On six layers In1 and In4 carry only GND (FreeRouting may drop vias into them but not route along them), so that failure mode is gone. `route_board.py` still fences the DSI corridor per layer and verifies it afterwards.
 

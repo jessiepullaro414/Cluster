@@ -168,7 +168,13 @@ class Layout:
                     self.edge += [(float(d["start"][0]), float(d["start"][1])), (float(d["end"][0]), float(d["end"][1]))]
             elif tag == "zone":
                 d = self._kv(it)
-                self.zones.append(dict(net=self._first(d, "net"), layers=d.get("layers") or d.get("layer")))
+                filled = []      # (layer, [(x, y), ...]) per filled_polygon, as KiCad fractures them
+                for ch in it:
+                    if isinstance(ch, list) and ch and ch[0] == "filled_polygon":
+                        fd = self._kv(ch)
+                        pts = [(float(p[1]), float(p[2])) for p in fd.get("pts", []) if isinstance(p, list) and p and p[0] == "xy"]
+                        filled.append((self._first(fd, "layer"), pts))
+                self.zones.append(dict(net=self._first(d, "net"), layers=d.get("layers") or d.get("layer"), filled=filled))
 
     @staticmethod
     def _kv(item):

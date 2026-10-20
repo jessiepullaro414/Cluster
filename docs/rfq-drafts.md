@@ -1,6 +1,6 @@
 # RFQ drafts (not sent)
 
-Drafts for the two vendor questions that block hardware ordering. Edit the sender details and send them yourself; nothing here has been sent.
+Drafts for the vendor questions that block hardware ordering. Edit the sender details and send them yourself; nothing here has been sent.
 
 ## 1. Team Source Display: TST040HDBC-42 (4.0in round, 720x720, MIPI)
 
@@ -17,6 +17,7 @@ We are designing a carrier board around your TST040HDBC-42 for an automotive ins
 5. **Backlight.** The backlight is listed as 20 LEDs, 180 mA, Vf 15 V. Is that 5 series x 4 parallel? What is the maximum current at 80 C ambient, and what PWM dimming frequency range do you recommend if we dim with PWM?
 6. **Commercial.** Price at 5 and 50 pieces, minimum order quantity, lead time, and whether the module is in current production.
 7. **Environment.** Is the -30 to +80 C operating rating at full brightness, and is there a derating curve for backlight current versus temperature?
+8. **(added 2026-10-19) VSP/VSN level.** The ICNL9707 data sheet (Chipone V0.03, section 4.2) gives VSP 4.5 to 6.5 V (typical 5.5 V) and VSN -6.5 to -4.5 V, with absolute maxima of +6.6 V and -6.6 V. Your sheet gives 6.5 V typical, at the top of that range. We have set our supplies to +5.98 V and -6.05 V for margin. Is that inside what this module needs (the charge pumps for VGH/VGL), or do you require 6.5 V, and with what tolerance?
 
 Thank you,
 (name)
@@ -92,7 +93,7 @@ We are driving four RFA401280B-AYW-DNF1 modules over 4-line SPI from an NXP S32K
 5. **Backlight**: the VLED+ and VLED- current limits and whether PWM dimming is allowed (frequency range). We switch it with a transistor and may add PWM.
 6. Whether the **TE** pin is useful for tear-free updates when writing small windows, and whether the **touch controller** (CST816D) can be left unpowered.
 
-## 5. Small round gauge displays for a dashboard (drafted 2026-10-18, not sent)
+## 6. Small round gauge displays for a dashboard (drafted 2026-10-18, not sent)
 
 To: Raystar (maker of the RFA401280B-AYW-DNF1 we designed around), Winstar, DisplayModule.
 

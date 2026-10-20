@@ -2,11 +2,12 @@
 Verified pinouts for the display carrier's active parts.
 
 Trimmed from fascia-pcb's own parts.py: this board is a dedicated round-
-panel Android carrier (Verdin iMX95 + power tree + CAN), not a
-touchscreen/infotainment head unit, so PCM3168A-Q1 (audio codec),
-SN74AXC4T245-Q1 (audio level shifters) and TPS2557-Q1 (USB-C power
-switch) are dropped along with their footprints - real parts this board
-has no use for, not parts awaiting a later stage. SN65DSI85-Q1 (DSI-to-
+panel Android carrier (Verdin iMX95 + power tree + CAN). It first dropped
+PCM3168A-Q1, SN74AXC4T245-Q1 and TPS2557-Q1; on 2026-10-16 the owner
+required wireless Android Auto / CarPlay with sound, so the audio path
+(TAC5112-Q1, a smaller 1.8 V-I/O codec instead of fascia's PCM3168A-Q1 +
+level shifters) and a USB-C host port (TPS2557-Q1) came back, with their
+own tables below. SN65DSI85-Q1 (DSI-to-
 LVDS bridge) was here too at one point but is gone as of 2026-09-25:
 the real target panel (DisplayModule DM-TFTR50-413) speaks MIPI-DSI
 natively, so there's no LVDS anywhere in this board's real requirement
@@ -247,6 +248,120 @@ TPS22918_Q1 = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# TAC5112-Q1 - AEC-Q100 Grade 1 stereo audio codec (2-ch ADC, 2-ch DAC),
+# WQFN-32 RTV0032L 5 x 5 mm. Source: TI SLASFC2A (March 2025), Table 4-1 and
+# section 8. Replaces the PCM3168A-Q1 + SN74AXC4T245-Q1 + 3.3 V-domain port
+# of fascia-pcb: this part's digital I/O (IOVDD) runs from 1.8 V directly, so
+# the module's 1.8 V I2S/I2C connect WITHOUT level shifters, and there is no
+# MCLK pin (the PLL locks to BCLK).
+#
+# GOTCHA: AVDD is 1.8 V OR 3.3 V. At 3.3 V the line outputs are 2 Vrms
+# differential and MICBIAS can be 2.75 V; at 1.8 V they drop to 1 Vrms and
+# 1.375 V. This board runs AVDD from its own 3.3 V LDO for that reason.
+# GOTCHA: at 1.8 V I/O the FIRST I2C write after every power-up must set
+# IOVDD_IO_MODE (P0_R2 bit 1) = 1, else bus speed is limited (section 8.3.2).
+# Supplies may come up in any order but must ramp slower than 0.1 V/us, and a
+# supply cycle needs at least 100 ms between power-down and power-up.
+# GOTCHA: ADDR sets the control port: ground = I2C address 0x50, 4.7 k to
+# ground 0x51, 22 k to AVDD 0x52, 4.7 k to AVDD 0x53, tied to AVDD = SPI.
+# NOTE: pins 22-25 (VSSI) and 1/8/15/26 (VSS) all go to the board ground plane;
+# the thermal pad is VSS. DREG (1.5 V) is an on-chip regulator output that
+# only wants its 10 uF + 100 nF; nothing else may load it.
+# NOTE: the datasheet table gives pin types only as Digital I/O, Analog Input
+# and so on; the electrical types below are this project's mapping of those.
+# ---------------------------------------------------------------------------
+TAC5112_Q1 = [
+    (1,  "VSS1",    "power_in"),
+    (2,  "DREG",    "power_out"),     # 1.5 V on-chip digital regulator; 10 uF + 100 nF only
+    (3,  "BCLK",    "bidirectional"),
+    (4,  "FSYNC",   "bidirectional"),
+    (5,  "DOUT",    "output"),
+    (6,  "DIN",     "input"),
+    (7,  "IOVDD",   "power_in"),      # 1.2 / 1.8 / 3.3 V; 1.8 V here
+    (8,  "VSS2",    "power_in"),
+    (9,  "SCL",     "input"),
+    (10, "SDA",     "bidirectional"),
+    (11, "GPIO1",   "bidirectional"), # unused; reset default is an active-low/Hi-Z output
+    (12, "GPIO2",   "bidirectional"),
+    (13, "GPO1",    "output"),
+    (14, "GPI1",    "input"),
+    (15, "VSS3",    "power_in"),
+    (16, "ADDR",    "input"),         # ground = I2C 0x50
+    (17, "MICBIAS", "output"),        # 2.75 V at AVDD 3.3 V; 1 uF to ground; max 5 mA
+    (18, "IN1P",    "input"),
+    (19, "IN1M",    "input"),
+    (20, "IN2P",    "input"),
+    (21, "IN2M",    "input"),
+    (22, "VSSI1",   "power_in"),
+    (23, "VSSI2",   "power_in"),
+    (24, "VSSI3",   "power_in"),
+    (25, "VSSI4",   "power_in"),
+    (26, "VSS4",    "power_in"),
+    (27, "OUT1M",   "output"),
+    (28, "OUT1P",   "output"),
+    (29, "OUT2P",   "output"),
+    (30, "OUT2M",   "output"),
+    (31, "AVDD",    "power_in"),      # 3.0-3.6 V here
+    (32, "VREF",    "output"),        # 1 uF to ground
+    (33, "EP",      "power_in"),      # thermal pad = VSS
+]
+
+
+# ---------------------------------------------------------------------------
+# TPD4E05U06-Q1 - AEC-Q101 4-channel ESD array, 0.5 pF, 5.5 V max signal
+# voltage, IEC 61000-4-2 +/-12 kV contact. Source: TI SLVSCO7C, DQA package
+# (10-pin USON, 2.5 x 1.0 mm) pin table. Channels are pins 1, 2, 4, 5 (D1+,
+# D1-, D2+, D2-); 3 and 8 are ground; 6, 7, 9 and 10 are NC, kept for the
+# optional straight-through routing and used here only as no-connects.
+# GOTCHA: the channels are not polarised or directional - any of the four
+# may sit on any line that stays between 0 and 5.5 V.
+# ---------------------------------------------------------------------------
+TPD4E05U06_Q1 = [
+    (1,  "CH1", "passive"),
+    (2,  "CH2", "passive"),
+    (3,  "GND1", "power_in"),
+    (4,  "CH3", "passive"),
+    (5,  "CH4", "passive"),
+    (6,  "NC1", "no_connect"),
+    (7,  "NC2", "no_connect"),
+    (8,  "GND2", "power_in"),
+    (9,  "NC3", "no_connect"),
+    (10, "NC4", "no_connect"),
+]
+
+
+# ---------------------------------------------------------------------------
+# TPS2557-Q1 - automotive adjustable current-limited power-distribution
+# switch. Source: TI SLVSC97B (March 2014, revised September 2020),
+# S-PVSON-8 (DRB), Table "Terminal Functions".
+#
+# GOTCHA: EN polarity is the ONLY difference between two otherwise identical
+# parts. TPS2557-Q1 is enable-active-HIGH; TPS2556-Q1 is active-low.
+# EN VIH is 1.1 V max, so the module's 1.8 V USB_2_EN drives it directly.
+# FAULT is active-low open drain and needs a pull-up (to 1.8 V here so it
+# stays inside the module's input rating).
+# Current limit: IOS(min) = 125477 / R(ILIM[kohm])^1.058 mA, IOS(typ) =
+# 113849 / R^1.0049, IOS(max) = 101810 / R^0.9538; 61.9 k gives the
+# datasheet's table row 1610 / 1805 / 1980 mA.
+# NOTE: thermal pad is internally GND and must also be connected externally.
+# ---------------------------------------------------------------------------
+TPS2557_Q1 = [
+    (1, "GND",   "power_in"),
+    (2, "IN1",   "power_in"),
+    (3, "IN2",   "power_in"),
+    (4, "EN",    "input"),          # active HIGH on this variant
+    (5, "ILIM",  "passive"),        # 20k - 187k sets the limit
+    # OUT1/OUT2 (and IN1/IN2) are the SAME internal node on two pins; only one
+    # is typed as a driver, otherwise ERC reports a power-output conflict
+    # against what is physically one pin.
+    (6, "OUT1",  "power_out"),
+    (7, "OUT2",  "passive"),
+    (8, "FAULT", "open_collector"),
+    (9, "EP",    "passive"),        # internally GND, must also connect
+]
+
+
 # NOTE: this file previously carried SN65DSI85-Q1 (DSI-to-LVDS bridge),
 # removed 2026-09-25 when the board's target panel changed to a real
 # native-MIPI-DSI round panel (DisplayModule DM-TFTR50-413) - see
@@ -319,7 +434,10 @@ def verify():
                        ("TPS61165_Q1", TPS61165_Q1),
                        ("TPS22918_Q1", TPS22918_Q1),
                        ("DS90CF384AQ_Q1", DS90CF384AQ_Q1),
-                       ("TLV733P_Q1", TLV733P_Q1)):
+                       ("TLV733P_Q1", TLV733P_Q1),
+                       ("TAC5112_Q1", TAC5112_Q1),
+                       ("TPD4E05U06_Q1", TPD4E05U06_Q1),
+                       ("TPS2557_Q1", TPS2557_Q1)):
         numbers = [p[0] for p in pins]
         if numbers != list(range(1, len(pins) + 1)):
             problems.append(f"{name}: pin numbers are not 1..{len(pins)} "
@@ -349,6 +467,12 @@ def verify():
         problems.append(f"TLV733P_Q1 should have 5 pins, has {len(TLV733P_Q1)}")
     if len(TPS61165_Q1) != 6:
         problems.append(f"TPS61165_Q1 should have 6 pins, has {len(TPS61165_Q1)}")
+    if len(TAC5112_Q1) != 33:
+        problems.append(f"TAC5112_Q1 should have 33 pins (32 + thermal pad), has {len(TAC5112_Q1)}")
+    if len(TPD4E05U06_Q1) != 10:
+        problems.append(f"TPD4E05U06_Q1 should have 10 pins, has {len(TPD4E05U06_Q1)}")
+    if len(TPS2557_Q1) != 9:
+        problems.append(f"TPS2557_Q1 should have 9 pins (8 + thermal pad), has {len(TPS2557_Q1)}")
     return problems
 
 
@@ -361,7 +485,10 @@ if __name__ == "__main__":
                        ("LM61460-Q1 (VQFN-HR-14)", LM61460_Q1),
                        ("TLV767-Q1 (WSON-8)", TLV767_Q1),
                        ("TPS65131-Q1 (VQFN-24)", TPS65131_Q1),
-                       ("TPS61165-Q1 (SOT-23-6)", TPS61165_Q1)):
+                       ("TPS61165-Q1 (SOT-23-6)", TPS61165_Q1),
+                       ("TAC5112-Q1 (WQFN-32)", TAC5112_Q1),
+                       ("TPD4E05U06-Q1 (USON-10)", TPD4E05U06_Q1),
+                       ("TPS2557-Q1 (S-PVSON-8)", TPS2557_Q1)):
         print(f"\n=== {name}: {len(pins)} pins ===")
         for num, pname, etype in pins:
             print(f"   {num:2d}  {pname:<8s} {etype}")
@@ -401,7 +528,9 @@ FOOTPRINTS = {
     "R":    "Resistor_SMD:R_0603_1608Metric",
     "C":    "Capacitor_SMD:C_0603_1608Metric",
     "L":    "Inductor_SMD:L_1210_3225Metric",
-    "TVS":  "Diode_SMD:D_SMB",
+    # REVIEW FIX 2026-10-17 (docs/electrical-review.md D-01): D1 is ordered as an SMCJ33A (1500 W, DO-214AB / SMC),
+    # so it needs the SMC land pattern; the D_SMB footprint it had fits only a 600 W SMBJ-class part.
+    "TVS":  "Diode_SMD:D_SMC",
     # Real part MF-RG500 (5.0A hold, matching F1's own real "5A" target -
     # see build_schematic.py's own comment on F1). MF-RG300 (3.0A hold)
     # was the wrong footprint AND the wrong real part - Bourns' MF-RG
@@ -409,6 +538,11 @@ FOOTPRINTS = {
     # its own real, different physical package size, not a shared one.
     "FUSE": "Fuse:Fuseholder_Blade_Mini_Keystone_3568",
     "NFET": "Package_TO_SOT_SMD:SOT-23",
+    # 2026-10-18 (review D-05, X-01, X-02): the LM74930 pass/diode pair.
+    # Vishay SQJ460AEP (datasheet S22-0167 Rev. D, 14-Feb-2022, read 2026-10-18): 60 V, VGS +-20 V,
+    # RDS(on) 8.7 mohm max at 10 V (18.3 mohm at 175 C), IDM 180 A, RthJA 68 C/W (1 in2 FR4),
+    # RthJC 2.2 C/W, AEC-Q101, PowerPAK SO-8L: pins 1-3 source, 4 gate, mounting tab (pad 5) drain.
+    "NFET_PWR": "Package_SO:PowerPAK_SO-8L_Single",
     # RGE0024B: 4x4 mm, 24 pins at 0.5 mm, thermal pad 2.45 mm per TI's own
     # package drawing. KiCad's stock HVQFN-24 4x4/0.5mm footprint carries a
     # 2.5 mm pad - the closest bundled match, 0.05 mm larger than TI's
@@ -432,6 +566,7 @@ FOOTPRINTS = {
     "R_1206": "Resistor_SMD:R_1206_3216Metric",
     "CP_HYBRID": "Capacitor_SMD:CP_Elec_8x10",
     "C_1206": "Capacitor_SMD:C_1206_3216Metric",
+    "C_1210": "Capacitor_SMD:C_1210_3225Metric",
     # Open 3-pad solder jumpers for the panel's +/-6.5 V pin-group polarity.
     "SOLDERJUMPER3": "Jumper:SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm",
 
@@ -458,4 +593,24 @@ FOOTPRINTS = {
     "CONN_RGB":   "Connector_FFC-FPC:Hirose_FH12-50S-0.5SH_1x50-1MP_P0.50mm_Horizontal",
     "CONN_USB":   "Connector_PinHeader_2.54mm:PinHeader_1x05_P2.54mm_Vertical",
     "CONN_CELL":  "Battery:BatteryHolder_Keystone_1058_1x2032",
+    # Audio and USB parts (2026-10). RTV0032L land pattern has a 3.7 mm pad.
+    "TAC5112-Q1": "Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.7x3.7mm_ThermalVias",
+    "TPS2557-Q1": "Package_DFN_QFN:Texas_DRB0008A",
+    "TPD4E05U06-Q1": "Package_SON:USON-10_2.5x1.0mm_P0.5mm",
+    # D-11 (2026-10-18): the line-out legs swing about +-1.4 V around 0 V on
+    # the connector side of the DC-blocking capacitors; TPD4E05U06-Q1 is
+    # unidirectional and conducts below -0.6 V. TPD4E02B04-Q1 (TI SLVSDZ2A):
+    # bidirectional, VRWM +-3.6 V, VBR +-5.5 V min, 0.25 pF, AEC-Q101,
+    # IEC 61000-4-2 +-12 kV contact, same USON-10 DQA package and pin
+    # functions (1, 2, 4, 5 IO; 3, 8 GND; 6, 7, 9, 10 NC).
+    "TPD4E02B04-Q1": "Package_SON:USON-10_2.5x1.0mm_P0.5mm",
+    "TVS_SMA": "Diode_SMD:D_SMA",
+    # JST XH (2.5 mm) for the in-cabin audio harness, deliberately a different
+    # family from the KK 254 CAN/dial headers so they cannot be cross-mated.
+    "CONN_LINEOUT": "Connector_JST:JST_XH_B5B-XH-A_1x05_P2.50mm_Vertical",
+    "CONN_MIC": "Connector_JST:JST_XH_B3B-XH-A_1x03_P2.50mm_Vertical",
+    "CONN_MFI": "Connector_PinHeader_2.54mm:PinHeader_1x06_P2.54mm_Vertical",
+    # GCT USB4105 USB-C 2.0 receptacle (KiCad's footprint carries the
+    # datasheet geometry; PCB edge is 3.1 mm below the footprint origin).
+    "CONN_USBC": "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
 }

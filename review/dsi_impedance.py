@@ -2,8 +2,8 @@
 """
 dsi_impedance.py - impedance of the DSI pairs on display/ from the real stack-up.
 
-Stack-up: the boards carry no (stackup ...) block, so a fab applies its default. fab/README.md
-orders JLCPCB 4-layer, 1.6 mm, outer 1 oz, inner 0.5 oz, i.e. JLC04161H-7628: 35 um outer copper /
+Stack-up (6-layer since 2026-10-18, see main()): the boards carry no (stackup ...) block, so fab/README.md names it.
+The old 4-layer order was JLCPCB 4-layer, 1.6 mm, outer 1 oz, inner 0.5 oz, i.e. JLC04161H-7628: 35 um outer copper /
 0.2104 mm 7628 prepreg (Dk ~4.4 as JLCPCB lists it) / 17.5 um In1 / 1.065 mm core / 17.5 um In2 /
 0.2104 mm prepreg / 35 um outer. In1 is the GND plane, so the F.Cu pairs are microstrip over GND at
 h = 0.21 mm. (The P leg of each pair swaps to B.Cu for ~3 mm and is then referenced to In2.)
@@ -134,36 +134,20 @@ def fd_solve(w, s, h, t, er, mask_t=0.025, er_mask=3.3, pitch=0.01, width=10.0, 
 
 
 def main():
-    er = 4.4
-    h, t = 0.2104, 0.035
-    print("Stack-up: JLC04161H-7628 (assumed from fab/README.md): h = %.4f mm, outer copper %.0f um, Dk %.1f" % (h, t * 1e3, er))
-    print("\nClosed form (IPC-2141 / Hammerstad-Jensen), w = 0.25 mm:")
-    print(f"  {'gap':>6} {'Z0 single':>10} {'Zdiff IPC-2141':>15}")
-    for s in (0.15, 0.20, 0.25, 0.35, 0.50):
-        z0, zd = ipc2141(0.25, s, h, t, er)
-        print(f"  {s:6.2f} {z0:10.1f} {zd:15.1f}")
-    zh, ee = hammerstad(0.25, h, t, er)
-    print(f"  Hammerstad-Jensen single track: Z0 = {zh:.1f} ohm, eps_eff = {ee:.2f} ({math.sqrt(ee) / C0 * 1e3:.2f} ps/mm)")
-    print("\nQuasi-static 2-D finite-difference field solve (mask 25 um, Dk 3.3):")
-    print(f"  {'case':<28} {'Z0 single':>10} {'Zodd':>7} {'Zdiff':>7} {'Zcomm':>7} {'k':>6} {'eps_eff(odd)':>13}")
-    for s in (0.25, 0.35, 0.50):
-        for dk, lab in ((4.4, "Dk 4.4"), (4.6, "Dk 4.6")):
-            single = fd_solve(0.25, s, h, t, dk, pair=False)
-            pr = fd_solve(0.25, s, h, t, dk, pair=True)
-            print(f"  gap {s:.2f} mm, {lab:<14} {single['z0']:10.1f} {pr['zodd']:7.1f} {pr['zdiff']:7.1f} {pr['zcomm']:7.1f} {pr['k']:6.3f} {pr['er_odd']:13.2f}")
-    # what width gives 100 ohm differential at the gaps the layout uses (0.25 .. 0.5 mm)?
-    print("\nTrack width needed for 100 ohm differential (FD, Dk 4.4):")
-    for s in (0.25, 0.35, 0.50):
-        best = None
-        for w in np.arange(0.12, 0.40, 0.01):
-            zd = fd_solve(w, s, h, t, 4.4, pair=True)["zdiff"]
-            if best is None or abs(zd - 100) < abs(best[1] - 100):
-                best = (w, zd)
-        print(f"  gap {s:.2f} mm: w = {best[0]:.2f} mm gives {best[1]:.1f} ohm")
-    # single-ended B.Cu leg (swap region): reference In2 at the same 0.21 mm, N leg still on F.Cu 1.6 mm above
-    print("\nSwap region: P on B.Cu over In2 and N on F.Cu over In1, 1.6 mm apart -> two single-ended 0.25 mm microstrips")
-    single = fd_solve(0.25, 0.25, h, t, 4.4, pair=False)
-    print(f"  each leg ~ {single['z0']:.0f} ohm single-ended; not a coupled pair, so differential impedance there is ~2 x {single['z0']:.0f} = {2 * single['z0']:.0f} ohm uncoupled (a ~{2 * single['z0'] - 100:+.0f} ohm step over ~3 mm)")
+    # 6-layer since 2026-10-18 (fab/README.md): JLC06161H-3313, 3313 prepreg 0.0994 mm (Dk 4.1) between each outer layer
+    # and its GND plane (In1 under F.Cu, In4 under B.Cu). The 4-layer JLC04161H-7628 numbers are kept for comparison.
+    w = 0.16        # display/dsi_route.py W
+    for label, h, er in (("JLC06161H-3313 (6-layer, in use)", 0.0994, 4.1), ("JLC04161H-7628 (old 4-layer)", 0.2104, 4.4)):
+        t = 0.035
+        print(f"\nStack-up {label}: h = {h:.4f} mm, outer copper {t * 1e3:.0f} um, Dk {er}")
+        single = fd_solve(w, 0.0, h, t, er, pitch=0.005, width=6.0, air=2.0, pair=False)
+        print(f"  w = {w} mm single track: Z0 {single['z0']:.1f} ohm (FD, mask 25 um Dk 3.3)")
+        print(f"  {'gap':>6} {'Zdiff FD':>9} {'Zcomm':>7} {'k':>6}")
+        for s_ in (0.25, 0.34, 0.44, 0.6, 1.2):
+            pr = fd_solve(w, s_, h, t, er, pitch=0.005, width=6.0, air=2.0, pair=True)
+            print(f"  {s_:6.2f} {pr['zdiff']:9.1f} {pr['zcomm']:7.1f} {pr['k']:6.3f}")
+    print("\nThe layout's gaps: 0.34 mm along J1 (0.5 mm pad pitch), 0.44 mm along J4 (0.6 mm), wider at the jogs. On the 6-layer"
+          "\nstack-up every gap stays within about 100 +-4 ohm; the B.Cu swap leg runs over In4 at the same 0.0994 mm.")
 
 
 if __name__ == "__main__":

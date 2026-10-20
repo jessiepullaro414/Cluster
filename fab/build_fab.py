@@ -24,7 +24,7 @@ import zipfile
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 KICAD_CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
-LAYERS = ("F.Cu,In1.Cu,In2.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,"
+LAYERS = ("F.Cu,In1.Cu,In2.Cu,In3.Cu,In4.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,"
           "F.Mask,B.Mask,Edge.Cuts")
 BOARDS = {
     "display": ("ClusterDisplay.kicad_pcb", "ClusterDisplay.kicad_sch"),

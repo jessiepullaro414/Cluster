@@ -56,24 +56,15 @@ JAVA_CANDIDATES = [
 
 # Autorouter effort: cap passes so a bad/congested board fails fast instead of
 # spinning forever, rather than trying to tune "good enough" up front.
-# `-oit 0` disables FreeRouting's "stop early if the score hasn't improved
-# much in the last 10 passes" behavior, so it keeps trying up to MAX_PASSES
-# instead of settling for a plateau. Same value thermo-pcb/the original
-# cluster-pcb board settled on after real 0.5mm-pitch VQFN/LQFP congestion
-# needed several stochastic restarts to clear - this board has comparable
-# fine-pitch parts (the Verdin X1 SODIMM-260 socket at 0.5mm pitch, the
-# Hirose DF40C panel connector at 0.4mm pitch - finer than any sibling
-# board's own connectors - plus several 0.5mm-pitch SO-8/VQFN ICs), and
-# this board's own flat, max-density individual-component placement (see
-# build_pcb.py's own header) packs things noticeably tighter than any
-# sibling board's zone-based layout, so real congestion here is at least
-# as likely as anywhere else in this family.
+# (2026-10-19: this used to pass `-oit 0` on the belief that it kept the
+# router from stopping at a plateau. FreeRouting 2.2.4's routing phase
+# stops on its own 10-pass rule regardless; `-oit 0` only made the
+# post-route optimizer run without end. See run_freerouting().)
 # IMPORTANT: only run this on a FRESH unrouted board (via build_pcb.py) -
 # thermo-pcb confirmed re-running route_board.py on a board that already has
 # zones filled reliably HANGS FreeRouting indefinitely. If a re-route is
 # ever needed, regenerate from build_pcb.py first.
 MAX_PASSES = 150
-OPTIMIZATION_IMPROVEMENT_THRESHOLD = 0
 
 
 def find_java():
@@ -112,7 +103,7 @@ def real_unconnected_count():
     left real connections incomplete despite the self-reported count
     saying otherwise. This is the check that actually catches that."""
     kicad_cli = find_kicad_cli()
-    report_path = os.path.join(os.environ.get("TEMP", HERE), "route_verify_drc.json")
+    report_path = os.path.join(os.environ.get("TEMP", HERE), "route_verify_drc_" + os.path.basename(HERE) + ".json")   # per board: boards may route at the same time
     subprocess.run([kicad_cli, "pcb", "drc", "--format", "json",
                     "--output", report_path, "--exit-code-violations", PCB],
                    capture_output=True, text=True)
@@ -150,16 +141,21 @@ bbox = board.GetBoardEdgesBoundingBox()
 inset = pcbnew.FromMM({ZONE_INSET_MM})
 x0, y0 = bbox.GetLeft() + inset, bbox.GetTop() + inset
 x1, y1 = bbox.GetRight() - inset, bbox.GetBottom() - inset
-zone = pcbnew.ZONE(board)
-zone.SetLayer(pcbnew.In1_Cu)
-zone.SetNet(board.FindNet("GND"))
-zone.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
-outline = pcbnew.SHAPE_POLY_SET()
-outline.NewOutline()
-for x, y in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]:
-    outline.Append(pcbnew.VECTOR2I(int(x), int(y)))
-zone.SetOutline(outline)
-board.Add(zone)
+# One plane claim only: a second plane zone (In4) makes KiCad 10.0.4's
+# ExportSpecctraDSN crash (access violation, tested 2026-10-18). In4 is
+# still a power layer in the DSN (KiCad exports its layer type), and its
+# GND pour is added after routing like the others.
+for _layer in (pcbnew.In1_Cu,):      # both GND planes (6-layer, 2026-10-18)
+    zone = pcbnew.ZONE(board)
+    zone.SetLayer(_layer)
+    zone.SetNet(board.FindNet("GND"))
+    zone.SetPadConnection(pcbnew.ZONE_CONNECTION_FULL)
+    outline = pcbnew.SHAPE_POLY_SET()
+    outline.NewOutline()
+    for x, y in [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]:
+        outline.Append(pcbnew.VECTOR2I(int(x), int(y)))
+    zone.SetOutline(outline)
+    board.Add(zone)
 ok = pcbnew.ExportSpecctraDSN(board, {DSN!r})
 if ok:
     import json
@@ -186,18 +182,65 @@ if ok:
     # autorouter honoured only the first (a +1V8 track on In1.Cu ran straight
     # through the corridor on the RGB variant, 2026-10-08).
     extra = ""
-    for layer in ("F.Cu", "In1.Cu", "In2.Cu", "B.Cu"):
+    for layer in ("F.Cu", "In2.Cu", "In3.Cu", "B.Cu"):
         extra += " (keepout dsi_corridor_" + layer.replace(".", "_") + " (polygon " + layer + " 0 " + poly + "))"
-    for name, (rx0, ry0, rx1, ry1) in cfg.get("in1_no_signal_rects_mm", dict()).items():
-        rpts = [(rx0, ry0), (rx1, ry0), (rx1, ry1), (rx0, ry1)]
-        rpoly = " ".join(str(int(round(x * 1000))) + " " + str(int(round(-y * 1000))) for x, y in rpts)
-        extra += " (wire_keepout in1_gnd_" + name + " (polygon In1.Cu 0 " + rpoly + "))"
     txt = txt[:j + 2] + extra + txt[j + 2:]
+
+    # 6-layer GND planes (2026-10-19): FreeRouting will not connect a net to a
+    # plane on a "power"-type layer (109 GND pads stayed unconnected on gauges/),
+    # so In1/In4 stay signal layers and both carry a GND plane (In4's copied
+    # from In1's: a second zone makes KiCad's exporter crash).
+    for _lay in ("In1.Cu", "In4.Cu"):
+        txt = txt.replace("(layer " + _lay + chr(10) + "      (type power)", "(layer " + _lay + chr(10) + "      (type signal)")
+    _i = txt.index("(plane GND (polygon In1.Cu 0")
+    _j = txt.index("))", _i) + 2
+    _coords = txt[_i + len("(plane GND (polygon In1.Cu 0"):_j - 2]
+    txt = txt[:_j] + " (plane GND (polygon In4.Cu 0" + _coords + "))" + txt[_j:]
+    # Keep every signal off the In1/In4 GND planes (2026-10-19). What did NOT
+    # work in FreeRouting 2.2.4: "(type power)" layers and a whole-layer
+    # wire_keepout (both left ~109 GND pads unconnected), and
+    # "(autoroute_settings (layer_rule In1.Cu (active off)))", which is parsed
+    # but ignored (about 1 m of signal on In1 of display/ and 2.8 m on
+    # gauges/, caught by review/layout_checks.py). What works: a net-class
+    # layer restriction, (use_layer F.Cu In2.Cu In3.Cu B.Cu), on every net
+    # except GND, which moves to its own unrestricted class so its vias can
+    # still land in the planes. (postroute off) skips the post-route optimizer,
+    # which on six layers never finished (see run_freerouting()).
+    txt = txt[:_i] + "(autoroute_settings (postroute off))" + chr(10) + "    " + txt[_i:]
+    _via = '(use_via "Via[0-5]_600:300_um")'
+    assert txt.count(_via) == 1, "expected exactly one net class in the DSN"
+    txt = txt.replace(_via, _via + chr(10) + "        (use_layer F.Cu In2.Cu In3.Cu B.Cu)")
+    _c = txt.index("(class kicad_default")
+    _k = txt.index("(circuit", _c)
+    _toks = txt[_c:_k].split()
+    assert "GND" in _toks, "GND not in kicad_default"
+    txt = txt[:_c] + " ".join(t for t in _toks if t != "GND") + chr(10) + "      " + txt[_k:]
+    _w = txt.index("(width ", _c)
+    _wv = txt[_w + 7:txt.index(")", _w)]
+    _cl = txt.index("(clearance ", _c)
+    _clv = txt[_cl + 11:txt.index(")", _cl)]
+    _close = txt.rindex(")", 0, txt.index("(wiring"))
+    txt = (txt[:_close] + "  (class gnd_plane GND (circuit " + _via + ") (rule (width " + _wv
+           + ") (clearance " + _clv + ")))" + chr(10) + "  " + txt[_close:])
     open({DSN!r}, "w", encoding="utf-8").write(txt)
 print("DSN export:", "OK" if ok else "FAILED", "->", {DSN!r})
 if not ok:
     raise SystemExit(1)
 ''')
+
+
+# 2026-10-19: on six layers FreeRouting 2.2.4's post-route optimizer never
+# finishes: each pass takes 18-40 minutes and improves the score a little, so
+# it starts another. Nothing on its command line stops it:
+# --router.optimizer.enabled=false and --router.optimizer.max_passes=1 are
+# logged as applied and ignored, -oit 0 / 1 / 100 all kept going, and
+# --router.optimizer.improvement_threshold is refused ("Can not set
+# java.lang.Float field"). What works is the DSN's own (postroute off), added
+# in export_dsn(). The job timeout stays as a backstop: on timeout the
+# scheduler still writes the session file with the best board so far, and a
+# cut-off that left a connection open would be caught by
+# real_unconnected_count(). Routing alone takes 3-8 minutes.
+JOB_TIMEOUT = "00:20:00"
 
 
 def run_freerouting(quiet=False):
@@ -208,8 +251,9 @@ def run_freerouting(quiet=False):
     if not os.path.isfile(FREEROUTING_JAR):
         raise SystemExit(f"FreeRouting jar not found at {FREEROUTING_JAR} - see README")
     cmd = [java, "-jar", FREEROUTING_JAR, "-de", DSN, "-do", SES,
-           "-mp", str(MAX_PASSES), "-oit", str(OPTIMIZATION_IMPROVEMENT_THRESHOLD),
-           "--gui.enabled=false"]
+           "-mp", str(MAX_PASSES),
+           "--gui.enabled=false",
+           f"--router.job_timeout={JOB_TIMEOUT}"]
     if not quiet:
         print("Running:", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -243,7 +287,13 @@ def run_freerouting(quiet=False):
 # actually converges: keep the first clean result, and if none of the
 # attempts is clean, keep the best one and say so loudly rather than leaving
 # a silently-incomplete board behind.
-MAX_ROUTE_ATTEMPTS = 6
+# 2026-10-17: with the audio and USB blocks the autorouter usually stops at the
+# same 1 unrouted connection however often it restarts in place, but a fresh
+# pipeline pass (new board, new random seed) often clears it, so the in-place
+# retries were cut from 6 to 2 and the whole-pipeline retries raised.
+# 2026-10-19: FreeRouting 2.2.4 gives the identical result on every in-place
+# retry of one DSN, so one attempt; fresh boards come from MAX_PIPELINE_ATTEMPTS.
+MAX_ROUTE_ATTEMPTS = 1
 
 
 def route_until_clean():
@@ -388,7 +438,16 @@ def add_and_fill_zones():
     # Two independent load-add-fill-save cycles, each in its own process,
     # sidesteps it entirely: the second cycle loads the file the first cycle
     # already saved (with its zone intact) and adds/fills only the new one.
-    for net_name, layer_name in [("GND", "In1_Cu"), ("+5V", "In2_Cu")]:
+    # 2026-10-17: a GND pour on the back layer too. Where many signal vias pack
+    # together (the audio block) their 1 mm clearance holes cut In1 into islands,
+    # and a GND via that sits in an island is not connected to the rest of the
+    # plane (KiCad reported 3-4 unconnected GND items per run). Every GND via
+    # also lands on B.Cu, whose pour ties the islands back together.
+    # 6-layer (2026-10-18): solid GND on In1 and In4, the +5V pour on In3 (a
+    # signal layer: it fills around the routing there), GND fills on In2 and
+    # B.Cu tie the returns together.
+    for net_name, layer_name in [("GND", "In1_Cu"), ("GND", "In4_Cu"), ("+5V", "In3_Cu"),
+                                 ("GND", "In2_Cu"), ("GND", "B_Cu")]:
         run_kicad_python(f"Add + fill {net_name} zone ({layer_name})", f'''
 import pcbnew
 board = pcbnew.LoadBoard({PCB!r})
@@ -627,7 +686,7 @@ for w in sorted(hist, reverse=True):
 # real_unconnected_count()'s own comment) - when it's wrong, no amount
 # of retrying FreeRouting alone fixes it, since route_until_clean()
 # already believed it succeeded and stopped.
-MAX_PIPELINE_ATTEMPTS = 8
+MAX_PIPELINE_ATTEMPTS = 12
 
 
 def regenerate_unrouted_board():

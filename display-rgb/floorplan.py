@@ -14,8 +14,16 @@ That gives two sides to build against, matching where the Verdin pins are:
   TOP side = the even-pin row: dial ADC (pin 2), CAN1 TX/RX (pins 20/22),
     wake/sleep/reset controls (pins 252-260). The top strip holds the dial,
     CAN transceiver, RTC holder and the 1.8 V LDO.
-  LEFT end = the JTAG header (JTAG pins sit at that end of the odd row);
+  LEFT end = the JTAG header (JTAG pins sit at that end of the odd row) and,
+    since 2026-10-16, the audio codec and its 3.3 V LDO: the I2S_1 / I2C_1
+    pins (12-38) are on the even row near that same end. The codec column is
+    top-aligned, as far from the panel-bias and backlight converters in the
+    bottom strip as the band allows. The line-out / microphone connectors and
+    their ESD arrays (AOUT) lead the top row, directly above the codec.
   RIGHT end = the ignition-wake network (next to the power input).
+  USB-C host port: its pins (USB_2, 181-187) are on the odd row between the
+    bring-up USB header and the power pins, so USBC sits in the bottom strip
+    after USBUART, pushed down so the receptacle mouth is on the board edge.
 
 Everything is computed from real footprint geometry; nothing is hand-placed
 in millimetres except the gaps below.
@@ -27,6 +35,9 @@ from cellplace import rot_xy, rotate_cell as _rotate_cell
 GAP = 3.0           # clearance between neighbouring cells, mm
 KEEP_GAP = 3.0      # between the module keepout and the strips
 INPUT_ROT = 270     # J2 pins along the right board edge
+USBC_EDGE_OFFSET = 3.1   # PCB edge is 3.1 mm below the USB-C footprint origin (GCT USB4105 footprint)
+# Left strip columns (cell names, vertical alignment in the keepout band).
+LEFT_COLS = [(["JTAG", "MFI"], "center"), (["AUDIO", "LDO3V3"], "top")]
 
 
 def pad_xy(parts, placed, ref, number):
@@ -35,12 +46,17 @@ def pad_xy(parts, placed, ref, number):
 
 
 def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads,
-              j4_first_pad):
+              j4_first_pad, j1_local_x_hi=None):
     """res: {cell: (placed, bbox)} from cells.plan_cells.
     j1_bbox: local bbox of the J1 footprint (unrotated).
     j1_dsi_y: local y coordinates (unrotated frame) of J1's DSI pads.
     Returns dict with placements {ref: (ox, oy, rot)} in board coordinates
-    (origin at board top-left), board size, keepout rectangle and J1 origin."""
+    (origin at board top-left), board size, keepout rectangle and J1 origin.
+    j1_local_x_hi: if given, the keepout's top edge is this far along J1's
+    local +x (the side the module lies on) from J1's origin, instead of the
+    keepout being centred on J1's bounding box. The module is NOT centred
+    on the socket: it reaches 35 mm from the locating pegs on the latch side
+    (Toradex Verdin Carrier Board Design Guide V1.2, Fig 110 and 113)."""
     cells = {}
     for name, (placed, bbox) in res.items():
         cells[name] = (placed, bbox)
@@ -74,12 +90,13 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads
 
     # RGB variant: the LVDS0 pins (J1 88-114) sit near the middle of the top
     # row, so the receiver, its LDO and the panel connector go there.
-    top_row = ["DIAL", "CAN", "RGBCONN", "RGB", "LDO33", "RTC", "LDO", "IGN", "BUTTONS"]
-    bottom_row = ["BACKLIGHT", "BIAS", "PANEL", "USBUART", "BUCK", "FRONT"]
-    left_end, right_end = "JTAG", ("INPUT",)
+    top_row = ["AOUT", "DIAL", "CAN", "RGBCONN", "RGB", "LDO33", "RTC", "LDO", "IGN", "BUTTONS"]
+    bottom_row = ["BACKLIGHT", "BIAS", "PANEL", "USBUART", "USBC", "BUCK", "FRONT"]
+    right_end = ("INPUT",)
 
     M = margin
-    E_L = size(left_end)[0] + GAP
+    col_w = [max(size(n)[0] for n in names) for names, _ in LEFT_COLS]
+    E_L = sum(col_w) + GAP * len(LEFT_COLS)
     E_R = max(size(n)[0] for n in right_end) + GAP
 
     # J1 DSI pad x-centre relative to J1 origin once rotated by 90: x = ox + y
@@ -88,7 +105,8 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads
     j1_cy = (j1_bbox[1] + j1_bbox[3]) / 2
     # rotated 90: (x, y) -> (y, -x); bbox centre moves to (j1_cy, -j1_cx)
     top_h = max(size(n)[1] for n in top_row)
-    bot_h = max(size(n)[1] for n in bottom_row)
+    # USBC is pushed down to the board edge below, so it does not set the row height
+    bot_h = max(size(n)[1] for n in bottom_row if n != "USBC")
 
     # J4's DSI pad centre x inside the PANEL cell, relative to the cell's left edge
     p4, b4 = cells["PANEL"]
@@ -109,7 +127,7 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads
     KY = M + top_h + KEEP_GAP
 
     ox = KX + keep_w / 2 - j1_cy
-    oy = KY + keep_h / 2 + j1_cx
+    oy = KY + (j1_local_x_hi if j1_local_x_hi is not None else keep_h / 2 + j1_cx)
     j1 = (round(ox, 3), round(oy, 3), 90)
 
     out = {"J1": j1}
@@ -127,8 +145,12 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads
         x += size(n)[0] + GAP
     put("PANEL", panel_left, bottom_top)
     x = panel_left + size("PANEL")[0] + GAP
-    for n in ("USBUART", "BUCK", "FRONT"):
-        put(n, x, bottom_top)
+    usbc_left = None
+    for n in ("USBUART", "USBC", "BUCK", "FRONT"):
+        if n == "USBC":
+            usbc_left = x
+        else:
+            put(n, x, bottom_top)
         x += size(n)[0] + GAP
     bottom_end = x - GAP
 
@@ -142,8 +164,15 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads
     for n in top_row:
         put(n, x, KY - KEEP_GAP - size(n)[1])
         x += size(n)[0] + gap_t
-    # end strips, vertically centred on the keepout band
-    put(left_end, M, KY + keep_h / 2 - size(left_end)[1] / 2)
+    # left strip: columns of stacked cells
+    x = M
+    for (names, align), w in zip(LEFT_COLS, col_w):
+        stack_h = sum(size(n)[1] for n in names) + GAP * (len(names) - 1)
+        y = KY + keep_h / 2 - stack_h / 2 if align == "center" else KY
+        for n in names:
+            put(n, x, y)
+            y += size(n)[1] + GAP
+        x += w + GAP
     # right strip: stack INPUT (harness power) and IGN, centred on the keepout band
     stack_h = sum(size(n)[1] for n in right_end) + GAP * (len(right_end) - 1)
     y = KY + keep_h / 2 - stack_h / 2
@@ -152,5 +181,14 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, j4_dsi_pads
         y += size(n)[1] + GAP
 
     H = bottom_top + bot_h + M
+    # USB-C cell: the receptacle origin sits USBC_EDGE_OFFSET above the board
+    # bottom edge; everything else in the cell is above it (keepin in cells.py).
+    placed_u, bbox_u = cells["USBC"]
+    j17_below_top = placed_u["J17"][1] - bbox_u[1]
+    usbc_top = H - USBC_EDGE_OFFSET - j17_below_top
+    if usbc_top < bottom_top:          # cell taller than the row: grow the board
+        H += bottom_top - usbc_top
+        usbc_top = bottom_top
+    put("USBC", usbc_left, usbc_top)
     return dict(placed=out, width=W, height=H, keepout=(KX, KY, KX + keep_w, KY + keep_h),
                 j4_rot=best_r)

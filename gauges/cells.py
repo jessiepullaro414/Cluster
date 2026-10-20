@@ -56,6 +56,11 @@ CELLS = {
             "C49": {"TMR": pull("U3", [9], 4)},
             "C47": {"VIN_FUSED": pull("U3", [6, 7, 22], 3)},
             "R50": {"ILIM": pull("U3", [11], 3)},
+            # 2026-10-19: the OV/UV dividers had no pull, so on six layers
+            # FreeRouting left SW_SENSE (U3 pin 3) unrouted every attempt.
+            # Pulling all four divider parts made the POWER zone pack 9.4 mm
+            # taller (72.8 mm board); R51 alone keeps the 63.4 mm outline.
+            "R51": {"SW_SENSE": pull("U3", [3], 4)},
         }),
     # S32K144 (LQFP-64): VDD pins 7 and 41, VDDA 8, VREFH 9, VSS/VREFL 10 and 40, XTAL 11/12, RESET_b 63, SPI SCK 29, MOSI 25.
     "MCU": dict(

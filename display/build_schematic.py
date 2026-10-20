@@ -1062,11 +1062,15 @@ def build_panel_bias(x0, y0, usable_h):
     inverter, VIN 2.7-5.5 V (runs from +5V), VPOS 3.2-15 V, VNEG -15..-2 V
     (TI SLVSBB2F, RGE package). Topology is the datasheet's own Figure 8-1:
       * Boost: +5V -> L2 -> INP node -> D2 -> VPOS. VPOS = 1.213 V x
-        (1 + R1/R2)  [datasheet Eq. 1]. R2 = 130k, R1 = 562k gives
-        1.213 x (1 + 562/130) = 6.457 V.
+        (1 + R1/R2)  [datasheet Eq. 1]. R2 = 130k, R1 = 511k gives
+        1.213 x (1 + 511/130) = 5.981 V. (Was 562k / 6.457 V until 2026-10-19: the
+        panel's ICNL9707 driver (Chipone datasheet V0.03, table 4-1 and 4.2) runs VSP
+        at 4.5-6.5 V, typ 5.5 V, with an absolute maximum of 6.6 V; 6.5 V left 0.1 V
+        of margin. TSD's panel sheet gives only '6.5 V typ'; confirm with TSD.)
       * Inverter: +5V -> INN; OUTN node -> L3 -> GND; D3 anode = VNEG,
         cathode = OUTN node. VNEG = -1.213 V x R3/R4 [Eq. 2], with R4 from
-        FBN to VREF (NOT GND). R4 = 100k, R3 = 536k gives -6.502 V.
+        FBN to VREF (NOT GND). R4 = 100k, R3 = 499k gives -6.053 V (was 536k / -6.502 V;
+        the driver's VSN range is -6.5 to -4.5 V, absolute minimum -6.6 V, see above).
       * L2, L3 = 4.7 uH (datasheet: optimised for 3.3-6.8 uH). Coilcraft
         XAL4030-472ME: Isat 4.6 A typ vs the 1.95 A nominal switch limit.
       * 4.7 uF at each converter input, 22 uF at each output (Fig. 8-1),
@@ -1083,8 +1087,8 @@ def build_panel_bias(x0, y0, usable_h):
     Rectifiers: Nexperia PMEG6010ELRX (60 V / 1 A Schottky, AEC-Q101) -
     same real part as D4; pad 1 = cathode, pad 2 = anode.
     """
-    assert abs(1.213 * (1 + 562 / 130) - 6.5) < 0.1
-    assert abs(1.213 * 536 / 100 - 6.5) < 0.1
+    assert abs(1.213 * (1 + 511 / 130) - 6.0) < 0.1
+    assert abs(1.213 * 499 / 100 - 6.0) < 0.1
     r, c = f"{LIB}:R", f"{LIB}:C"
     c1206 = build_generic_symbol(f"{LIB}:C_1206", "C", "C", PASSIVE_PINS)
     c0805 = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
@@ -1136,7 +1140,7 @@ def build_panel_bias(x0, y0, usable_h):
          {"1": "PANEL_VSP", "2": "PANEL_BOOST_SW"})
     flow(c1210, "C46", "22u VPOS out 16V (AEC-Q200)",
          {"1": "PANEL_VSP", "2": "GND"})
-    flow(r, "R38", "562k VPOS top R1 (see docstring)",
+    flow(r, "R38", "511k VPOS top R1 (see docstring)",
          {"1": "PANEL_VSP", "2": "PANEL_FBP"})
     flow(r, "R39", "130k VPOS bottom R2 (see docstring)",
          {"1": "PANEL_FBP", "2": "GND"})
@@ -1148,7 +1152,7 @@ def build_panel_bias(x0, y0, usable_h):
          {"1": "PANEL_INV_SW", "2": "PANEL_VSN"})
     flow(c1210, "C47", "22u VNEG out 16V (AEC-Q200)",
          {"1": "PANEL_VSN", "2": "GND"})
-    flow(r, "R40", "536k VNEG top R3 (see docstring)",
+    flow(r, "R40", "499k VNEG top R3 (see docstring)",
          {"1": "PANEL_VSN", "2": "PANEL_FBN"})
     flow(r, "R41", "100k VNEG bottom R4 to VREF (see docstring)",
          {"1": "PANEL_FBN", "2": "PANEL_VREF"})

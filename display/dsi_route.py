@@ -7,16 +7,20 @@ FPC) lists the same pair P then N. So each pair has to swap once between the
 two connectors. Per pair: the N leg runs on F.Cu the whole way (down, one 45
 degree jog across, down); the P leg jogs away from N, drops through a via to
 B.Cu, runs under N, and comes back to F.Cu through a second via on the other
-side of N. Both legs are 0.25 mm wide on F.Cu over the unbroken In1 GND plane
-(about 100 ohm differential by IPC-2141 for a 0.21 mm prepreg and a 0.25 mm gap;
-that is an estimate, not a field-solver result).
+side of N. Both legs are 0.16 mm wide on F.Cu over the unbroken In1 GND plane,
+and on B.Cu over the unbroken In4 plane, with 0.0994 mm of 3313 prepreg (Dk 4.1)
+under each (6-layer JLC06161H-3313, 2026-10-18). review/dsi_impedance.py's 2-D
+field solve gives Z0 51.8 ohm and Zdiff 96.4 to 103.1 ohm for every gap from 0.25
+to 1.2 mm: on so thin a dielectric the legs couple weakly, so the gap changes
+along the route (0.34 mm at J1, 0.44 mm at J4) barely move the impedance. Order
+with controlled impedance (fab/README.md).
 
 Lanes are in order of increasing x on J1 and J4 (D2, CLK, D1, D0), so the
 four pairs never cross each other.
 """
 import math
 
-W = 0.25                 # F.Cu / B.Cu track width, mm
+W = 0.16                 # F.Cu / B.Cu track width, mm (100 ohm diff +-4 %, see docstring)
 VIA_DIA, VIA_DRILL = 0.6, 0.3
 LANES = ["DSI_D2", "DSI_CLK", "DSI_D1", "DSI_D0"]
 J1_PIN_NET = "J1"

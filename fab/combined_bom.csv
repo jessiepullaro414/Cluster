@@ -35,11 +35,11 @@ AC0603FR-07316KL,Yageo,1,0,"Resistor 316k 1% 0603 thick film, AEC-Q200 [PATTERN:
 AC0603FR-0733KL,Yageo,1,7,"Resistor 33k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0733RL,Yageo,0,2,"Resistor 33R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0747KL,Yageo,1,0,"Resistor 47k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-07499KL,Yageo,1,0,"Resistor 499k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749K9L,Yageo,0,1,"Resistor 49k9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749R9L,Yageo,1,1,"Resistor 49R9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-074K7L,Yageo,0,8,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart] [DNP: not fitted by default; the pads stay on the board for the option named in the schematic value (CAN0 end-node termination, ground-switched lamp pull-up, open-collector tach pull-up)]",DNP: do not populate
-AC0603FR-07536KL,Yageo,1,0,"Resistor 536k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-07562KL,Yageo,1,0,"Resistor 562k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-07511KL,Yageo,1,0,"Resistor 511k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0756KL,Yageo,1,1,"Resistor 56k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0760K4L,Yageo,1,0,"Resistor 60k4 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0760RL,Yageo,2,4,"Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart

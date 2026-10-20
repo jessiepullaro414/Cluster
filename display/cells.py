@@ -71,6 +71,10 @@ CELLS = {
             "R3": {"ILIM": pull("U1", [11], 3)},
             "R4": {"IMON": pull("U1", [10], 3)},
             "R15": {"PWR_FLT": pull("U1", [12], 2)},
+            # 2026-10-19: the OV/UV dividers had no pull; on six layers
+            # FreeRouting left SW_SENSE (U1 pin 3) unrouted. Pulling R7 too
+            # (or all four) packs the board 3.6-7.2 mm taller than 105 mm.
+            "R5": {"SW_SENSE": pull("U1", [3], 4)},
         }),
     "BIAS": dict(
         anchor="U6",
@@ -275,7 +279,7 @@ if __name__ == "__main__":
     cli = shutil.which("kicad-cli") or r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
     here = os.path.dirname(os.path.abspath(__file__))
     info, pad_net, _ = load_schematic(os.path.join(here, "ClusterDisplay.kicad_sch"), cli,
-                                      os.path.join(os.environ.get("TEMP", here), "cells_preview.net"))
+                                      os.path.join(os.environ.get("TEMP", here), "cells_preview_" + os.path.basename(here) + ".net"))
     info = {r: v for r, v in info.items() if r != "J1"}
     parts = make_parts(info, pad_net, load_footprint, footprint_bbox)
     res, used = plan_cells(parts)

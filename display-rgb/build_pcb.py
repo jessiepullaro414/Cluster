@@ -119,7 +119,7 @@ if not KICAD_CLI:
 # 1. Ground truth: real ref/footprint list from the schematic, real net
 #    assignments from kicad-cli's own netlist export.
 # ---------------------------------------------------------------------------
-NETLIST_PATH = os.path.join(os.environ.get("TEMP", HERE), "clusterdisplay_netlist_for_pcb.net")
+NETLIST_PATH = os.path.join(os.environ.get("TEMP", HERE), "clusterdisplayrgb_netlist_for_pcb.net")
 parts, pad_net, net_names = load_schematic(SCH, KICAD_CLI, NETLIST_PATH)
 
 print(f"Loaded {len(parts)} real parts and {len(net_names)} nets from the schematic/netlist.")
@@ -128,8 +128,20 @@ print(f"Loaded {len(parts)} real parts and {len(net_names)} nets from the schema
 # 3. Board scaffold
 # ---------------------------------------------------------------------------
 board = Board.create_new()
-board.layers.insert(1, LayerToken(ordinal=1, name='In1.Cu', type='signal'))
+# 2026-10-18 (owner decision): six layers, JLCPCB JLC06161H-3313 (1.6 mm):
+#   F.Cu  signal                35 um, then 3313 prepreg 0.0994 mm (Dk 4.1)
+#   In1   solid GND plane       0.5 oz, then a 0.55 mm core (Dk 4.6)
+#   In2   signal                0.5 oz, then 2116 prepreg 0.1088 mm (Dk 4.16)
+#   In3   signal + power pour   0.5 oz, then a 0.55 mm core
+#   In4   solid GND plane       0.5 oz, then 3313 prepreg 0.0994 mm
+#   B.Cu  signal                35 um
+# In1 and In4 are KiCad "power" layers and are marked non-routable in the
+# autorouter's input (route_board.py), so they stay unbroken planes; the
+# four signal layers keep the routing capacity the 4-layer board had.
+board.layers.insert(1, LayerToken(ordinal=1, name='In1.Cu', type='power'))
 board.layers.insert(2, LayerToken(ordinal=2, name='In2.Cu', type='signal'))
+board.layers.insert(3, LayerToken(ordinal=3, name='In3.Cu', type='signal'))
+board.layers.insert(4, LayerToken(ordinal=4, name='In4.Cu', type='power'))
 
 net_registry = {}
 def net_number(name):
@@ -285,6 +297,34 @@ _conn_bbox = {ref: footprint_bbox(fp) for ref, fp in _conn_fp.items()}
 MODULE_KEEPOUT_W = 38.0   # 35.00mm real module width + ~3mm real margin
 MODULE_KEEPOUT_H = 82.0   # 79.0mm real connector housing length (longer
                           # than the module) + a small real margin
+# CORRECTED 2026-10-18 (product review): the module is not centred on the
+# socket. Toradex Verdin Carrier Board Design Guide V1.2, Fig 110/113/114:
+# the socket's two locating pegs (footprint local x = -7.925, y = +-34.4)
+# sit on the line between the pad rows; the module's M2 mounting holes are
+# 31.00 mm from that line and 4.00 mm from the module's far edge, so the
+# module covers local x -7.925 .. +27.075 on the latch side, and Fig 114
+# marks that whole area "No Components allowed on Carrier Board". The old
+# 38 mm keepout centred on the socket's bbox stopped at local x +19: the
+# 8 mm under the module's far edge (where S1/S2 go) was open, and C12 had a
+# pad there. Section 4.3/4.5 standoffs, all M2x0.4, Ø3.00 hole, Ø5.30 pad:
+#   S1/S2 (2.5 mm, module hold-down for vibration): 31.00 mm from the peg
+#         line, 1.80 mm inside each peg;
+#   S3/S4 (7.0 mm, Verdin Industrial Heatsink): on the peg line, 5.60 mm
+#         outside each peg.
+VERDIN_PEG_X = -7.925
+VERDIN_PEG_Y = 34.4
+VERDIN_STANDOFFS = {
+    "S1": (VERDIN_PEG_X + 31.0, -VERDIN_PEG_Y + 1.8, "2.5 mm"),
+    "S2": (VERDIN_PEG_X + 31.0, VERDIN_PEG_Y - 1.8, "2.5 mm"),
+    "S3": (VERDIN_PEG_X, -VERDIN_PEG_Y - 5.6, "7.0 mm"),
+    "S4": (VERDIN_PEG_X, VERDIN_PEG_Y + 5.6, "7.0 mm"),
+}
+STANDOFF_PAD_D, STANDOFF_DRILL_D = 5.30, 3.00
+_KEEP_MARGIN = 0.5
+J1_LOCAL_X_HI = VERDIN_PEG_X + 35.0 + _KEEP_MARGIN          # module far edge
+J1_LOCAL_X_LO = min(-13.125, VERDIN_PEG_X - STANDOFF_PAD_D / 2) - _KEEP_MARGIN   # socket housing back edge
+MODULE_KEEPOUT_W = round(J1_LOCAL_X_HI - J1_LOCAL_X_LO, 3)   # across the socket (board y after the 90 deg turn)
+MODULE_KEEPOUT_H = round(2 * max(79.0 / 2, VERDIN_PEG_Y + 5.6 + STANDOFF_PAD_D / 2) + 2 * _KEEP_MARGIN, 3)   # along it
 
 # --- J4 (panel connector) - also pulled out, real mechanical reason:
 # it needs to sit toward the board's "front" edge (facing the round
@@ -320,7 +360,7 @@ _DSI_J4_PADS = ["24", "26", "28", "30", "32", "34", "36", "38"]
 _fplan = _floorplan.floorplan(_cell_parts, _cell_res, _conn_bbox["J1"], _j1_dsi_y,
                               keep_w=MODULE_KEEPOUT_H, keep_h=MODULE_KEEPOUT_W,
                               margin=BOARD_MARGIN, j4_dsi_pads=_DSI_J4_PADS,
-                              j4_first_pad="1")
+                              j4_first_pad="1", j1_local_x_hi=J1_LOCAL_X_HI)
 placed_rel.update({ref: (x, y) for ref, (x, y, a) in _fplan["placed"].items()})
 part_rot = {ref: a for ref, (x, y, a) in _fplan["placed"].items()}
 board_width = round(_fplan["width"], 2)
@@ -428,6 +468,39 @@ for mh_ref, mh_x, mh_y in _mh_positions:
     board.footprints.append(mh_fp)
 print(f"Added {len(_mh_positions)} M3 mounting holes (4 corners - this "
       f"board is compact, not long/thin like gauges/)")
+
+# 5b1. Verdin module standoffs S1-S4 (see VERDIN_STANDOFFS above): plated
+#      Ø3.00 mm hole, Ø5.30 mm pad on GND (the module's mounting holes are
+#      copper rings), positioned from J1's final placement and rotation.
+_j1x, _j1y = placed["J1"]
+_j1a = part_rot.get("J1", 90)
+for so_ref, (lx, ly, so_h) in VERDIN_STANDOFFS.items():
+    so_fp = load_footprint("MountingHole:MountingHole_2.2mm_M2_Pad")
+    for pad in so_fp.pads:
+        pad.size = Position(STANDOFF_PAD_D, STANDOFF_PAD_D)
+        pad.drill.diameter = STANDOFF_DRILL_D
+        pad.net = Net(number=net_number("GND"), name="GND")
+        # keep the copper ring on every layer: the standoff is soldered to the
+        # outer ring, and KiCad strips unconnected outer rings otherwise
+        pad.removeUnusedLayers = False
+        pad.keepEndLayers = True
+    for item in so_fp.graphicItems:
+        # the stock circles are drawn around the 4.4 mm pad: grow them with the pad
+        if type(item).__name__ == "FpCircle":
+            r_old = math.hypot(item.end.X - item.center.X, item.end.Y - item.center.Y)
+            grow = STANDOFF_PAD_D / 2 - 2.2
+            item.end = Position(item.center.X + r_old + grow, item.center.Y)
+    _a = math.radians(_j1a)
+    sx = _j1x + lx * math.cos(_a) + ly * math.sin(_a)
+    sy = _j1y - lx * math.sin(_a) + ly * math.cos(_a)
+    so_fp.position = Position(round(sx, 3), round(sy, 3), 0)
+    so_fp.path = f"/{uuid_module.uuid4()}"
+    so_fp.properties["Reference"] = so_ref
+    so_fp.properties["Value"] = f"M2x0.4 SMD standoff {so_h}"
+    ref_label_pos[so_ref] = (0.0, -3.8)
+    board.footprints.append(so_fp)
+print(f"Added Verdin standoffs S1-S4 (Toradex design guide 4.3-4.5): "
+      + ", ".join(f"{r} {h}" for r, (_, _, h) in VERDIN_STANDOFFS.items()))
 
 # ---------------------------------------------------------------------------
 # 5b2. DSI lanes (REVIEW FIX 2026-10-04). The autorouter left the pairs 10-30 mm
@@ -649,12 +722,32 @@ def _widest_corridor(boxes, left, right, top, bottom):
     return max(gaps, key=lambda g: g[1] - g[0])
 
 
-_corr_left, _corr_right = _widest_corridor(thru_hole_boxes, SAFE_LEFT, SAFE_RIGHT,
-                                            SAFE_TOP, SAFE_BOTTOM)
+# 2026-10-16: with the audio/USB parts the widest corridor over the FULL safe
+# height shrank to ~21 mm, too narrow for the gauge and wordmark, which only
+# need clear space over their own height. So search for the largest gauge
+# whose whole stack (gauge + wordmark, about 2R + 34 mm tall, 2R + 12 mm wide)
+# fits in a window with no through-hole pad, on a 1 mm grid.
+def _find_art_window():
+    for rr in range(int(min(40.0, safe_h * 0.30)), 11, -1):
+        w, h = 2 * rr + 12.0, 2 * rr + 8.0 + 26.0
+        if w > SAFE_RIGHT - SAFE_LEFT or h > SAFE_BOTTOM - SAFE_TOP:
+            continue
+        x = SAFE_LEFT
+        while x + w <= SAFE_RIGHT + 1e-9:
+            y = SAFE_TOP
+            while y + h <= SAFE_BOTTOM + 1e-9:
+                if not _overlaps(x, y, x + w, y + h, thru_hole_boxes):
+                    return rr, x, y, w
+                y += 1.0
+            x += 1.0
+    raise RuntimeError("no clear window for the back-silk art")
+
+
+_ART_R, _art_x, _art_y, _corr_w = _find_art_window()
+_corr_left, _corr_right = _art_x, _art_x + _corr_w
 _corr_cx = (_corr_left + _corr_right) / 2
-_corr_w = _corr_right - _corr_left
-print(f"Widest real clear corridor: x={_corr_left:.1f}-{_corr_right:.1f} "
-      f"({_corr_w:.1f}mm wide)")
+print(f"Back-art window: x={_corr_left:.1f}-{_corr_right:.1f}, y from {_art_y:.1f} "
+      f"({_corr_w:.1f}mm wide, gauge R={_ART_R}mm)")
 
 # Gauge on top, wordmark stacked below it, both centered in the real
 # corridor - sized from whichever of corridor width / safe height is
@@ -672,9 +765,9 @@ print(f"Widest real clear corridor: x={_corr_left:.1f}-{_corr_right:.1f} "
 # verification bboxes are computed from the real target (_corr_cx) here
 # so they agree with where the art actually lands.
 DRAW_CX = _corr_cx
-GAUGE_R = min(_corr_w / 2 - 6.0, safe_h * 0.30, 40.0)
+GAUGE_R = float(_ART_R)
 GAUGE_CX = 2 * board_cx - DRAW_CX
-GAUGE_CY = SAFE_TOP + GAUGE_R + 6.0
+GAUGE_CY = _art_y + GAUGE_R + 6.0
 START_DEG, END_DEG = 225.0, -45.0
 N_TICKS = 9
 S = GAUGE_R / 42.0  # same proportional-scaling fix the original board's
@@ -695,7 +788,7 @@ def _gauge_bbox():
 
 
 def _wordmark_bbox():
-    return (_DRAW_WORD_CX - _word_w / 2, _word_top, _DRAW_WORD_CX + _word_w / 2, SAFE_BOTTOM)
+    return (_DRAW_WORD_CX - _word_w / 2, _word_top, _DRAW_WORD_CX + _word_w / 2, _art_y + 2 * GAUGE_R + 8.0 + 26.0)
 
 
 _gx0, _gy0, _gx1, _gy1 = _gauge_bbox()
@@ -776,7 +869,7 @@ _gr_text("x1000 RPM", _polar(GAUGE_CX, GAUGE_CY, GAUGE_R * 0.45, 270),
 _gr_text("CLUSTER", (_word_cx, _word_top + 7.0), size=min(9.0, _word_w * 0.19),
           thickness=1.3, bold=True)
 _gr_text("ANDROID DISPLAY CARRIER", (_word_cx, _word_top + 15.5),
-          size=2.2, thickness=0.3)
+          size=min(2.2, _word_w / 21.0), thickness=0.3)
 _gr_text("JESSIE'S CARS", (_word_cx, _word_top + 21.0), size=1.9, thickness=0.26)
 
 print(f"Added tach-face + CLUSTER wordmark art to B.SilkS "
@@ -785,7 +878,7 @@ print(f"Added tach-face + CLUSTER wordmark art to B.SilkS "
 # ---------------------------------------------------------------------------
 # 7. Verification on the IN-MEMORY board (before writing/upgrading)
 # ---------------------------------------------------------------------------
-MECHANICAL_FOOTPRINT_COUNT = len(_mh_positions)
+MECHANICAL_FOOTPRINT_COUNT = len(_mh_positions) + len(VERDIN_STANDOFFS)
 assert len(board.footprints) == len(parts) + MECHANICAL_FOOTPRINT_COUNT, \
     (f"footprint count mismatch: {len(board.footprints)} vs {len(parts)} parts "
      f"+ {MECHANICAL_FOOTPRINT_COUNT} mechanical")
@@ -802,6 +895,12 @@ for i in range(len(boxes)):
     for j in range(i + 1, len(boxes)):
         ra, ax0, ay0, ax1, ay1 = boxes[i]
         rb, bx0, by0, bx1, by1 = boxes[j]
+        # The Verdin standoffs are positioned by Toradex's land pattern for this
+        # exact socket (TE 2309409-2, design guide Fig 113/114): S1/S2 inside
+        # the span of its latch arms, S3/S4 at its housing ends. J1's bounding
+        # box covers them by design; real copper clearance is left to DRC.
+        if {ra, rb} & {"J1"} and {ra, rb} & set(VERDIN_STANDOFFS):
+            continue
         if ax0 < bx1 and bx0 < ax1 and ay0 < by1 and by0 < ay1:
             overlaps.append((ra, (round(ax0,1),round(ay0,1),round(ax1,1),round(ay1,1)),
                               rb, (round(bx0,1),round(by0,1),round(bx1,1),round(by1,1))))
@@ -812,6 +911,8 @@ pcb_net_pins = {}
 seen_logical_pins = set()
 for fp in board.footprints:
     ref = fp.properties.get("Reference")
+    if ref in VERDIN_STANDOFFS:      # board-only mechanical GND pads, not in the schematic
+        continue
     for pad in fp.pads:
         if pad.net and pad.net.name:
             logical_pin = (ref, pad.number)
@@ -856,7 +957,10 @@ TRUNK_WIDTH_LADDER = [1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
 # The converter switch nodes carry the inductor's full peak current in short
 # hot loops, so they are widened too (the autorouter routes everything at
 # 0.2 mm and widen_trunks() fattens what has room). REVIEW FIX 2026-10-04.
-TRUNK_NETS = ["+12V_PROT", "SW_5V", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW"]
+# REVIEW FIX 2026-10-17 (docs/electrical-review.md D-02): the battery path ahead of and through the LM74930 (VBAT_IN from
+# J2 to the fuse, VBAT_F, the sense node SENSE_OUT and the common-source node COMMON) carries the same 2-2.6 A as
+# +12V_PROT but was left at the 0.2 mm routing width; it is widened like +12V_PROT wherever there is room.
+TRUNK_NETS = ["+12V_PROT", "VBAT_IN", "VBAT_F", "SENSE_OUT", "COMMON", "SW_5V", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW"]
 
 board.to_file(PCB)
 print("Wrote", PCB)
@@ -868,7 +972,9 @@ for ref, (dx, dy) in ref_label_pos.items():
     # 0603: only ICs, connectors, the fuse holder and jumpers keep silkscreen
     # labels; passives and small transistors carry theirs on F.Fab (still in
     # the assembly drawing and the BOM, just not printed on the board).
-    label_layer = "F.SilkS" if ref[0] in "UJF" else "F.Fab"
+    # The tiny TVS arrays and the USB switch sit among 0603s with no room for
+    # a printed label either (2026-10-16).
+    label_layer = "F.SilkS" if (ref[0] in "UJF" and ref not in ("U11", "U12", "U13", "U14")) else "F.Fab"
     new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "{label_layer}") '
            f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)
@@ -880,11 +986,23 @@ print(f"Repositioned {len(ref_label_pos)} Reference labels clear of their own fo
 # ---------------------------------------------------------------------------
 # 8. Upgrade to current KiCad format, then run a real DRC
 # ---------------------------------------------------------------------------
+# Board-setup minimum track width (2026-10-19): the DSI pairs are 0.16 mm,
+# field-solved for 100 ohm on the six-layer stack-up (review/dsi_impedance.py),
+# so the 0.2 mm floor KiCad wrote into the project file would flag every DSI
+# segment. 0.15 mm stays well above JLCPCB's 0.09 mm minimum; every other net
+# still routes at its net class width (0.2 mm and up).
+MIN_TRACK_WIDTH_MM = 0.15
+_pro = os.path.join(HERE, "ClusterDisplayRGB.kicad_pro")
+_pro_text = open(_pro, encoding="utf-8").read()
+_pro_new, _n = re.subn(r'"min_track_width": [0-9.]+,', f'"min_track_width": {MIN_TRACK_WIDTH_MM},', _pro_text)
+assert _n == 1, f"expected one min_track_width in {_pro}, found {_n}"
+if _pro_new != _pro_text:
+    open(_pro, "w", encoding="utf-8", newline="").write(_pro_new)
 result = subprocess.run([KICAD_CLI, "pcb", "upgrade", PCB], capture_output=True, text=True)
 print("Upgraded to current KiCad format:" if result.returncode == 0 else "WARNING: upgrade failed:",
       (result.stdout or result.stderr).strip())
 
-drc_path = os.path.join(os.environ.get("TEMP", HERE), "clusterdisplay_pcb_drc.json")
+drc_path = os.path.join(os.environ.get("TEMP", HERE), "clusterdisplayrgb_pcb_drc.json")
 result = subprocess.run([KICAD_CLI, "pcb", "drc", "--format", "json",
                          "--output", drc_path, "--exit-code-violations", PCB],
                         capture_output=True, text=True)

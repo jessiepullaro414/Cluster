@@ -163,8 +163,20 @@ def footprint_bbox(fp):
 # 3. Board scaffold
 # ---------------------------------------------------------------------------
 board = Board.create_new()
-board.layers.insert(1, LayerToken(ordinal=1, name='In1.Cu', type='signal'))
+# 2026-10-18 (owner decision): six layers, JLCPCB JLC06161H-3313 (1.6 mm):
+#   F.Cu  signal                35 um, then 3313 prepreg 0.0994 mm (Dk 4.1)
+#   In1   solid GND plane       0.5 oz, then a 0.55 mm core (Dk 4.6)
+#   In2   signal                0.5 oz, then 2116 prepreg 0.1088 mm (Dk 4.16)
+#   In3   signal + power pour   0.5 oz, then a 0.55 mm core
+#   In4   solid GND plane       0.5 oz, then 3313 prepreg 0.0994 mm
+#   B.Cu  signal                35 um
+# In1 and In4 are KiCad "power" layers and are marked non-routable in the
+# autorouter's input (route_board.py), so they stay unbroken planes; the
+# four signal layers keep the routing capacity the 4-layer board had.
+board.layers.insert(1, LayerToken(ordinal=1, name='In1.Cu', type='power'))
 board.layers.insert(2, LayerToken(ordinal=2, name='In2.Cu', type='signal'))
+board.layers.insert(3, LayerToken(ordinal=3, name='In3.Cu', type='signal'))
+board.layers.insert(4, LayerToken(ordinal=4, name='In4.Cu', type='power'))
 
 net_registry = {}
 def net_number(name):

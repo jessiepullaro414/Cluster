@@ -9,7 +9,9 @@ layout_checks.py - routed-copper checks that need the .kicad_pcb.
      radiates on every layer, and a track on the layer below or above it couples through the thin
      prepreg, so the distance is measured in plan view regardless of layer;
   2. long fast nets (SPI, CAN) and how many layers/vias they use, for the signal-integrity estimate;
-  3. widths of the power nets against the currents they carry.
+  3. widths of the power nets against the currents they carry;
+  4. (2026-10-19, six layers) the GND reference planes In1.Cu and In4.Cu carry no other net's
+     track: exits 1 if they do, since a split plane under a fast net is the failure this guards.
 """
 import argparse
 import collections
@@ -39,10 +41,15 @@ CFG = {
         own={"SW_5V", "BOOT_C", "BOOT_R", "+5V", "GND", "+12V_PROT", "VCC_LDO", "FB_5V", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW",
              "PANEL_VSP", "PANEL_VSN", "PANEL_BL_LEDA", "PANEL_BL_LEDK", "PANEL_FBP", "PANEL_FBN", "PANEL_VREF", "PANEL_CP", "PANEL_CN",
              "PANEL_BIAS_VIN", "BL_COMP"},
-        fast=["DSI_D0_P", "DSI_D0_N", "CAN1_H", "CAN1_L"],
+        fast=["DSI_D0_P", "DSI_D0_N", "USB2_DP", "USB2_DN", "USB_DP", "USB_DN", "CAN1_H", "CAN1_L"],
         slow_guard=1.5,
     ),
 }
+# the RGB variant is display/ plus the LVDS-to-RGB bridge: same converters, same checks
+CFG["display-rgb"] = dict(CFG["display"],
+                          pcb=os.path.join(ROOT, "display-rgb", "ClusterDisplayRGB.kicad_pcb"),
+                          sch=os.path.join(ROOT, "display-rgb", "ClusterDisplayRGB.kicad_sch"))
+PLANE_LAYERS = ("In1.Cu", "In4.Cu")
 
 
 def seg_dist(a1, a2, b1, b2):
@@ -67,6 +74,7 @@ NEEDS = {
     "display": {"VBAT_IN": 2.6, "VBAT_F": 2.6, "+12V_PROT": 2.6, "COMMON": 2.6, "SENSE_OUT": 2.6, "+5V": 3.0, "+1V8": 0.1,
                 "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15},
 }
+NEEDS["display-rgb"] = NEEDS["display"]   # same supply chain; the RGB receiver adds about 0.1 A on +5V
 DT_LIMIT = 20.0      # K rise allowed for continuous current
 
 
@@ -115,7 +123,7 @@ def check_current(board, lay):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("board", choices=("gauges", "display"))
+    ap.add_argument("board", choices=tuple(CFG))
     ap.add_argument("--pcb")
     ap.add_argument("--sch")
     a = ap.parse_args()
@@ -176,6 +184,21 @@ def main():
         if not w:
             continue
         print(f"      {net:<10} " + "; ".join(f"{k} mm: " + ", ".join(f"{l} {v:.0f}" for l, v in sorted(d.items())) for k, d in sorted(w.items())))
+
+    # GND reference planes
+    print("\n    GND plane layers (only GND copper allowed):")
+    bad = 0
+    for layer in PLANE_LAYERS:
+        per = collections.defaultdict(float)
+        for t in lay.tracks:
+            if t["layer"] == layer:
+                per[t["net"]] += math.hypot(t["x2"] - t["x1"], t["y2"] - t["y1"])
+        foreign = {n: v for n, v in per.items() if n != "GND"}
+        bad += len(foreign)
+        print(f"      {layer}: GND tracks {per.get('GND', 0.0):.1f} mm, other nets "
+              + (", ".join(f"{n} {v:.1f} mm" for n, v in sorted(foreign.items())) if foreign else "none"))
+    if bad:
+        raise SystemExit(f"FAIL: {bad} non-GND net(s) routed on a plane layer")
 
 
 if __name__ == "__main__":

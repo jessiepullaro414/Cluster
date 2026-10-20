@@ -15,26 +15,26 @@ Also `fab/combined_bom.csv`: both boards' parts in one cart-ready list (quantiti
 
 ## Order settings (both boards)
 
-Checked against JLCPCB's published 4-layer capabilities (min trace/space 0.09 mm, min drill 0.15 mm, via 0.15/0.25 mm, silkscreen text at least 1.0 mm high and 0.15 mm stroke). These boards use 0.2 mm tracks and clearances, 0.3/0.6 mm vias, a smallest drill of 0.2 mm, and 1.0 mm / 0.15 mm silkscreen text, so they sit inside those limits.
+Checked against JLCPCB's published multilayer capabilities (min trace/space 0.09 mm, min drill 0.15 mm, via 0.15/0.25 mm, silkscreen text at least 1.0 mm high and 0.15 mm stroke). These boards use 0.2 mm tracks and clearances (0.16 mm for the DSI pairs), 0.3/0.6 mm vias, a smallest drill of 0.2 mm, and 1.0 mm / 0.15 mm silkscreen text, so they sit inside those limits.
 
-- Layers: 4. Thickness: 1.6 mm. Outer copper 1 oz, inner copper 0.5 oz.
+- **Layers: 6** (owner decision 2026-10-18, both boards). Thickness 1.6 mm, stack-up **JLC06161H-3313**: outer copper 1 oz, inner 0.5 oz; 3313 prepreg 0.0994 mm (Dk 4.1) under each outer layer, 0.55 mm cores, 2116 prepreg 0.1088 mm in the middle. Layer use: F.Cu signal, In1 solid GND, In2 signal, In3 signal with the +5V (display) / +3V3 (gauges) pour, In4 solid GND, B.Cu signal. The DSI widths below are solved for this stack-up: if the board house substitutes another, re-run `review/dsi_impedance.py` with its numbers.
 - Surface finish: **ENIG**. The panel connector is 0.3 mm pitch and the MCU, buck and QFN parts are 0.5 mm pitch; HASL is not recommended.
 - Solder mask and silkscreen: your choice (the layout is drawn for dark mask with white silk). Black mask with white silk suits the dash.
-- Impedance control: **request it for display/ if the fab offers it, with the DSI pairs as the controlled pairs.** The four DSI pairs are 0.25 mm tracks with a 0.25 to 0.5 mm gap on F.Cu over the In1 ground plane, about 10.6 to 11.2 mm per leg, with at most 0.6 mm (about 4 ps) skew inside a pair. By the IPC-2141 approximation that is about 100 ohm differential for a 0.21 mm prepreg; that is an estimate, so use the fab's own calculator and stackup and adjust width and gap if it disagrees. The P leg of each pair hops to B.Cu for about 3 mm to swap polarity order between the connectors (two 0.6/0.3 mm vias), where the reference is In2 rather than ground. (An earlier version of this page called uncontrolled impedance acceptable; the corrected layout is short enough that it matters less, but it is still a high-speed pair.)
+- Impedance control: **order display/ with controlled impedance, 100 ohm differential +-10 %, on the four DSI pairs** (DSI_D0, D1, D2, CLK; F.Cu over In1 and, for about 3 mm of each P leg, B.Cu over In4). Tracks are 0.16 mm; the gap runs 0.34 mm near J1 and 0.44 mm near J4. `review/dsi_impedance.py`'s 2-D field solve on JLC06161H-3313 gives Z0 51.8 ohm and Zdiff 96.4 to 103.1 ohm for any gap from 0.25 to 1.2 mm: the pairs are loosely coupled over a 0.1 mm dielectric, so the impedance hardly depends on the gap. Each leg is about 9.5 to 10.2 mm, with at most 0.62 mm of skew inside a pair. Ask the house to confirm the width with its own calculator and to add a coupon.
 - Quantity: 5 of each is the usual minimum.
 
 ## Board sizes
 
-- display/: 169.3 x 101.8 mm (was 151.9 x 101.8 before the audio and USB host blocks, 2026-10-16: wider, not taller).
-- gauges/: 447 x 56 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
+- display/: 178.2 x 105.0 mm (169.3 x 101.8 before the Verdin standoffs and the module keepout fix, 2026-10-18).
+- gauges/: 447.1 x 63.4 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
 
 ## What is still unconfirmed (could force a respin of display/)
 
 1. The panel FPC connector (Hirose FH26-39S-0.3SHW) is inferred from the panel datasheet; the datasheet names no connector. Ask TSD (draft in `docs/rfq-drafts.md`).
-2. The panel's +/-6.5 V pin polarity is contradictory in its datasheet; the board has open solder jumpers JP1/JP2 for either answer.
+2. The panel's +/-6.5 V pin polarity is contradictory in its datasheet (table: pins 7-8 VSP, 10-11 VSN; drawing: the reverse); the board has open solder jumpers JP1/JP2 for either answer, and the panel gets no bias until one is bridged. **Before bridging, check the real panel with a multimeter's diode test, panel unplugged and unpowered**: the ICNL9707 driver's VSP pin is rated -0.3 V minimum and its VSN pin +0 V maximum (Chipone datasheet table 4-1), so each has a protection diode the other way. Red probe on a GND pin (1, 6, 9), black on pin 7: a diode drop (about 0.4 to 0.8 V) means pins 7-8 are VSP; then red on pin 10, black on GND should also read a drop (VSN). The reverse readings mean the drawing is right. If both directions read open or both read a drop, do not power it: ask TSD. The rails are set to +5.98 V and -6.05 V (2026-10-19), inside the driver's 4.5-6.5 V operating range with margin to its 6.6 V absolute maximum.
 3. The Verdin wake-pin polarity is unstated; the circuit assumes a software-selectable edge.
 4. USB-C receptacle J17 (GCT USB4105-GF-A): its four ground pads sit 0.194 mm from its two NPTH locating pegs (0.25 mm KiCad default; this is GCT's own land pattern). Check the board house's NPTH-to-copper rule or run its DFM check. DRC reports it as `hole_clearance` x4 (accepted category).
-5. The TAC5112-Q1 audio codec, the USB switch and the audio/USB connectors are drawn from datasheets but untested; see docs/audio-and-usb.md for the list. The Apple MFi coprocessor access point J16 is DNP and TBD.
+5. The TAC5112-Q1 audio codec, the USB switch and the audio/USB connectors are drawn from datasheets but untested; see docs/audio-and-usb.md for the list. J16 is a DNP 1x6 header for an Apple MFi coprocessor daughterboard (no Apple part chosen).
 
 gauges/ has no open hardware question other than the AutoMeter sender wiring (assumed harness-powered, signal and ground only).
 

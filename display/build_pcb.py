@@ -128,8 +128,20 @@ print(f"Loaded {len(parts)} real parts and {len(net_names)} nets from the schema
 # 3. Board scaffold
 # ---------------------------------------------------------------------------
 board = Board.create_new()
-board.layers.insert(1, LayerToken(ordinal=1, name='In1.Cu', type='signal'))
+# 2026-10-18 (owner decision): six layers, JLCPCB JLC06161H-3313 (1.6 mm):
+#   F.Cu  signal                35 um, then 3313 prepreg 0.0994 mm (Dk 4.1)
+#   In1   solid GND plane       0.5 oz, then a 0.55 mm core (Dk 4.6)
+#   In2   signal                0.5 oz, then 2116 prepreg 0.1088 mm (Dk 4.16)
+#   In3   signal + power pour   0.5 oz, then a 0.55 mm core
+#   In4   solid GND plane       0.5 oz, then 3313 prepreg 0.0994 mm
+#   B.Cu  signal                35 um
+# In1 and In4 are KiCad "power" layers and are marked non-routable in the
+# autorouter's input (route_board.py), so they stay unbroken planes; the
+# four signal layers keep the routing capacity the 4-layer board had.
+board.layers.insert(1, LayerToken(ordinal=1, name='In1.Cu', type='power'))
 board.layers.insert(2, LayerToken(ordinal=2, name='In2.Cu', type='signal'))
+board.layers.insert(3, LayerToken(ordinal=3, name='In3.Cu', type='signal'))
+board.layers.insert(4, LayerToken(ordinal=4, name='In4.Cu', type='power'))
 
 net_registry = {}
 def net_number(name):
@@ -966,6 +978,18 @@ print(f"Repositioned {len(ref_label_pos)} Reference labels clear of their own fo
 # ---------------------------------------------------------------------------
 # 8. Upgrade to current KiCad format, then run a real DRC
 # ---------------------------------------------------------------------------
+# Board-setup minimum track width (2026-10-19): the DSI pairs are 0.16 mm,
+# field-solved for 100 ohm on the six-layer stack-up (review/dsi_impedance.py),
+# so the 0.2 mm floor KiCad wrote into the project file would flag every DSI
+# segment. 0.15 mm stays well above JLCPCB's 0.09 mm minimum; every other net
+# still routes at its net class width (0.2 mm and up).
+MIN_TRACK_WIDTH_MM = 0.15
+_pro = os.path.join(HERE, "ClusterDisplay.kicad_pro")
+_pro_text = open(_pro, encoding="utf-8").read()
+_pro_new, _n = re.subn(r'"min_track_width": [0-9.]+,', f'"min_track_width": {MIN_TRACK_WIDTH_MM},', _pro_text)
+assert _n == 1, f"expected one min_track_width in {_pro}, found {_n}"
+if _pro_new != _pro_text:
+    open(_pro, "w", encoding="utf-8", newline="").write(_pro_new)
 result = subprocess.run([KICAD_CLI, "pcb", "upgrade", PCB], capture_output=True, text=True)
 print("Upgraded to current KiCad format:" if result.returncode == 0 else "WARNING: upgrade failed:",
       (result.stdout or result.stderr).strip())

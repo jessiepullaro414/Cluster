@@ -250,9 +250,23 @@ A second pass looked for anything that would stop the boards becoming a product 
 | P-07 | Low | gauges | After the re-route for P-04 and the new front-end parts, IGN_RAW (the ignition sense line, 56 k series and 10 nF filtered) crosses under the buck's SW node on In1 (`layout_checks.py gauges`); the 2026-10-17 route had no track near SW. +5V also has more 0.2 mm escape length on In1 (31 mm against 14 mm), VIN_PROT less (10 mm against 41 mm) | Accepted for the prototype (a slow, heavily filtered input); fence In1 under the buck cell for the autorouter, or hand-route IGN_RAW, before production |
 | P-06 | Medium | display | Supply: the Verdin iMX95 WB IT is in sample status (Toradex PCN 118589; Mouser no stock, 34-week lead) | Noted in the BOM; question 6 in `rfq-drafts.md` section 2 |
 
-G-15 update (2026-10-18): a search found no 1.28 in round 240x240 module rated beyond -20 to +70 C operating (Raystar, DisplayModule DM-TFTR128-446/466, Winstar WF0128BTYAA4DNN0, GoldenMorning all list -20 to +70, storage -30 to +80). A wider range is a custom-panel question (`rfq-drafts.md` section 5).
+G-15 update (2026-10-18): a search found no 1.28 in round 240x240 module rated beyond -20 to +70 C operating (Raystar, DisplayModule DM-TFTR128-446/466, Winstar WF0128BTYAA4DNN0, GoldenMorning all list -20 to +70, storage -30 to +80). A wider range is a custom-panel question (`rfq-drafts.md` section 6).
 
 Still open from this pass: D-04 (backlight driver thermal; the -Q1 part only comes in SOT-23-6, and a replacement waits for TSD's backlight configuration), G-15 (small-module temperature range), the panel datasheet questions (D-09), and licensing.
+
+## 8b. Six-layer re-route, 2026-10-19
+
+Owner decision: both boards (and display-rgb/) go to six layers, JLC06161H-3313: F.Cu / In1 GND / In2 / In3 with the +5V or +3V3 pour / In4 GND / B.Cu. Measured on the regenerated boards:
+
+* **Planes really solid.** FreeRouting 2.2.4 ignores a DSN `layer_rule ... (active off)` (an early run still had about 1 m of signal on display/'s In1 and 2.8 m on gauges/'). The router input now restricts every net class except GND to F.Cu, In2, In3 and B.Cu (`use_layer`); `review/layout_checks.py` (new plane check, exit 1 on failure) reports no track of any net on In1 or In4 on display/, gauges/ and display-rgb/.
+* **Real DRC: 0 unconnected on all three.** display/ and display-rgb/: only the accepted solder_mask_bridge x10 (JP1/JP2) and hole_clearance x4 (J17 pegs), plus warnings. gauges/: warnings only. The board minimum track width is now 0.15 mm (set by `display/build_pcb.py`) for the 0.16 mm DSI pairs.
+* **DSI field solve** (`review/dsi_impedance.py`, 2-D, mask included): 0.16 mm tracks over 0.0994 mm prepreg give Z0 51.8 ohm and 96.4 to 103.1 ohm differential across the 0.25 to 1.2 mm gaps (0.34 mm at J1: 99.1 ohm; 0.44 mm at J4: 100.6 ohm). Order with controlled impedance and a coupon.
+* **gauges/ current capacity: all [ok] for the first time.** VIN_PROT, VIN_FUSED and +5V are routed at 0.4 mm from the start (a DSN net class) and widened to 0.6 mm where there is room; worst rise 15 K at 0.45 A. The 2026-10-17 board still had 0.2 mm inner-layer pieces on five power nets.
+* **gauges/ P-07 resolved:** `layout_checks.py gauges` finds no foreign track within 1.5 mm of the buck's switch node on any layer.
+* **display/ battery path (D-02 residual) unchanged:** VBAT_F is 1.5 mm wide for most of its length but about 60 mm of it is on 0.5 oz inner copper, which IPC-2221 rates at about 1.3 A for 20 K against 2.6 A. Same mitigation as before: thermal camera at 2.5 A on the first board, or move the path to outer-layer pours.
+* **display/ fast nets:** USB-C pair USB2_DP/DN about 39 mm, 30 mm of it on In3 with both legs together; the bench USB pair (J13) has its legs on In2 and In3. In2 and In3 are 0.11 mm apart (2116 prepreg), so broadside coupling between them is the remaining signal-integrity risk; switch-node plan-view crossings on In2/In3 (+1V8, PANEL_BIAS_EN, PG_5V) now have the In1 plane between them and the outer-layer switch copper.
+* `review_netlist.py`: gauges 0 FAIL / 0 WARN; display unchanged from the committed board (1 FAIL, 6 WARN, all decoupling distances listed in section 8).
+* Panel bias set to +5.98 V / -6.05 V (R38 511k, R40 499k), inside the ICNL9707's 4.5 to 6.5 V operating range with margin to its 6.6 V absolute maximum; `fab/README.md` adds a diode-test polarity check before JP1/JP2 are bridged.
 
 ## 8. Fix verification (both boards, final run 2026-10-17)
 

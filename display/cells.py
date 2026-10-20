@@ -61,11 +61,16 @@ CELLS = {
         }),
     "FRONT": dict(
         anchor="U1",
-        order=["Q1", "Q2", "R1", "R2", "C3", "C4", "C2", "R3", "R4", "R5", "R6",
+        order=["Q1", "Q2", "R1", "C3", "R2", "C4", "C2", "R3", "R4", "R5", "R6",
                "R7", "R8", "R15", "D1", "C1"],
         pulls={
-            "R2": {"CS_PLUS": pull("U1", [20], 4)},
-            "C3": {"CAP_CP": pull("U1", [23], 4)},
+            # 2026-10-20: R2's VBAT_F end to R1's input pad (the Kelvin point
+            # RSET wants anyway). With only the CS_PLUS pull R2 sat on R1's
+            # output side, and the router threaded SENSE_OUT (2.6 A) between
+            # its two pads at 0.3 mm.
+            "R2": {"CS_PLUS": pull("U1", [20], 4), "VBAT_F": pull("R1", [1], 6)},
+            # C3 between CAP (pin 23) and VS (pin 22), not on the R1 -> Q2 line either
+            "C3": {"CAP_CP": pull("U1", [23], 4), "VBAT_F": pull("U1", [22], 4)},
             "C4": {"TMR": pull("U1", [9], 4)},
             "C2": {"VBAT_F": pull("U1", [6, 7, 22], 3)},
             "R3": {"ILIM": pull("U1", [11], 3)},

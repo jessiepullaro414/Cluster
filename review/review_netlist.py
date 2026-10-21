@@ -39,8 +39,12 @@ ROOT = os.path.abspath(os.path.join(HERE, ".."))
 DEFAULT_FILES = {
     "gauges": (os.path.join(ROOT, "gauges", "ClusterGauges.kicad_sch"),
                os.path.join(ROOT, "gauges", "ClusterGauges.kicad_pcb")),
-    "display": (os.path.join(ROOT, "display", "ClusterDisplay.kicad_sch"),
-                os.path.join(ROOT, "display", "ClusterDisplay.kicad_pcb")),
+    "display": (os.path.join(ROOT, "archive", "display-1966", "ClusterDisplay.kicad_sch"),
+                os.path.join(ROOT, "archive", "display-1966", "ClusterDisplay.kicad_pcb")),
+    "brain": (os.path.join(ROOT, "brain", "ClusterBrain.kicad_sch"),
+              os.path.join(ROOT, "brain", "ClusterBrain.kicad_pcb")),
+    "panel-tsd": (os.path.join(ROOT, "panel-tsd", "ClusterPanelTSD.kicad_sch"),
+                  os.path.join(ROOT, "panel-tsd", "ClusterPanelTSD.kicad_pcb")),
 }
 
 results = []        # (level, ref, what, detail)
@@ -288,10 +292,45 @@ def derived_display(nl):
     add("INFO", "U3", f"+1V8 rail {vout:.3f} V (VFB 0.8 V nominal)", "TLV767 SBVS381A; panel IOVCC 1.75-1.85 V")
 
 
+
+def derived_brain(nl):
+    """The brain board keeps display/'s power tree (same designators) without
+    the panel converters; its screen ports' switches use the USB-C switch's
+    verified 61.9 k limit resistor."""
+    v = lambda r: val(nl, r)
+    rt, rb = v("R10"), v("R11")
+    lo = 0.985 * (1 + rt * 0.99 / (rb * 1.01))
+    hi = 1.015 * (1 + rt * 1.01 / (rb * 0.99))
+    add("PASS" if 4.75 <= lo and hi <= 5.35 else "FAIL", "U2", f"+5V output {lo:.3f} .. {hi:.3f} V",
+        "LM61460 VREF 1 V; Verdin VCC 3.135-5.5 V")
+    rt, rb = v("R5"), v("R6")
+    clamp_lo, ov_hi = 0.57 * (1 + rt * 0.99 / (rb * 1.01)), 0.63 * (1 + rt * 1.01 / (rb * 0.99))
+    add("PASS" if clamp_lo >= 27.0 and ov_hi <= 33.0 else "FAIL", "U1", f"OV clamp from {clamp_lo:.1f} V, cut-off up to {ov_hi:.1f} V",
+        "LM61460-Q1 absolute maximum VIN 42 V (36 V operating)")
+    ilim = 12 * v("R2") / (v("R3") * v("R1"))
+    add("INFO", "U1", f"circuit-breaker current {ilim:.2f} A, short-circuit {0.020 / v('R1'):.1f} A", "SNOSDF6 eq. 15, 18")
+    vout = 0.8 * (1 + v("R17") / v("R18"))
+    add("INFO", "U3", f"+1V8 rail {vout:.3f} V (VFB 0.8 V nominal)", "TLV767 SBVS381A; Verdin I/O 1.8 V")
+    for u, r in (("U6", "R37"), ("U7", "R77"), ("U11", "R69")):
+        add("PASS" if abs(v(r) - 61.9e3) < 1 else "FAIL", u, f"TPS2557-Q1 RILIM {fmt(v(r))} ohm",
+            "61.9 k = 1.61 / 1.81 / 1.98 A (SLVSC97B IOS table)")
+
+
+def derived_panel_tsd(nl):
+    """display/'s panel bias and backlight checks, on the panel board."""
+    v = lambda r: val(nl, r)
+    vpos = 1.213 * (1 + v("R38") / v("R39"))
+    vneg = -1.213 * v("R40") / v("R41")
+    add("PASS" if 4.5 <= vpos <= 6.5 and -6.5 <= vneg <= -4.5 else "FAIL", "U6",
+        f"panel bias rails {vpos:.2f} V / {vneg:.2f} V", "TPS65131 eq. 1-2; ICNL9707 VSP 4.5-6.5 V, VSN -6.5 to -4.5 V")
+    i_bl = 0.2 / v("R42")
+    add("INFO", "U7", f"backlight current {i_bl * 1e3:.0f} mA (VFB 0.2 V / R42)", "panel wants 180 mA")
+    add("INFO", "R1", f"panel ID {fmt(v('R1'))} ohm", "TSD TST040HDBC-42 code in tools/screen_ports.py")
+
 # ---------------------------------------------------------------------------
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("board", choices=("gauges", "display"))
+    ap.add_argument("board", choices=("gauges", "brain", "panel-tsd", "display"))
     ap.add_argument("--sch")
     ap.add_argument("--pcb")
     ap.add_argument("--json")
@@ -308,7 +347,8 @@ def main():
     for ref, spec in expected.BOARDS[a.board].items():
         ck.check_ic(ref, spec)
     ck.check_hygiene()
-    (derived_gauges if a.board == "gauges" else derived_display)(nl)
+    {"gauges": derived_gauges, "display": derived_display, "brain": derived_brain,
+     "panel-tsd": derived_panel_tsd}[a.board](nl)
 
     order = {"FAIL": 0, "WARN": 1, "PASS": 2, "INFO": 3}
     results.sort(key=lambda r: (order[r[0]], r[1]))

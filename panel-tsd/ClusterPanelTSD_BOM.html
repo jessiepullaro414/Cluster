@@ -1,0 +1,195 @@
+<title>Display Carrier Bill of Materials</title>
+<style>
+  :root{
+    --paper:#fbfaf8; --panel:#ffffff; --ink:#1a1d21; --muted:#6b6f76;
+    --rule:#e4e1dc; --rule-soft:#efedea;
+    --accent:#1d4e89; --brass:#8a6a24;
+    --ok:#2f6b45; --ok-bg:#e9f2ec;
+    --warn:#8a5a00; --warn-bg:#f8efdd;
+    --none:#6b6f76; --none-bg:#eeecea;
+    --shadow:0 1px 2px rgba(26,29,33,.05);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#14161a; --panel:#1b1e23; --ink:#e9e7e3; --muted:#9aa0a8;
+      --rule:#2c3037; --rule-soft:#23272d;
+      --accent:#7fb0ec; --brass:#d3ab5c;
+      --ok:#77d7a2; --ok-bg:#16301f;
+      --warn:#efbe73; --warn-bg:#33260f;
+      --none:#9aa0a8; --none-bg:#24282e;
+      --shadow:none;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#14161a; --panel:#1b1e23; --ink:#e9e7e3; --muted:#9aa0a8;
+    --rule:#2c3037; --rule-soft:#23272d;
+    --accent:#7fb0ec; --brass:#d3ab5c;
+    --ok:#77d7a2; --ok-bg:#16301f;
+    --warn:#efbe73; --warn-bg:#33260f;
+    --none:#9aa0a8; --none-bg:#24282e;
+    --shadow:none;
+  }
+
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font:16px/1.65 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:1120px; margin:0 auto; padding:52px 22px 80px;
+        display:flex; flex-direction:column; gap:30px}
+
+  .eyebrow{margin:0; font-size:11.5px; font-weight:700; letter-spacing:.18em;
+           text-transform:uppercase; color:var(--brass)}
+  h1{font-family:"Iowan Old Style","Palatino Linotype",Palatino,Georgia,"Times New Roman",serif;
+     font-weight:600; font-size:clamp(32px,5vw,50px); line-height:1.08;
+     letter-spacing:-.015em; margin:10px 0 0; text-wrap:balance}
+  .standfirst{margin:14px 0 0; color:var(--muted); max-width:64ch; font-size:17px}
+  .rule{height:1px; background:var(--rule); border:0; margin:0}
+
+  .figures{display:flex; flex-wrap:wrap; border:1px solid var(--rule);
+           border-radius:4px; background:var(--panel); box-shadow:var(--shadow); overflow:hidden}
+  .fig{flex:1 1 150px; padding:16px 20px; border-right:1px solid var(--rule-soft)}
+  .fig:last-child{border-right:0}
+  .fig b{display:block; font-size:26px; line-height:1.15; letter-spacing:-.02em;
+         font-variant-numeric:tabular-nums;
+         font-family:"Iowan Old Style",Palatino,Georgia,serif; font-weight:600}
+  .fig span{display:block; margin-top:3px; font-size:11.5px; letter-spacing:.08em;
+            text-transform:uppercase; color:var(--muted)}
+
+  .note{border-left:2px solid var(--accent); padding:2px 0 2px 20px;
+        display:flex; flex-direction:column; gap:10px}
+  .note h2{font-family:"Iowan Old Style",Palatino,Georgia,serif;
+           font-size:19px; font-weight:600; margin:0; letter-spacing:-.01em}
+  .note p{margin:0; font-size:15px; color:var(--muted); max-width:70ch}
+  .note strong{color:var(--ink); font-weight:600}
+
+  .tablewrap{border:1px solid var(--rule); border-radius:4px; background:var(--panel);
+             box-shadow:var(--shadow); overflow-x:auto}
+  table{border-collapse:collapse; width:100%; min-width:920px; font-size:14px}
+  thead th{position:sticky; top:0; z-index:1; background:var(--panel);
+           text-align:left; font-size:10.5px; font-weight:700; letter-spacing:.12em;
+           text-transform:uppercase; color:var(--muted);
+           padding:15px 16px 11px; border-bottom:1px solid var(--rule); white-space:nowrap}
+  tbody td{padding:11px 16px; border-bottom:1px solid var(--rule-soft); vertical-align:top}
+  tbody tr:last-child td{border-bottom:0}
+  tr.cat td{background:var(--paper); color:var(--brass);
+            font-size:10.5px; font-weight:700; letter-spacing:.16em; text-transform:uppercase;
+            padding:11px 16px; border-bottom:1px solid var(--rule); border-top:1px solid var(--rule)}
+  .mpn,.pkg,.refs{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace}
+  .mpn{font-size:13px; font-weight:600; white-space:nowrap}
+  .desc{color:var(--muted); min-width:260px}
+  .pkg{font-size:12px; color:var(--muted); white-space:nowrap}
+  .qty{text-align:right; font-variant-numeric:tabular-nums; font-weight:700; white-space:nowrap}
+  .refs{font-size:12px; color:var(--muted)}
+  .q-yes,.q-tbd,.q-na{display:inline-block; padding:2px 9px; border-radius:3px;
+                      font-size:11px; font-weight:700; letter-spacing:.03em; white-space:nowrap}
+  .q-yes{color:var(--ok); background:var(--ok-bg)}
+  .q-tbd{color:var(--warn); background:var(--warn-bg)}
+  .q-na{color:var(--none); background:var(--none-bg)}
+
+  footer{color:var(--muted); font-size:14px; max-width:72ch}
+  footer p{margin:0}
+  footer code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+              font-size:13px; color:var(--ink)}
+  a{color:var(--accent)}
+  a:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){*{animation:none !important; transition:none !important}}
+  @media (max-width:640px){
+    .wrap{padding:32px 15px 60px; gap:24px}
+    .fig{flex-basis:50%; border-bottom:1px solid var(--rule-soft)}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Jessie&rsquo;s Cars &middot; Cluster / TSD panel board</p>
+    <h1>TSD Panel Board Bill of Materials</h1>
+    <p class="standfirst">Every part on the panel board for the TSD TST040HDBC-42
+    4in 800-nit round MIPI-DSI panel: its &plusmn;6V bias supply and 15V
+    backlight boost, the panel connector, and the port input from the brain
+    board.</p>
+  </header>
+
+  <div class="figures">
+    <div class="fig"><b>27</b><span>Line items</span></div>
+    <div class="fig"><b>37</b><span>Placements</span></div>
+    <div class="fig"><b>6</b><span>Copper layers</span></div>
+    <div class="fig"><b>75.4 &times; 52.3</b><span>Board, mm</span></div>
+  </div>
+
+  <div class="note">
+    <h2>How to read this list</h2>
+    <p><strong>No line is left as a placeholder part.</strong> J2/J3 are the real
+    harness connectors (power with a sealed DTM06-3S pigtail; the private CAN
+    link to gauges/ as a short in-dash KK 254 cable), J8/J9 are bench-only
+    headers; the harness is decided in docs/harness.md. Still unknown: the
+    car-side tap and the final routing. Everything else that started as an open item (the front-end
+    FET pair, the input TVS, the fuse's exact rating, and the Verdin SoM's
+    exact SKU) was resolved to a real, cited part on 2026-09-28. Also open, and
+    flagged in the J4 and panel lines: the panel datasheet's table and drawing
+    disagree on which FPC pins carry +6.5V vs -6.5V (JP1/JP2 are left open until
+    resolved), and its FPC connector is inferred, not named.</p>
+    <p><strong>Active parts with a real MPN</strong> carry provenance straight
+    from <code>build_schematic.py</code>'s own comments, each one traced to a
+    real datasheet during the design pass that introduced it.</p>
+    <p><strong>Passives are specified parametrically</strong> &mdash; value, package
+    and the AEC-Q200 requirement &mdash; rather than pinned to one vendor.</p>
+    <p><strong>Pricing and stock are not included.</strong></p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th scope="col">Part number</th><th scope="col">Manufacturer</th>
+          <th scope="col">Description</th><th scope="col">Package</th>
+          <th scope="col">Qty</th><th scope="col">Designators</th>
+          <th scope="col">Qualification</th>
+        </tr>
+      </thead>
+      <tbody>
+<tr class="cat"><td colspan="7">Semiconductors</td></tr>
+<tr><td class="mpn">PMEG6010ELRX</td><td>Nexperia</td><td class="desc">Boost rectifier Schottky, 60V/1A, SOD-123W</td><td class="pkg">Nexperia_CFP3_SOD-123W</td><td class="qty">3</td><td class="refs">D2-D4</td><td><span class="q-yes">AEC-Q101</span></td></tr>
+<tr><td class="mpn">(no part - PCB footprint only)</td><td>-</td><td class="desc">3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel&#x27;s +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py</td><td class="pkg">SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm</td><td class="qty">2</td><td class="refs">JP1, JP2</td><td><span class="q-yes">n/a</span></td></tr>
+<tr><td class="mpn">XAL4030-472MEC</td><td>Coilcraft</td><td class="desc">4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)</td><td class="pkg">L_Coilcraft_XAL4030-XXX</td><td class="qty">2</td><td class="refs">L2, L3</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">TPS61165TDBVRQ1</td><td>TI</td><td class="desc">Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 DBV (datasheet SLVSB73B); TI lists the family Active. Orderable suffix taken from a TI E2E thread and a datasheet listing - confirm on TI&#x27;s store</td><td class="pkg">SOT-23-6</td><td class="qty">1</td><td class="refs">U7</td><td><span class="q-yes">AEC-Q100</span></td></tr>
+<tr><td class="mpn">TPS65131TRGERQ1</td><td>TI</td><td class="desc">Automotive dual-output boost + inverting LCD bias supply, panel +6.5V/-6.5V analog rails from +5V, VQFN-24 RGE with wettable flanks (datasheet SLVSBB2F); TI lists it Active</td><td class="pkg">HVQFN-24-1EP_4x4mm_P0.5mm_EP2.5x2.5mm</td><td class="qty">1</td><td class="refs">U6</td><td><span class="q-yes">AEC-Q100 Grade 2</span></td></tr>
+<tr><td class="mpn">XAL4040-103MEC</td><td>Coilcraft</td><td class="desc">10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)</td><td class="pkg">L_Coilcraft_XAL4040-XXX</td><td class="qty">1</td><td class="refs">L4</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr class="cat"><td colspan="7">Connectors</td></tr>
+<tr><td class="mpn">FH12-40S-0.5SH(55)</td><td>Hirose</td><td class="desc">Port input from the brain board&#x27;s screen port A (MIPI DSI): 40-position 0.5 mm-pitch FFC connector, the same part as the brain board&#x27;s J4, pin order in tools/screen_ports.py. PATTERN: confirm the (55) reel suffix and the 0.5 A per-contact rating in the cart</td><td class="pkg">Hirose_FH12-40S-0.5SH_1x40-1MP_P0.50mm_Horizontal</td><td class="qty">1</td><td class="refs">J1</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">FH26-39S-0.3SHW(99)</td><td>Hirose</td><td class="desc">39-position 0.3mm-pitch FPC connector for the TST040HDBC-42&#x27;s 39-pin FPC. The panel datasheet does NOT name a connector: 0.3mm pitch is inferred from the FPC&#x27;s 12mm width across 39 pins, and FH26 is bottom-contact - specify the FPC&#x27;s exposed-pad side when ordering from TSD. Hirose lists the (05) variant obsolete and FH26W-39S-0.3SHW(60) as current: confirm its land pattern against the bundled FH26 footprint before ordering</td><td class="pkg">Hirose_FH26-39S-0.3SHW_2Rows-39Pins-1MP_P0.60mm_Horizontal</td><td class="qty">1</td><td class="refs">J4</td><td><span class="q-na">-</span></td></tr>
+<tr class="cat"><td colspan="7">Companion parts (ordered separately)</td></tr>
+<tr><td class="mpn">FFC, 40-way 0.5 mm pitch, about 100-150 mm long (PATTERN: e.g. Molex 15015 series)</td><td>Molex / Wurth (TBD)</td><td class="desc">The ribbon to the brain board&#x27;s screen port A (it is listed on the brain board&#x27;s BOM too: buy one per screen). Choose the contact orientation that joins contact n to contact n</td><td class="pkg">FFC cable</td><td class="qty">1</td><td class="refs">J1 to the brain board&#x27;s J4</td><td><span class="q-na">-</span></td></tr>
+<tr><td class="mpn">Team Source Display TST040HDBC-42</td><td>Team Source Display (TSD)</td><td class="desc">4.0in 720x720 round IPS, native MIPI-DSI (3 lanes), ICNL9707 driver built into the module, 800 cd/m2, -30..+80C, 101.52mm active circle - datasheet V1.0 (2023-06-29) read in full; connects via J4 above, not its own BOM line. Datasheet table and drawing DISAGREE on which FPC pins carry +6.5V vs -6.5V - resolve with TSD before bridging JP1/JP2. Order the FPC with the exposed-pad side matching J4&#x27;s bottom-contact. ORDER FROM TSD (not a stocked distributor part): request the FPC with contact fingers matching J4 (Hirose FH26 is bottom-contact) and ask the questions in docs/rfq-drafts.md first</td><td class="pkg">FPC module</td><td class="qty">1</td><td class="refs">plugs into J4</td><td><span class="q-na">-</span></td></tr>
+<tr class="cat"><td colspan="7">Passives</td></tr>
+<tr><td class="mpn">AC0603FR-07100KL</td><td>Yageo</td><td class="desc">Resistor 100k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">3</td><td class="refs">R41, R43, R50</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71H104KA57D</td><td>Murata</td><td class="desc">Capacitor, 100 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">3</td><td class="refs">C2, C3, C42</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71H224KA64D</td><td>Murata</td><td class="desc">Capacitor, 220 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">2</td><td class="refs">C43, C51</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM21BR71A106KE22L</td><td>Murata</td><td class="desc">Capacitor, 10 uF X7R 10 V, AEC-Q200</td><td class="pkg">C_0805_2012Metric</td><td class="qty">2</td><td class="refs">C1, C50</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM21BR71C475KA73L</td><td>Murata</td><td class="desc">Capacitor, 4.7 uF X7R 16 V, AEC-Q200</td><td class="pkg">C_0805_2012Metric</td><td class="qty">2</td><td class="refs">C40, C41</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM32ER71C226ME19L</td><td>Murata</td><td class="desc">Capacitor, 22 uF X7R 16 V, AEC-Q200</td><td class="pkg">C_1210_3225Metric</td><td class="qty">2</td><td class="refs">C46, C47</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07100RL</td><td>Yageo</td><td class="desc">Resistor 100R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R37</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07130KL</td><td>Yageo</td><td class="desc">Resistor 130k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R39</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-071R1L</td><td>Yageo</td><td class="desc">Resistor 1R1 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R42</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-072KL</td><td>Yageo</td><td class="desc">Resistor 2k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R1</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07499KL</td><td>Yageo</td><td class="desc">Resistor 499k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R40</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">AC0603FR-07511KL</td><td>Yageo</td><td class="desc">Resistor 511k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">R_0603_1608Metric</td><td class="qty">1</td><td class="refs">R38</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCJ31CC71H475KA01L</td><td>Murata</td><td class="desc">Capacitor, 4.7 uF X7R 50 V, AEC-Q200</td><td class="pkg">C_1206_3216Metric</td><td class="qty">1</td><td class="refs">C52</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM1885C1H120JA16D</td><td>Murata</td><td class="desc">Capacitor, 12 pF C0G 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C48</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM1885C1H150JA16D</td><td>Murata</td><td class="desc">Capacitor, 15 pF C0G 50 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C49</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71H103KA37D</td><td>Murata</td><td class="desc">Capacitor, 10 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C44</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+<tr><td class="mpn">GCM188R71H472KA37D</td><td>Murata</td><td class="desc">Capacitor, 4.7 nF X7R 50 V, AEC-Q200</td><td class="pkg">C_0603_1608Metric</td><td class="qty">1</td><td class="refs">C45</td><td><span class="q-yes">AEC-Q200</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <hr class="rule">
+
+  <footer>
+    <p>Generated directly from the project schematic by <code>build_bom.py</code>, so
+    quantities and designators cannot drift from the board. What remains before
+    ordering: confirm the harness wire gauge, resolve the panel's +/-6.5V pin
+    polarity with TSD, and run a purchasing pass for live pricing and availability.</p>
+  </footer>
+</div>

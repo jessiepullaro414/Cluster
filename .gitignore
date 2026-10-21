@@ -24,3 +24,5 @@ Thumbs.db
 # fab outputs that are regenerated: keep the zips, BOMs and CPLs, not the loose gerbers/DRC dumps
 fab/*/gerbers/
 fab/*/drc.json
+archive/*/fab/gerbers/
+archive/*/fab/drc.json

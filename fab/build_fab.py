@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
-build_fab.py - generate the manufacturing package for display/ and gauges/.
+build_fab.py - generate the manufacturing package for brain/, panel-tsd/ and gauges/.
+
+(2026-10-20: display/ was replaced by the generic brain board plus a panel board
+per screen; display/ and display-rgb/ are in archive/.)
 
 For each board it writes fab/<board>/:
   gerbers/        Gerber (X2, Protel extensions) + Excellon drill, PTH and NPTH
@@ -11,7 +14,7 @@ For each board it writes fab/<board>/:
   report.txt      DRC status, size, hole/via/track statistics
 
 Nothing is hand-edited. It refuses to package a board with unconnected nets.
-Run:  python fab/build_fab.py [display] [gauges]
+Run:  python fab/build_fab.py [brain] [panel-tsd] [gauges]
 """
 import csv
 import importlib.util
@@ -27,7 +30,8 @@ KICAD_CLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
 LAYERS = ("F.Cu,In1.Cu,In2.Cu,In3.Cu,In4.Cu,B.Cu,F.Paste,B.Paste,F.Silkscreen,B.Silkscreen,"
           "F.Mask,B.Mask,Edge.Cuts")
 BOARDS = {
-    "display": ("ClusterDisplay.kicad_pcb", "ClusterDisplay.kicad_sch"),
+    "brain": ("ClusterBrain.kicad_pcb", "ClusterBrain.kicad_sch"),
+    "panel-tsd": ("ClusterPanelTSD.kicad_pcb", "ClusterPanelTSD.kicad_sch"),
     "gauges": ("ClusterGauges.kicad_pcb", "ClusterGauges.kicad_sch"),
 }
 # DRC categories that are documented and accepted on these boards.

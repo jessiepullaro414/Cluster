@@ -1,0 +1,4 @@
+panel-tsd fab package
+  DRC: unconnected 0, accepted findings {'solder_mask_bridge(JP1/JP2 open jumpers, intended)': 14, 'lib_footprint_mismatch': 2}
+  parts 37, BOM lines 27, lines needing part selection 0
+  gerbers: ['ClusterPanelTSD-B_Cu.gbl', 'ClusterPanelTSD-B_Mask.gbs', 'ClusterPanelTSD-B_Paste.gbp', 'ClusterPanelTSD-B_Silkscreen.gbo', 'ClusterPanelTSD-Edge_Cuts.gm1', 'ClusterPanelTSD-F_Cu.gtl', 'ClusterPanelTSD-F_Mask.gts', 'ClusterPanelTSD-F_Paste.gtp', 'ClusterPanelTSD-F_Silkscreen.gto', 'ClusterPanelTSD-In1_Cu.g1', 'ClusterPanelTSD-In2_Cu.g2', 'ClusterPanelTSD-In3_Cu.g3', 'ClusterPanelTSD-In4_Cu.g4', 'ClusterPanelTSD-NPTH-drl_map.gbr', 'ClusterPanelTSD-NPTH.drl', 'ClusterPanelTSD-PTH-drl_map.gbr', 'ClusterPanelTSD-PTH.drl', 'ClusterPanelTSD-job.gbrjob']

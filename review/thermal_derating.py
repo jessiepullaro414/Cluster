@@ -219,7 +219,7 @@ def tracks_gauges(lay):
 # display/
 # ---------------------------------------------------------------------------
 def display(sch=None, pcb=None):
-    print("\n################ display/ (git HEAD copy unless --display-sch is given) ################")
+    print("\n################ brain/ with the TSD panel board on port A (its converters are on panel-tsd/) ################")
     a = ASSUME
     # loads: panel backlight 15 V / 180 mA (TST040HDBC-42 datasheet as quoted in build_schematic.py)
     p_bl_out = 15.2 * 0.182
@@ -290,8 +290,8 @@ def main():
         tracks_gauges(lay)
     if a.which in ("display", "all"):
         display()
-        sch = a.display_sch or os.path.join(ROOT, "display", "ClusterDisplay.kicad_sch")
-        pcb = a.display_pcb or os.path.join(ROOT, "display", "ClusterDisplay.kicad_pcb")
+        sch = a.display_sch or os.path.join(ROOT, "brain", "ClusterBrain.kicad_sch")
+        pcb = a.display_pcb or os.path.join(ROOT, "brain", "ClusterBrain.kicad_pcb")
         run_display_tables(sch, pcb)
 
 

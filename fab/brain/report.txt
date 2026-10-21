@@ -1,0 +1,4 @@
+brain fab package
+  DRC: unconnected 0, accepted findings {'hole_clearance': 4, 'lib_footprint_mismatch': 22, 'silk_overlap': 1, 'silk_over_copper': 5}
+  parts 164, BOM lines 71, lines needing part selection 3
+  gerbers: ['ClusterBrain-B_Cu.gbl', 'ClusterBrain-B_Mask.gbs', 'ClusterBrain-B_Paste.gbp', 'ClusterBrain-B_Silkscreen.gbo', 'ClusterBrain-Edge_Cuts.gm1', 'ClusterBrain-F_Cu.gtl', 'ClusterBrain-F_Mask.gts', 'ClusterBrain-F_Paste.gtp', 'ClusterBrain-F_Silkscreen.gto', 'ClusterBrain-In1_Cu.g1', 'ClusterBrain-In2_Cu.g2', 'ClusterBrain-In3_Cu.g3', 'ClusterBrain-In4_Cu.g4', 'ClusterBrain-NPTH-drl_map.gbr', 'ClusterBrain-NPTH.drl', 'ClusterBrain-PTH-drl_map.gbr', 'ClusterBrain-PTH.drl', 'ClusterBrain-job.gbrjob']

@@ -282,6 +282,18 @@ Owner decision: both boards (and display-rgb/) go to six layers, JLC06161H-3313:
 * `review_netlist.py`: gauges 0 FAIL / 0 WARN; display unchanged from the committed board (1 FAIL, 6 WARN, all decoupling distances listed in section 8).
 * Panel bias set to +5.98 V / -6.05 V (R38 511k, R40 499k), inside the ICNL9707's 4.5 to 6.5 V operating range with margin to its 6.6 V absolute maximum; `fab/README.md` adds a diode-test polarity check before JP1/JP2 are bridged.
 
+## 8c. Brain board and panel boards, 2026-10-20
+
+Owner decision: one centre-screen board for every car, two screen ports (MIPI DSI and LVDS), display/ and display-rgb/ replaced (`archive/`). display/ was split: `brain/` keeps everything that does not depend on the car or the panel (same designators), `panel-tsd/` carries the TSD panel's own circuits (J4, U6 TPS65131-Q1, U7 TPS61165-Q1, JP1/JP2, unchanged) plus the port input. Port pinouts: `tools/screen_ports.py` and `docs/screen-ports.md`. Measured on the regenerated boards:
+
+* **ERC 0** on brain/ and panel-tsd/. **Real DRC 0 unconnected on both**; brain/ errors only `hole_clearance` x4 (J17 pegs, accepted), panel-tsd/ only `solder_mask_bridge` at JP1/JP2 (accepted). Both fab packages pass `fab/build_fab.py`'s gate. No track of any net on In1 or In4 on either board.
+* **Brain fans** (`brain/fan_route.py`): every DSI and LVDS pair straight on F.Cu over In1, 0.16 mm, equal legs (DSI 5.35 mm, LVDS 35.16 mm), GND guards where the socket has a ground pin between pairs, GND stub vias behind the connector pads. Lessons on the way: a rectangular router fence as wide as the J1 end blocked the control contacts beside each fan (12 then 3 unrouted), and stub vias added after routing hit In3 tracks under the connector (1 short, 1 clearance). The fence is now a polygon that follows the fan with 0.15 mm margins, and the stub-via strip is fenced on every layer; `route_board.py` now counts shorts and clearance errors as a failed attempt.
+* **Port 5 V**: each port's switched 5 V (TPS2557-Q1, 61.9 k, 1.61 / 1.81 / 1.98 A) routes like the battery path (outer layers, 0.3 mm, F.Cu pour). PORTA_5V 4 K at 1.98 A; PORTB_5V passes except a 0.7 mm neck at 0.45 mm (24 K). At 0.2 mm the first route rated both at 92 K.
+* **Panel board DSI**: autorouted on F.Cu / B.Cu at 0.16 mm (the port's N-then-P order against the FPC's P-then-N order makes a crossing unavoidable on one side); skew inside a pair 1.9 to 5.5 mm, under 40 ps.
+* `review_netlist.py brain`: 0 FAIL, 5 WARN (display/'s decoupling distances on U1, U2, U9; the U6 INN FAIL left with the panel). `review_netlist.py panel-tsd`: 0 FAIL, 2 WARN: C41 (U6 INN) and C50 (U7 VIN) now 3.4 and 3.3 mm from their pins against the 3.0 mm target, from 8.8 and 3.6 mm on display/ (the panel board has room, so the input caps lead their cells).
+* Battery path on brain/ as display/ after D-02: VBAT_IN, VBAT_F, SENSE_OUT pass; short necks at the FET source pins (COMMON 2.1 mm down to 0.34 mm) and the buck's VIN pins (+12V_PROT 1.0 mm down to 0.56 mm).
+* Open: whether the Verdin iMX95 runs DSI and LVDS as two independent screens (RFQ section 2 question 9); the FH12's per-contact rating and contact side (cable orientation).
+
 ## 8. Fix verification (both boards, final run 2026-10-17)
 
 Full pipeline per board: `build_schematic.py`, `build_pcb.py`, `route_board.py` (FreeRouting, then its own real-DRC check), `run_drc.py`,

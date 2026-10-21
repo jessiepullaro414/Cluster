@@ -20,7 +20,8 @@ from kmodel import Netlist, value_of  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 SCH = {"gauges": os.path.join(ROOT, "gauges", "ClusterGauges.kicad_sch"),
-       "display": os.path.join(ROOT, "display", "ClusterDisplay.kicad_sch")}
+       "display": os.path.join(ROOT, "archive", "display-1966", "ClusterDisplay.kicad_sch"),
+       "brain": os.path.join(ROOT, "brain", "ClusterBrain.kicad_sch")}
 # connectors that leave the board on a harness (bench headers are listed but marked)
 OFFBOARD = {
     "gauges": {"J1": "12 V / GND / ignition (DTM06-3S pigtail)", "J7": "car CAN + 3 senders (DTM06-6S pigtail)", "J8": "private CAN link to display/",
@@ -54,7 +55,7 @@ def chain(nl, net, depth=0, seen=None):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("board", choices=("gauges", "display"))
+    ap.add_argument("board", choices=("gauges", "brain", "display"))
     ap.add_argument("--sch")
     a = ap.parse_args()
     nl = Netlist(a.sch or SCH[a.board])

@@ -36,8 +36,8 @@ CFG = {
         slow_guard=1.5,
     ),
     "display": dict(
-        pcb=os.path.join(ROOT, "display", "ClusterDisplay.kicad_pcb"),
-        sch=os.path.join(ROOT, "display", "ClusterDisplay.kicad_sch"),
+        pcb=os.path.join(ROOT, "archive", "display-1966", "ClusterDisplay.kicad_pcb"),
+        sch=os.path.join(ROOT, "archive", "display-1966", "ClusterDisplay.kicad_sch"),
         switch=["SW_5V", "BOOT_C", "BOOT_R", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW"],
         own={"SW_5V", "BOOT_C", "BOOT_R", "+5V", "GND", "+12V_PROT", "VCC_LDO", "FB_5V", "PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW",
              "PANEL_VSP", "PANEL_VSN", "PANEL_BL_LEDA", "PANEL_BL_LEDK", "PANEL_FBP", "PANEL_FBN", "PANEL_VREF", "PANEL_CP", "PANEL_CN",
@@ -48,8 +48,29 @@ CFG = {
 }
 # the RGB variant is display/ plus the LVDS-to-RGB bridge: same converters, same checks
 CFG["display-rgb"] = dict(CFG["display"],
-                          pcb=os.path.join(ROOT, "display-rgb", "ClusterDisplayRGB.kicad_pcb"),
-                          sch=os.path.join(ROOT, "display-rgb", "ClusterDisplayRGB.kicad_sch"))
+                          pcb=os.path.join(ROOT, "archive", "display-rgb", "ClusterDisplayRGB.kicad_pcb"),
+                          sch=os.path.join(ROOT, "archive", "display-rgb", "ClusterDisplayRGB.kicad_sch"))
+# the brain board (2026-10-20): display/ without the panel converters, plus two
+# screen ports whose 5 V switches allow up to 1.98 A each
+CFG["brain"] = dict(CFG["display"],
+                    pcb=os.path.join(ROOT, "brain", "ClusterBrain.kicad_pcb"),
+                    sch=os.path.join(ROOT, "brain", "ClusterBrain.kicad_sch"),
+                    switch=["SW_5V", "BOOT_C", "BOOT_R"],
+                    own={"SW_5V", "BOOT_C", "BOOT_R", "+5V", "GND", "+12V_PROT", "VCC_LDO", "FB_5V"},
+                    fast=["DSI_D0_P", "DSI_D0_N", "DSI_CLK_P", "LVDS0_CLK_P", "LVDS0_CLK_N",
+                          "LVDS1_D3_P", "USB2_DP", "USB2_DN", "CAN1_H", "CAN1_L"])
+# the TSD panel board (2026-10-20): display/'s panel bias and backlight converters
+CFG["panel-tsd"] = dict(
+    pcb=os.path.join(ROOT, "panel-tsd", "ClusterPanelTSD.kicad_pcb"),
+    sch=os.path.join(ROOT, "panel-tsd", "ClusterPanelTSD.kicad_sch"),
+    switch=["PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW"],
+    own={"PANEL_BOOST_SW", "PANEL_INV_SW", "BL_SW", "+5V", "GND", "PANEL_VSP", "PANEL_VSN",
+         "PANEL_BL_LEDA", "PANEL_BL_LEDK", "PANEL_FBP", "PANEL_FBN", "PANEL_VREF", "PANEL_CP",
+         "PANEL_CN", "PANEL_BIAS_VIN", "BL_COMP"},
+    fast=["DSI_D0_P", "DSI_D0_N", "DSI_D1_P", "DSI_D1_N", "DSI_D2_P", "DSI_D2_N",
+          "DSI_CLK_P", "DSI_CLK_N"],
+    slow_guard=1.5,
+)
 PLANE_LAYERS = ("In1.Cu", "In4.Cu")
 
 
@@ -76,6 +97,10 @@ NEEDS = {
                 "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15},
 }
 NEEDS["display-rgb"] = NEEDS["display"]   # same supply chain; the RGB receiver adds about 0.1 A on +5V
+NEEDS["brain"] = {k: v for k, v in NEEDS["display"].items() if not k.startswith("PANEL_")}
+NEEDS["brain"].update({"PORTA_5V": 1.98, "PORTB_5V": 1.98})
+# the panel draws about 0.65 A at 5 V for its backlight (2.7 W / 0.88) plus the bias supply
+NEEDS["panel-tsd"] = {"+5V": 1.0, "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15}
 # (2026-10-20) Where the current really flows. A net listed here is rated only along the copper
 # between these pads (the union of the shortest track paths from the first pad to each of the
 # others); its other copper goes to milliamp pins and is listed as a branch, not rated at the
@@ -92,6 +117,12 @@ PATHS = {
                 "+12V_PROT": [[("Q1", "5")], [("U2", "8")], [("U2", "12")]]},
 }
 PATHS["display-rgb"] = PATHS["display"]
+# the brain board keeps display/'s front end and buck with the same designators; each screen
+# port's 5 V runs from its switch's OUT pins to the connector's 5 V contacts
+PATHS["brain"] = dict(PATHS["display"],
+                      PORTA_5V=[[("U6", "6"), ("U6", "7")], [("J4", "2"), ("J4", "3"), ("J4", "4"), ("J4", "5")]],
+                      PORTB_5V=[[("U7", "6"), ("U7", "7")], [("J18", "45"), ("J18", "46"), ("J18", "47"),
+                                                             ("J18", "48"), ("J18", "49")]])
 DT_LIMIT = 20.0      # K rise allowed for continuous current
 RHO_CU = 1.72e-5       # ohm mm, copper at 20 C
 CU_OUTER_MM = 0.035    # 1 oz

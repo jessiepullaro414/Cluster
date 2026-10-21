@@ -464,4 +464,14 @@ for _u, _chs in (("U12", ["LINE_L_P", "LINE_L_N", "LINE_R_P", "LINE_R_N"]), ("U1
 DISPLAY["U12"].update(part="TI TPD4E02B04-Q1 4-channel bidirectional ESD, USON-10",
                       ds="TI SLVSDZ2A pin functions (DQA): 1,2,4,5 IO, 3,8 GND, 6,7,9,10 NC; VRWM +-3.6 V bidirectional")
 
-BOARDS = {"gauges": GAUGES, "display": DISPLAY}
+# Brain board (2026-10-20): display/ without the panel converters; U6 and U7 are
+# now the two screen ports' TPS2557-Q1 switches (same datasheet table as U11).
+BRAIN = {k: v for k, v in DISPLAY.items() if k not in ("U6", "U7")}
+for _u, _p in (("U6", "PORTA"), ("U7", "PORTB")):
+    _pins = dict(DISPLAY["U11"]["pins"])
+    _pins.update({6: ("OUT", [("net", _p + "_5V")]), 7: ("OUT", [("net", _p + "_5V")])})
+    BRAIN[_u] = dict(DISPLAY["U11"], part="TI TPS2557-Q1 screen-port 5 V switch, DRB", pins=_pins)
+# TSD panel board: the panel converters moved there with their designators.
+PANEL_TSD = {k: DISPLAY[k] for k in ("U6", "U7")}
+
+BOARDS = {"gauges": GAUGES, "display": DISPLAY, "brain": BRAIN, "panel-tsd": PANEL_TSD}

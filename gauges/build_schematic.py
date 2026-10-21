@@ -459,7 +459,8 @@ register_symbol(f"{LIB}:MOSFET_N", "Q", "PMV37ENEA automotive (AEC-Q101)", "Pack
 # for display/ (see its build_power_tree docstring); only the sense resistor
 # differs because this board draws ~0.3 A, not 2-3 A.
 import importlib.util as _ilu
-_spec = _ilu.spec_from_file_location("display_parts", os.path.join(os.path.dirname(__file__), "..", "display", "parts.py"))
+# (2026-10-20: display/ became the brain board; its parts.py carries the same tables.)
+_spec = _ilu.spec_from_file_location("brain_parts", os.path.join(os.path.dirname(__file__), "..", "brain", "parts.py"))
 _dp = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_dp)
 _pins = _dp.LM74930_Q1

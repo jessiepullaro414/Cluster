@@ -14,9 +14,9 @@ own small panel board.
 | Allshore ASI-T-400R72A3MPN/X | 4 in round, 101.52 mm | 720 x 720, 4-lane MIPI, FL7703 | 350 cd/m2 | see [datasheet](https://www.allshore.com/portals/0/PDFs/ASIT400R72A3MPNX.pdf) | allshore.com (US), cart or quote | Same size as the TSD panel, dim. |
 | Newhaven NHD-2.1-480480AF-ASXP | 2.1 in round | 480 x 480, 1-lane MIPI or RGB, ST7701S | 1000 cd/m2 | -20 to +70 C | Newhaven, Mouser, about $20 | Too small for the centre. |
 
-Not orderable directly: the 4 in 720 x 720 ICNL9707 round panels from Shenzhen factories (Yousee,
-Microtech MTF040HD22A-V1, which claims 1000 nits) look like the same glass as the TSD panel and have
-the same small-quantity problem.
+Not sold off the shelf: the 4 in 720 x 720 round panels from Shenzhen factories (Yousee, Microtech,
+LCD Mall), which look like the same class of glass as the TSD panel. Their trade-platform listings
+do take sample orders, though: see the 4 in section below.
 
 Small gauges: 1.28 in GC9A01 round modules are stocked everywhere (Elecrow, AZ-Delivery,
 DisplayModule DM-TFTR128-446 at 400 cd/m2), but every one found is rated -20 to +70 C operating;

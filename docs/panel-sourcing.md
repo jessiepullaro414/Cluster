@@ -22,11 +22,37 @@ Small gauges: 1.28 in GC9A01 round modules are stocked everywhere (Elecrow, AZ-D
 DisplayModule DM-TFTR128-446 at 400 cd/m2), but every one found is rated -20 to +70 C operating;
 none wider was found (same as review item G-15).
 
-## Suggested order
+## 4 in round options (2026-10-25, after "3.4 is too small")
 
-1. **DisplayModule DMKTT0340F2NA sample** (the car candidate) and ask for its datasheet: FPC pinout,
-   supply voltages, backlight current, init code.
-2. **Waveshare 4-DSI-TOUCH-C** for the bench: works today with almost no adapter, and runs the
-   software on a real round screen while the car panel is chosen.
+The dash opening is 105.5 mm tall, so a 4 in round (101.5 mm active circle) is about the largest
+that fits. No 4 in round at 800 nits is sold off the shelf; the 800-nit ones come from factories
+that sell through trade platforms, where sample orders of 1-5 pieces are normal.
+
+| Panel | Brightness | Temperature | How to buy | Notes |
+|---|---|---|---|---|
+| Waveshare 4-DSI-TOUCH-C | 550 cd/m2 | 0 to +60 C | In stock: waveshare.com, Robotshop | Complete module, 5 V + Pi 22-pin DSI ribbon; brightest 4 in round in stock |
+| Microtech MTF040HD22A-V1 | 800 cd/m2 typ (listing title says 1000) | not stated | Factory, via its [HKTDC listing](https://www.hktdc.com/event/electronicasia/en/product/1Z03L0778) (or Alibaba); production lead time 25-45 days | 720 x 720, MIPI; same class as the TSD panel, likely the same glass |
+| LCD Mall LMT040SV001U | 800 nits (listing) | not stated | Factory, via [Global Sources](https://www.globalsources.com/Dot-matrix/LCD-display-1219087130p.htm); 7-30 days | 720 x 720, MIPI, FL7707 driver; supplier not verified by the platform |
+| Allshore ASI-T-400R72A3MPN/X | 350 cd/m2 | see datasheet | allshore.com (US distributor) | FL7703 driver |
+| FanyiTek 4 in round (Newegg) | 300 nits | not stated | Newegg, about $150 | Needs its own 5 V |
+| Shenzhen Yousee YX40023A | 300 cd/m2 | not stated | Factory | ICNL9707AC-03 driver |
+| Adafruit 5793 (round RGB) | not stated | not stated | adafruit.com, $54.95 | Parallel RGB, would go on port B through an LVDS-to-RGB receiver |
+
+### Sample request for the 800-nit factories (send through the platform's message or RFQ form)
+
+> We are building a small batch of automotive instrument clusters and would like to buy 2 samples
+> of your 4.0 in round 720 x 720 MIPI TFT (MTF040HD22A-V1 / LMT040SV001U), with a production
+> quantity of about 20-50 a year. Please send: the full datasheet (FPC pinout, supply voltages and
+> currents, backlight LED configuration and current), the driver IC's initialisation code, the
+> measured brightness and operating temperature range, the sample price with shipping to the USA,
+> and the lead time. We can pay through the platform.
+
+## Suggested order (revised 2026-10-25: 3.4 in is too small)
+
+1. **Waveshare 4-DSI-TOUCH-C** now: right size, 550 nits, in stock, almost no adapter. Bench first,
+   and a real-car brightness check under the dash hood.
+2. **Samples from Microtech and LCD Mall** (800 nits) through their platforms with the message above,
+   as the car candidates; one of them may be the TSD panel's glass, which `panel-tsd/` already fits
+   if the FPC pinout matches.
 
 Each needs its own panel board (like `panel-tsd/`) and a panel-ID resistor (`tools/screen_ports.py`).

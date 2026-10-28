@@ -1,0 +1,386 @@
+<meta charset="utf-8">
+<title>Cluster Dash Assembly</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a full-height 3D bay on the left, an inspection sheet on the right (stacked under it on phones). */
+:root {
+  --bg: #e8e9ec;          /* bench grey, slightly cool */
+  --panel: #f6f6f8;
+  --ink: #17191d;
+  --ink-2: #4c525c;
+  --rule: #cfd2d8;
+  --accent: #b8860b;      /* dash-lamp amber */
+  --clash: #d0261e;
+  --ok: #2f7d4f;
+  --bay: #dfe1e5;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121418; --panel: #1a1d22; --ink: #e9eaee; --ink-2: #a3a9b4; --rule: #2d3139;
+    --accent: #e0a830; --clash: #ff5a4f; --ok: #5cc58a; --bay: #0e1013; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121418; --panel: #1a1d22; --ink: #e9eaee; --ink-2: #a3a9b4; --rule: #2d3139;
+  --accent: #e0a830; --clash: #ff5a4f; --ok: #5cc58a; --bay: #0e1013; color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 14px; line-height: 1.5; }
+.app { display: grid; grid-template-columns: minmax(0, 1fr) 380px; height: 100%; }
+.bay { position: relative; background: var(--bay); min-height: 0; }
+#c { display: block; width: 100%; height: 100%; touch-action: none; }
+.bay-top { position: absolute; top: 12px; left: max(16px, env(safe-area-inset-left, 0px)); right: 16px; display: flex; flex-wrap: wrap; gap: 6px; pointer-events: none; }
+.bay-top > * { pointer-events: auto; }
+.bay-bottom { position: absolute; bottom: 12px; left: max(16px, env(safe-area-inset-left, 0px)); right: 16px; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
+button.chip, label.chip { font: 500 12px/1 var(--body); color: var(--ink); background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 7px 10px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; user-select: none; }
+button.chip:hover, label.chip:hover { border-color: var(--accent); }
+button.chip:focus-visible, label.chip:focus-within { outline: 2px solid var(--accent); outline-offset: 1px; }
+label.chip input { margin: 0; accent-color: var(--accent); }
+.explode { display: flex; gap: 8px; align-items: center; background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 10px; font-size: 12px; }
+.explode input { width: 140px; accent-color: var(--accent); }
+.status { font: 12px var(--mono); color: var(--ink-2); background: var(--panel); border: 1px solid var(--rule); border-radius: 4px; padding: 6px 10px; }
+.sheet { background: var(--panel); border-left: 1px solid var(--rule); overflow-y: auto; padding-block: 20px 28px; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+h1 { font: 700 30px/1 var(--display); letter-spacing: .01em; text-transform: uppercase; margin: 0; text-wrap: balance; }
+.sub { color: var(--ink-2); margin: 6px 0 0; }
+h2 { font: 600 13px/1 var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); margin: 0 0 10px; }
+.finding { border-top: 1px solid var(--rule); padding: 12px 0 12px 12px; position: relative; cursor: pointer; }
+.finding::before { content: ""; position: absolute; left: 0; top: 14px; bottom: 14px; width: 3px; border-radius: 2px; background: var(--sev); }
+.finding.clash { --sev: var(--clash); }
+.finding.warn { --sev: var(--accent); }
+.finding.ok { --sev: var(--ok); cursor: default; }
+.finding:hover .ft { color: var(--accent); }
+.finding:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ft { font-weight: 600; margin: 0 0 4px; }
+.fd { margin: 0; color: var(--ink-2); }
+.fix { margin: 6px 0 0; font-size: 13px; }
+.fix b { color: var(--ink); font-weight: 600; }
+.tag { font: 500 11px/1 var(--mono); padding: 3px 6px; border-radius: 3px; border: 1px solid var(--sev); color: var(--sev); margin-left: 6px; vertical-align: 2px; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+td, th { text-align: left; padding: 5px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+th { font-weight: 500; color: var(--ink-2); }
+td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding-left: 10px; }
+.note { font-size: 12px; color: var(--ink-2); }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 14px; font-size: 12px; color: var(--ink-2); }
+.legend span { display: inline-flex; gap: 6px; align-items: center; }
+.legend i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.loading { position: absolute; inset: 0; display: grid; place-items: center; font: 500 13px var(--mono); color: var(--ink-2); pointer-events: none; }
+@media (max-width: 820px) {
+  .app { grid-template-columns: 1fr; grid-template-rows: 62vh auto; height: auto; }
+  .sheet { border-left: 0; border-top: 1px solid var(--rule); overflow: visible; }
+  .explode input { width: 100px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="app">
+  <div class="bay">
+    <canvas id="c" aria-label="3D view of the dash assembly"></canvas>
+    <div class="loading" id="loading">Loading the assembly, 12 MB…</div>
+    <div class="bay-top" role="toolbar" aria-label="Views">
+      <button class="chip" data-view="front" id="v-front">Front</button>
+      <button class="chip" data-view="iso" id="v-iso">Three-quarter</button>
+      <button class="chip" data-view="side" id="v-side">Side</button>
+      <button class="chip" data-view="top" id="v-top">Top</button>
+      <button class="chip" data-view="rear" id="v-rear">Rear</button>
+      <button class="chip" data-view="fuel" id="v-fuel">Fuel gauge close-up</button>
+    </div>
+    <div class="bay-bottom">
+      <div class="explode"><label for="ex">Explode</label><input id="ex" type="range" min="0" max="1" step="0.01" value="0"></div>
+      <label class="chip"><input type="checkbox" id="t-housing" checked> Housing</label>
+      <label class="chip"><input type="checkbox" id="t-dash" checked> Dash</label>
+      <label class="chip"><input type="checkbox" id="t-screens" checked> Screens</label>
+      <label class="chip"><input type="checkbox" id="t-cables" checked> Cables</label>
+      <label class="chip"><input type="checkbox" id="t-gauges" checked> gauges/</label>
+      <label class="chip"><input type="checkbox" id="t-panel" checked> panel-tsd/</label>
+      <label class="chip"><input type="checkbox" id="t-brain" checked> brain/</label>
+      <span class="status" id="hover">Drag to turn, scroll to zoom, right-drag to pan</span>
+    </div>
+  </div>
+
+  <aside class="sheet">
+    <header>
+      <h1>Cluster dash, assembly v1</h1>
+      <p class="sub">The three routed boards from their KiCad models, in a faceplate, pod and housing tub drawn for them, checked solid against solid. 1966 Mustang opening, 457.2 × 116.69 mm.</p>
+    </header>
+
+    <section>
+      <h2>Findings</h2>
+      <div class="finding clash" tabindex="0" data-go="fuel">
+        <p class="ft">The fuel screen hits two parts <span class="tag">clash</span></p>
+        <p class="fd">The far-left screen (U6) sits over J1, the power terminal block, 13.8 mm tall, and F1, the blade fuse holder, 7.4 mm tall. The screen's back is 4 mm off the board, so J1 passes right through the 4 mm screen and into its cup, and F1 runs 3.4 mm into the backlight and lens.</p>
+        <p class="fix"><b>Fix:</b> move J1 and F1 out from under the 50.2 mm lens circle (r = 25.1 mm around the fuel gauge centre), or onto the back of the board. The other three screens only cover 2 mm of parts or less.</p>
+      </div>
+      <div class="finding clash" tabindex="0" data-go="fpc">
+        <p class="ft">The small screens' cables don't reach their connectors <span class="tag">all 4</span></p>
+        <p class="fd">Each Raystar module has an 18.3 mm FPC tail from its bonding edge (65.04 mm lens-top to tail-end, datasheet p5). U6 to U9 sit 0.6 mm from each screen's centre, so folded under the module the tail needs about 28 mm. It ends about 9.8 mm short (orange strips in the model).</p>
+        <p class="fix"><b>Fix:</b> turn each screen 180° (tail up, image flipped in software) and move U6 to U9 about 10 mm above the screen centre, turned so the opening faces up toward the tail. That stays inside the board outline. Keeping the tail down instead needs the board about 3 mm deeper below the screens.</p>
+      </div>
+      <div class="finding warn" tabindex="0" data-go="right">
+        <p class="ft">gauges/ is wider than the inner opening</p>
+        <p class="fd">447.1 mm against the 441.09 mm inner opening, and it sits 3 mm right of the speedometer centre, so its right end is 226.6 mm out. The tub needs 456.6 mm across, 0.3 mm a side inside the 457.2 mm outer opening.</p>
+        <p class="fix"><b>Check:</b> how deep the 457.2 mm outer step is on the real dash. If it is shallower than 20 mm the board needs trimming to 441 mm or centring.</p>
+      </div>
+      <div class="finding ok">
+        <p class="ft">Everything else fits</p>
+        <p class="fd">The centre panel's 69.8 mm FPC reaches panel-tsd/ with 8.1 mm spare. The screen-port ribbon needs about 106 mm. The whole stack is 56 mm deep behind the faceplate (stock cluster about 60 mm) plus the 11 mm pod in front.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Stack, front to back</h2>
+      <table>
+        <tr><th>Layer</th><th class="n">Z, mm</th></tr>
+        <tr><td>Centre pod lip (127 mm across)</td><td class="n">+11.0</td></tr>
+        <tr><td>TSD 4 in panel, glass front</td><td class="n">+9.8</td></tr>
+        <tr><td>Faceplate front</td><td class="n">0.0</td></tr>
+        <tr><td>Dash surface, faceplate back</td><td class="n">−3.0</td></tr>
+        <tr><td>Small screens, lens front (9.8 mm deep cups)</td><td class="n">−9.8</td></tr>
+        <tr><td>gauges/ component side</td><td class="n">−17.8</td></tr>
+        <tr><td>panel-tsd/, parts facing back</td><td class="n">−22.4</td></tr>
+        <tr><td>brain/, Verdin and heatsink facing back</td><td class="n">−31.0</td></tr>
+        <tr><td>Heatsink fins (height assumed)</td><td class="n">−51.6</td></tr>
+        <tr><td>Housing tub back, vented</td><td class="n">−56.0</td></tr>
+      </table>
+      <p class="note">Z is toward the driver; 0 is the faceplate's front face at the speedometer centre.</p>
+    </section>
+
+    <section>
+      <h2>What is real and what is assumed</h2>
+      <p class="note">Real: the board models (kicad-cli STEP), the TSD outline (110 mm body, 7.8 mm, tab to 58.49 mm), the Raystar outline (50.2 mm lens, 37.74 mm backlight, 3.99 mm), the Verdin module and standoff heights, the dash opening. Assumed and drawn by us: faceplate 3 mm on the 518 × 120 mm trim outline, 4 mm screen holders, pod, tub walls, heatsink fin height, the SODIMM socket and the four FPC connectors (magenta boxes, no library model).</p>
+      <div class="legend">
+        <span><i style="background:#ff2626"></i>Clash volume</span>
+        <span><i style="background:#d98c1a"></i>Flat cable</span>
+        <span><i style="background:#d94dd9"></i>Stand-in part</span>
+      </div>
+    </section>
+  </aside>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  const canvas = document.getElementById("c");
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(32, 1, 1, 5000);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x404048, 0.9));
+  const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(-300, 400, 600); scene.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(400, -100, -500); scene.add(fill);
+
+  // Explode offset (mm along Z) and visibility class for each part, by its name in the assembly.
+  function classify(name, group) {
+    if (/^CLASH/.test(name)) return { cls: "clash", dz: 0 };
+    if (group === "dash") return { cls: "dash", dz: -140 };
+    if (/tub/.test(name)) return { cls: "housing", dz: -140 };
+    if (/faceplate|bezel|gauge cup|pod/.test(name)) return { cls: "housing", dz: 110 };
+    if (/TSD.*FPC/.test(name)) return { cls: "cables", dz: -40 };
+    if (/FPC/.test(name)) return { cls: "cables", dz: 50 };
+    if (/FFC/.test(name)) return { cls: "cables", dz: -70 };
+    if (/^TSD/.test(name)) return { cls: "screens", dz: 80 };
+    if (/Raystar/.test(name)) return { cls: "screens", dz: 50 };
+    if (/screen holder|gauges MH/.test(name)) return { cls: "gauges", dz: 20 };
+    if (group === "gauges") return { cls: "gauges", dz: 0 };
+    if (group === "panel" || /panel-tsd MH/.test(name)) return { cls: "panel", dz: -40 };
+    return { cls: "brain", dz: -90 };     // brain, verdin, brain standoffs
+  }
+
+  const parts = [];
+  let unit = 1, root = null;
+  const loader = new THREE.GLTFLoader();
+  // The model ships as base64 in model-N.js chunks (written by mech/build_assembly.py).
+  function loadScript(src) {
+    return new Promise((ok, fail) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = fail; document.head.appendChild(s); });
+  }
+  const loadingEl = document.getElementById("loading");
+  loadScript("model-count.js")
+    .then(() => {
+      let done = 0;
+      return Promise.all(Array.from({ length: window.DASH_GLB_CHUNKS }, (_, i) => loadScript(`model-${i + 1}.js`).then(() => {
+        done += 1; loadingEl.textContent = `Loading the assembly, part ${done} of ${window.DASH_GLB_CHUNKS}…`;
+      })));
+    })
+    .then(() => {
+      const bin = atob(window.DASH_GLB.join(""));
+      const buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      window.DASH_GLB = null;
+      loader.parse(buf.buffer, "", onModel, onFail);
+    })
+    .catch(onFail);
+  function onFail() { loadingEl.textContent = "The model did not load. Reload the page to try again."; }
+  function onModel(g) {
+    root = g.scene;
+    const pre = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+    if (pre.z > pre.y * 1.3) root.rotation.x = Math.PI / 2;          // writer turned Y-up into Z-up
+    root.updateMatrixWorld(true);
+    const size = new THREE.Box3().setFromObject(root).getSize(new THREE.Vector3());
+    unit = size.x > 50 ? 1 : 0.001;                                   // mm or metres
+    root.traverse((o) => {
+      if (!o.isMesh) return;
+      // Tree: dash_assembly_v1 > group (gauges, housing, ...) > "NNN part name" > mesh
+      let name = o.name || "", group = "";
+      for (let n = o; n && n !== root; n = n.parent) {
+        if (/^\d{3} /.test(n.name)) name = n.name.slice(4);
+        if (n.parent && n.parent.name === "dash_assembly_v1") group = n.name;
+      }
+      const c = classify(name, group);
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      mats.forEach((m) => {
+        m.side = THREE.DoubleSide;
+        if (c.cls === "dash") { m.transparent = true; m.opacity = 0.22; m.depthWrite = false; }
+        if (/tub/.test(name)) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; }
+        if (c.cls === "clash") { m.emissive = new THREE.Color(0x880000); }
+        m.metalness = /bezel|pod|standoff|head|heatsink/.test(name) ? 0.8 : 0.1;
+        m.roughness = /bezel|pod/.test(name) ? 0.25 : 0.6;
+      });
+      o.userData.part = name;
+      parts.push({ obj: o, cls: c.cls, dz: c.dz, base: o.position.clone() });
+    });
+    scene.add(root);
+    addFaces();
+    document.getElementById("loading").hidden = true;
+    setView("iso");
+    applyExplode();
+  }
+
+  // Lit gauge faces on the screen glass: the 101.52 mm TSD active circle and the 32.4 mm Raystar ones.
+  function dial(label, lo, hi, ticks, value, big) {
+    const s = 512, c = document.createElement("canvas"); c.width = c.height = s;
+    const g = c.getContext("2d"), r = s / 2, a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
+    const grd = g.createRadialGradient(r, r * 0.8, 10, r, r, r);
+    grd.addColorStop(0, "#1b2230"); grd.addColorStop(1, "#05070b");
+    g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, 7); g.fill();
+    g.strokeStyle = "#f2b33d"; g.lineCap = "round";
+    for (let i = 0; i <= ticks; i++) {
+      const a = a0 + (a1 - a0) * i / ticks, major = i % (big ? 2 : 1) === 0;
+      g.lineWidth = major ? 7 : 3;
+      g.beginPath(); g.moveTo(r + Math.cos(a) * r * 0.92, r + Math.sin(a) * r * 0.92);
+      g.lineTo(r + Math.cos(a) * r * (major ? 0.78 : 0.85), r + Math.sin(a) * r * (major ? 0.78 : 0.85)); g.stroke();
+      if (big && major) {
+        g.fillStyle = "#e9ecf2"; g.font = "600 34px Barlow Condensed, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(lo + (hi - lo) * i / ticks), r + Math.cos(a) * r * 0.64, r + Math.sin(a) * r * 0.64);
+      }
+    }
+    if (!big) {
+      g.fillStyle = "#e9ecf2"; g.font = "600 60px Barlow Condensed, sans-serif"; g.textAlign = "center";
+      g.fillText(lo, r + Math.cos(a0) * r * 0.55, r + Math.sin(a0) * r * 0.55 + 10);
+      g.fillText(hi, r + Math.cos(a1) * r * 0.55, r + Math.sin(a1) * r * 0.55 + 10);
+    }
+    g.fillStyle = "#f2b33d"; g.font = `700 ${big ? 46 : 70}px Barlow Condensed, sans-serif`; g.textAlign = "center";
+    g.fillText(label, r, r + (big ? 150 : 140));
+    if (big) { g.fillStyle = "#e9ecf2"; g.font = "700 120px Barlow Condensed, sans-serif"; g.fillText(String(value), r, r + 60); }
+    const av = a0 + (a1 - a0) * (value - (big ? lo : 0)) / (big ? hi - lo : 1);
+    g.strokeStyle = "#ff4b2b"; g.lineWidth = big ? 8 : 14;
+    g.beginPath(); g.moveTo(r + Math.cos(av) * r * 0.12, r + Math.sin(av) * r * 0.12); g.lineTo(r + Math.cos(av) * r * 0.86, r + Math.sin(av) * r * 0.86); g.stroke();
+    g.fillStyle = "#2a3140"; g.beginPath(); g.arc(r, r, big ? 22 : 34, 0, 7); g.fill();
+    const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
+    return new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
+  }
+  function addFaces() {
+    const faces = [
+      [0, 9.8 + 0.05, 101.52, dial("MPH", 0, 120, 12, 45, true), 80],
+      [-196.89, -9.81 + 0.05, 32.4, dial("FUEL", "E", "F", 4, 0.7, false), 50],
+      [-118.0, -9.81 + 0.05, 32.4, dial("OIL", "L", "H", 4, 0.55, false), 50],
+      [118.0, -9.81 + 0.05, 32.4, dial("AMP", "D", "C", 4, 0.5, false), 50],
+      [196.89, -9.81 + 0.05, 32.4, dial("TEMP", "C", "H", 4, 0.45, false), 50],
+    ];
+    faces.forEach(([x, z, d, mat, dz]) => {
+      const m = new THREE.Mesh(new THREE.CircleGeometry(d / 2 * unit, 96), mat);
+      m.position.set(x * unit, 0, z * unit);
+      m.userData.part = "screen image (illustration)";
+      scene.add(m);
+      parts.push({ obj: m, cls: "screens", dz, base: m.position.clone() });
+    });
+  }
+
+  // Views: [camera position, target] in mm in the assembly frame (X right, Y up, Z to the driver).
+  const VIEWS = {
+    front: [[0, 0, 900], [0, 0, -20]],
+    iso: [[-520, 260, 560], [0, -5, -25]],
+    side: [[-700, 30, -20], [0, 0, -20]],
+    top: [[0, 650, -20], [0, 0, -20]],
+    rear: [[260, 160, -760], [0, 0, -25]],
+    fuel: [[-110, 120, 190], [-192, 12, -14]],
+    fpc: [[-90, -110, 60], [-118, -10, -14]],
+    right: [[330, 120, 160], [215, 10, -20]],
+  };
+  const WIDE = { front: 1, iso: 1, side: 0, top: 1, rear: 1 };
+  function setView(v) {
+    let [p, t] = VIEWS[v];
+    if (WIDE[v] !== undefined) {
+      // Back the camera off until the whole 518 mm trim (or 160 mm depth from the side) fits the canvas.
+      const span = WIDE[v] ? 560 : 200, tanh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const need = Math.max(span / (2 * tanh * camera.aspect), 160 / (2 * tanh));
+      const len = Math.hypot(p[0] - t[0], p[1] - t[1], p[2] - t[2]);
+      p = p.map((c, i) => t[i] + (c - t[i]) * need / len);
+    }
+    camera.position.set(p[0] * unit, p[1] * unit, p[2] * unit);
+    controls.target.set(t[0] * unit, t[1] * unit, t[2] * unit);
+    if (v === "top") camera.up.set(0, 0, -1); else camera.up.set(0, 1, 0);
+    controls.update();
+    if (v === "fuel") { document.getElementById("t-housing").checked = false; applyVis(); }
+  }
+  document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
+  document.querySelectorAll("[data-go]").forEach((f) => {
+    const go = () => { const v = f.dataset.go; if (v !== "right") { document.getElementById("t-housing").checked = false; applyVis(); } setView(v); };
+    f.addEventListener("click", go);
+    f.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
+  });
+
+  const ex = document.getElementById("ex");
+  function applyExplode() {
+    const k = parseFloat(ex.value);
+    parts.forEach((p) => {
+      // Offsets are along world Z (toward the driver), turned into the mesh parent's own frame.
+      const d = p.dz * k * unit;
+      p.obj.position.copy(p.base);
+      p.obj.parent.updateMatrixWorld(true);
+      const w = new THREE.Vector3(0, 0, d);
+      const inv = new THREE.Matrix4().copy(p.obj.parent.matrixWorld).invert();
+      const o0 = new THREE.Vector3(0, 0, 0).applyMatrix4(inv);
+      w.applyMatrix4(inv).sub(o0);
+      p.obj.position.add(w);
+    });
+  }
+  ex.addEventListener("input", applyExplode);
+
+  const toggles = ["housing", "dash", "screens", "cables", "gauges", "panel", "brain"];
+  function applyVis() {
+    const on = {}; toggles.forEach((t) => (on[t] = document.getElementById("t-" + t).checked));
+    parts.forEach((p) => { p.obj.visible = p.cls === "clash" ? true : !!on[p.cls]; });
+  }
+  toggles.forEach((t) => document.getElementById("t-" + t).addEventListener("change", applyVis));
+
+  // Hover readout: the part under the pointer.
+  const ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), hover = document.getElementById("hover");
+  let last = 0;
+  canvas.addEventListener("pointermove", (e) => {
+    const now = performance.now(); if (now - last < 60 || !root) return; last = now;
+    const r = canvas.getBoundingClientRect();
+    ptr.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    const hit = ray.intersectObjects(parts.filter((p) => p.obj.visible && p.cls !== "dash" && !/tub/.test(p.obj.userData.part)).map((p) => p.obj), false)[0];
+    hover.textContent = hit ? hit.object.userData.part : "Drag to turn, scroll to zoom, right-drag to pan";
+  });
+
+  function resize() {
+    const w = canvas.clientWidth, h = canvas.clientHeight;
+    if (canvas.width !== Math.floor(w * renderer.getPixelRatio()) || canvas.height !== Math.floor(h * renderer.getPixelRatio())) {
+      renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    }
+  }
+  (function loop() { resize(); controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })();
+})();
+</script>

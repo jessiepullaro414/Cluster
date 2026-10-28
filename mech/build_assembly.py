@@ -1,4 +1,4 @@
-"""Dash assembly v2: the three routed boards in a factory-style 1966 housing, with every screen.
+"""Dash assembly v2.2: the three routed boards in a factory-style 1966 housing, with every screen.
 
 Builds the stock five-dial cluster's shape (from the owner's photos): a deep chrome pan lofted
 round the trim outline, black side panels, domed chrome bezels and cups, a turned speedometer cup, the housing tub, a stand-in
@@ -63,7 +63,16 @@ TRIM_BOTTOM_W, TRIM_R = 490.0, 30.0
 RIM_PROFILE = [(0.0, -3.0), (0.0, 2.0), (0.8, 6.0), (2.4, 9.2), (4.8, 11.3), (7.5, 12.0), (10.0, 11.6),
                (12.2, 10.0), (14.2, 7.2), (16.2, 3.8), (17.8, 1.0), (18.5, 0.0)]
 RIM_FOOT = RIM_PROFILE[-1][0]
-GAUGE_RING = (58.0, 48.0, 4.0)       # small chrome bezels: OD, opening, dome height (stock about 61 / 47-50, photos and calipers)
+# The stock trim is a wedge, not a flat ring (IMG_1689 end-on, the owner's top-down photo 2026-10-28):
+# its top edge stands out like a hood, over the speedometer cup, and its bottom edge is shallow, the
+# cup standing out past it. ASSUMED crown heights at the bottom and top edges (about 25 mm apart
+# across the 120 mm height in IMG_1689); the section above the panels scales between them.
+RIM_CROWN = (9.0, 32.0)
+# Our 127 mm cup is taller than the trim, so the hood can't run straight over it the way the stock one
+# does: it would hide the top of the speedometer from the driver's eye. The hood is scooped round the
+# cup's mouth instead, flaring out SCOOP[0] mm by Z = SCOOP[1] (ASSUMED, a styling choice).
+SCOOP = (12.0, 40.0)
+GAUGE_RING = (58.0, 48.0, 6.0)       # small chrome bezels: OD, opening, height (stock about 61 / 47-50, photos and calipers)
 CUP_OD = 54.0                        # ASSUMED: black cup round the 50.2 mm lens
 INDICATOR = (13.0, 5.5, 29.0)        # turn windows: w, h, height above the small-gauge centres (photo IMG_1697)
 POD_FRONT = 22.0                     # ASSUMED: speedometer pod lip, like the stock proud cup (stock 36 mm deep)
@@ -327,11 +336,22 @@ BLACK = (0.07, 0.07, 0.08)
 GRAIN = (0.10, 0.10, 0.11)           # the stock panels are black grained vinyl-look
 
 
+def rim_z(z, y):
+    """A rim-section height z (drawn for a 12 mm crown) at height y on the cluster: the part above the
+    panels scales from RIM_CROWN[0] at the bottom edge to RIM_CROWN[1] at the top (a plane in y)."""
+    if z <= 0:
+        return z
+    crown = max(zz for _, zz in RIM_PROFILE)
+    t = (y + TRIM[1] / 2) / TRIM[1]
+    return z * (RIM_CROWN[0] + (RIM_CROWN[1] - RIM_CROWN[0]) * t) / crown
+
+
 def trim_wire(inset, z):
-    """The stock trim outline (wider at the top, ends leaning in), shrunk by `inset`, as a wire at height z."""
+    """The stock trim outline (wider at the top, ends leaning in), shrunk by `inset`, as a planar wire at
+    section height z (tilted with the hood when z is above the panels)."""
     hwt, hwb, hh = TRIM[0] / 2 - inset, TRIM_BOTTOM_W / 2 - inset, TRIM[1] / 2 - inset
-    w = cq.Wire.makePolygon([cq.Vector(-hwt, hh, z), cq.Vector(hwt, hh, z), cq.Vector(hwb, -hh, z),
-                             cq.Vector(-hwb, -hh, z)], close=True)
+    w = cq.Wire.makePolygon([cq.Vector(-hwt, hh, rim_z(z, hh)), cq.Vector(hwt, hh, rim_z(z, hh)),
+                             cq.Vector(hwb, -hh, rim_z(z, -hh)), cq.Vector(-hwb, -hh, rim_z(z, -hh))], close=True)
     return w.fillet2D(max(TRIM_R - inset, 3.0), w.Vertices())
 
 
@@ -350,10 +370,15 @@ def dome(r_in, r_out, z0, h, n=16):
     return [(rc + a * math.cos(math.pi * i / n), z0 + h * math.sin(math.pi * i / n)) for i in range(n + 1)]
 
 
-# Chrome rim: a deep pan round the whole cluster, lofted through the rim section at every inset, then
-# opened in the middle (the panels) and where the speedometer pod passes through it top and bottom.
-rim = cq.Workplane("XY").add(cq.Solid.makeLoft([trim_wire(d, z) for d, z in RIM_PROFILE], False))
-rim = rim.cut(trim_shape(RIM_FOOT, Z_FACE_BACK - 1, FACE_T + 2)).cut(cyl(POD_OD + 1.0, Z_FACE_BACK - 1, RIM_PROFILE[5][1] + 2))
+# Chrome rim: a deep pan round the whole cluster, lofted through the rim section at every inset (a hood
+# at the top, shallow at the bottom), then opened in the middle (the panels) and where the speedometer
+# cup stands out through its bottom edge. At the top the hood runs over the cup.
+rim_body = cq.Workplane("XY").add(cq.Solid.makeLoft([trim_wire(d, z) for d, z in RIM_PROFILE], False))
+lower = cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1).center(0, -50).rect(300, 100).extrude(60)
+rim = (rim_body.cut(trim_shape(RIM_FOOT, Z_FACE_BACK - 1, FACE_T + 2)).cut(cyl(POD_OD + 1.0, Z_FACE_BACK - 1, 60).intersect(lower))
+       .cut(cyl(POD_OD - 6.0, Z_FACE_BACK - 1, POD_FRONT - 2.5)).cut(cyl(2 * POD_THROAT_TOP, Z_FACE_BACK - 1, POD_FRONT - 2.5))
+       .cut(cq.Workplane("XY").add(cq.Solid.makeCone(POD_THROAT_TOP, POD_THROAT_TOP + SCOOP[0], SCOOP[1] - POD_FRONT + 2.5,
+                                                      cq.Vector(0, 0, POD_FRONT - 2.5)))))
 add("chrome trim rim", "housing", rim, CHROME)
 
 # Black grained side panels (one plate behind the pod), with the gauge, indicator and FPC openings.
@@ -378,8 +403,10 @@ for side in (-1, 1):
 
 for ref, x in GAUGE_X.items():
     r_in, r_out = GAUGE_RING[1] / 2, GAUGE_RING[0] / 2
+    h = GAUGE_RING[2]
     add(f"chrome gauge ring {ref}", "housing",
-        turned([(r_in, 0.0), (r_out, 0.0)] + dome(r_in, r_out, 0.6, GAUGE_RING[2] - 0.6), x), CHROME)
+        turned([(r_in, 0.0), (r_out, 0.0), (r_out - 0.8, h - 1.6)] + dome(r_in + 0.8, r_out - 0.8, h - 1.6, 1.6)[1:]
+               + [(r_in, h - 2.4)], x), CHROME)
     # The cup carries its screen, like the stock gauges hang from the cluster face: the lens sits against
     # the cup's end, a sleeve round it and a clip lip behind its rim (outside the 37.74 mm backlight).
     z_clip = Z_SMALL_FRONT - RFA_LENS_T - 0.8
@@ -409,10 +436,12 @@ Z_GLASS = Z_TSD_BACK + TSD_T
 z_lip = POD_FRONT - 2.5
 POD_SECTION = ([(POD_OD / 2 - 3.0, 0.0), (POD_OD / 2, 0.0), (POD_OD / 2, z_lip - 6.0), (POD_OD / 2 - 0.2, z_lip)]
                + dome(POD_THROAT_TOP - 0.1, POD_OD / 2 - 0.2, z_lip, 2.5)[1:] + [(POD_OD / 2 - 3.0, z_lip)])
-add("centre pod barrel", "housing", turned(POD_SECTION)
+upper = cq.Workplane("XY").workplane(offset=-1).center(0, 50).rect(300, 100).extrude(60)
+tucked = rim_body.intersect(upper).union(cq.Workplane("XY").workplane(offset=-1).center(0, TRIM[1] / 2 + 20).rect(300, 40).extrude(60))
+add("centre pod barrel", "housing", turned(POD_SECTION).cut(tucked)
     .cut(cq.Workplane("XY").workplane(offset=-1).center(0, -60).rect(TSD_TAB_W + 2, 12).extrude(Z_TSD_BACK + 1.5 + 1.5)), CHROME)
 THROAT = [(TSD_GLASS_D / 2 - 0.5, Z_GLASS), (POD_OD / 2 - 3.0, Z_GLASS), (POD_OD / 2 - 3.0, z_lip), (POD_THROAT_TOP, z_lip)]
-add("centre pod throat", "housing", turned(THROAT), BLACK)
+add("centre pod throat", "housing", turned(THROAT).cut(tucked), BLACK)
 
 
 def hood_angle(r_active, z_glass, section):
@@ -420,8 +449,15 @@ def hood_angle(r_active, z_glass, section):
     return round(min(math.degrees(math.atan2(r - r_active, z - z_glass)) for r, z in section if z > z_glass + 0.1), 1)
 
 
+# Seen from above, the hood also stands between the eye and the top of each face.
+hood = [(TRIM[1] / 2 - d, rim_z(z, TRIM[1] / 2 - d)) for d, z in RIM_PROFILE if z > 0]
+hood_pod = [(y, z) for y, z in hood                                  # over the cup only what is outside the scoop is left
+            if y >= POD_THROAT_TOP + max(0.0, z - POD_FRONT + 2.5) * SCOOP[0] / (SCOOP[1] - POD_FRONT + 2.5)]
 view_angle = dict(speedometer=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION),
-                  small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)]))
+                  speedometer_from_above=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION + hood_pod),
+                  small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)]),
+                  small_from_above=hood_angle(32.4 / 2, Z_SMALL_FRONT,
+                                              [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)] + hood))
 
 tub_outer = rrect(TUB_OUT[0], TUB_OUT[1], 4, Z_FACE_BACK - TUB_BACK_Z, TUB_BACK_Z)
 tub_inner = rrect(TUB_OUT[0] - 2 * TUB_WALL, TUB_OUT[1] - 2 * TUB_WALL, 3, Z_FACE_BACK - TUB_BACK_Z - 2.0, TUB_BACK_Z + 2.0)
@@ -573,7 +609,7 @@ for ref, x in GAUGE_X.items():
     worst.sort(reverse=True)
     under[ref] = worst[:4]
 
-depth = dict(faceplate_front=0.0, rim_front=max(z for _, z in RIM_PROFILE), pod_front=POD_FRONT,
+depth = dict(faceplate_front=0.0, rim_crown_bottom=RIM_CROWN[0], rim_crown_top=RIM_CROWN[1], pod_front=POD_FRONT,
              deepest_part=round(min(d["bb"][2] for d in solids if d["group"] not in ("housing", "dash", "clash")), 1),
              tub_back=TUB_BACK_Z)
 report = dict(clashes=clashes, under_small_screens_mm=under, small_fpc=fpc_report,

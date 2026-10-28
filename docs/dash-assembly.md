@@ -1,4 +1,4 @@
-# Dash assembly v2.2 (2026-10-28)
+# Dash assembly v2.3 (2026-10-28)
 
 `mech/build_assembly.py` puts the three routed boards (brain/, panel-tsd/, gauges/, from their
 `kicad-cli pcb export step` models) into a housing drawn after the stock 1966 five-dial cluster,
@@ -28,9 +28,7 @@ its bottom edge shallow, the cup standing out past it.
   wall that falls to the panels 18.5 mm in from the outline. The part above the panels scales with
   height on the cluster (`RIM_CROWN`, ASSUMED: about 25 mm apart in IMG_1689), so the crown stands
   32 mm out at the top edge and 9 mm at the bottom. The speedometer cup passes through the bottom
-  edge. Our 127 mm cup is taller than the 120 mm trim, so the hood cannot run straight over it as the
-  stock one does (it would hide the top of the speedometer): it is scooped round the cup's mouth,
-  flaring 12 mm out by Z = 40 (`SCOOP`, a styling choice).
+  edge and tucks under the hood at the top.
 - **Black grained side panels** (3 mm), each with a thin chrome bead following its edge, closed
   beside the pod.
 - **Small gauges**: chrome bezel collars turned from a tapered section with a rolled top (58 mm
@@ -39,26 +37,29 @@ its bottom edge shallow, the cup standing out past it.
   screen.
 - **Turn indicators**: a 13 x 5.5 mm green lens in a chrome frame high in each side panel, 29 mm
   above the small-gauge centres as on the stock cluster, lit by gauges/ D26/D27 through a light pipe.
-- **Speedometer pod**: a turned 127 mm chrome cup with a rolled lip 22 mm in front of the panels and
-  a black throat that flares from the TSD glass edge (104 mm) to 116 mm at the lip, notched at the
-  bottom for the TSD tab and its FPC, tucked under the hood at the top. The whole 101.52 mm active
-  area stays in view up to 32 degrees off-axis (each small face up to 28 degrees past its bezel; the
-  hood takes nothing more from above; `clearance.json` `view_angle_deg`). A deeper, stock-depth cup
-  would shade more of the speedometer.
+- **Speedometer pod**: a turned 127 mm chrome cup with a rolled lip 30 mm in front of the panels,
+  2 mm under the hood crown (`POD_FRONT`), and a black throat that flares from the TSD glass edge
+  (104 mm) to 116 mm at the lip, notched at the bottom for the TSD tab and its FPC. Our 127 mm cup is
+  taller than the 120 mm trim, so with the glass back near the panels the hood would hide the top of
+  the speedometer; instead the TSD sits forward in the cup (owner's call, 2026-10-28), 12.2 mm behind
+  the lip (`POD_DEPTH`, ASSUMED). The whole 101.52 mm active area stays in view up to 34 degrees
+  off-axis (each small face up to 28 degrees past its bezel; the hood takes nothing more from above;
+  `clearance.json` `view_angle_deg`). With the lip flush with the crown the TSD FPC was 2.9 mm short
+  (1.1 mm spare after lowering panel-tsd/), so the lip stays 2 mm under it.
 - Behind: the vented tub, 456.6 x 115.5 mm, through the dash opening.
 
 | Layer | Z, mm | Notes |
 |---|---|---|
 | Chrome trim hood, top edge | +32.0 | ASSUMED from IMG_1689 |
-| Speedometer pod lip, 127 mm across | +22.0 | owner limit 5 in including the bezel |
+| Speedometer pod lip, 127 mm across | +30.0 | owner limit 5 in including the bezel |
+| TSD panel glass | +17.8 | 110 mm body sits forward in the pod |
 | Chrome trim, bottom edge | +9.0 | |
-| TSD panel glass | +9.8 | 110 mm body sits in the pod |
 | Small chrome bezels, top | +6.0 | |
 | Side panels front | 0.0 | |
 | Side panels back, dash surface | -3.0 | |
 | Small screens, lens front | -9.8 | in their cups |
 | gauges/ component side, facing forward | -17.8 | J1 (13.8 mm) stops 1 mm behind the panels |
-| panel-tsd/ bare side, parts facing back, 25 mm low | -22.4 | its J4 faces down, the panel FPC comes up from under gauges/ |
+| panel-tsd/ bare side, parts facing back, 29 mm low | -22.4 | its J4 faces down, the panel FPC comes up from under gauges/ |
 | brain/ bare side, Verdin and heatsink facing back | -31.0 | screen-port FFC goes over its top edge to J4 |
 | Heatsink fins | -51.6 | fin height assumed (9 mm) |
 | Tub back, vented | -56.0 | stock cluster about 60 mm deep |
@@ -84,8 +85,10 @@ Still open:
 - **gauges/ is 447.1 mm wide against the 441.09 mm inner opening** (known since rev C), and its
   centre is 3 mm right of the speedometer centre, so the tub needs nearly the full 457.2 mm outer
   opening. Check how deep the outer step is on the real dash.
-- Fits: the TSD's 69.8 mm FPC reaches panel-tsd/ J4 with 8.1 mm spare; the screen-port FFC is
-  about 106 mm (buy 100 or 120 mm and check).
+- **The TSD's 69.8 mm FPC is tight**: bringing the screen 9 mm forward added 9 mm to its run; with
+  panel-tsd/ 4 mm lower (centre at Y = -29, as low as the tub floor allows) it reaches J4 with 3.1 mm
+  spare (was 8.1). Options: accept it, a short FPC extension, or less forward travel.
+- Fits: the screen-port FFC is about 109 mm (buy 120 mm and check).
 
 ## Assumed, not measured
 

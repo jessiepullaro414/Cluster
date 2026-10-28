@@ -1,4 +1,4 @@
-"""Dash assembly v2.2: the three routed boards in a factory-style 1966 housing, with every screen.
+"""Dash assembly v2.3: the three routed boards in a factory-style 1966 housing, with every screen.
 
 Builds the stock five-dial cluster's shape (from the owner's photos): a deep chrome pan lofted
 round the trim outline, black side panels, domed chrome bezels and cups, a turned speedometer cup, the housing tub, a stand-in
@@ -68,14 +68,16 @@ RIM_FOOT = RIM_PROFILE[-1][0]
 # cup standing out past it. ASSUMED crown heights at the bottom and top edges (about 25 mm apart
 # across the 120 mm height in IMG_1689); the section above the panels scales between them.
 RIM_CROWN = (9.0, 32.0)
-# Our 127 mm cup is taller than the trim, so the hood can't run straight over it the way the stock one
-# does: it would hide the top of the speedometer from the driver's eye. The hood is scooped round the
-# cup's mouth instead, flaring out SCOOP[0] mm by Z = SCOOP[1] (ASSUMED, a styling choice).
-SCOOP = (12.0, 40.0)
 GAUGE_RING = (58.0, 48.0, 6.0)       # small chrome bezels: OD, opening, height (stock about 61 / 47-50, photos and calipers)
 CUP_OD = 54.0                        # ASSUMED: black cup round the 50.2 mm lens
 INDICATOR = (13.0, 5.5, 29.0)        # turn windows: w, h, height above the small-gauge centres (photo IMG_1697)
-POD_FRONT = 22.0                     # ASSUMED: speedometer pod lip, like the stock proud cup (stock 36 mm deep)
+# The speedometer cup's lip comes up to just under the hood crown, as the stock cup tucks under its hood.
+# The centre screen comes forward with it (owner, 2026-10-28) so the cup stays POD_DEPTH deep in front
+# of the glass: our 127 mm cup is taller than the trim, and with the glass back at the panels the hood
+# would hide the top of the speedometer. 2 mm under the crown, not flush: flush, the TSD FPC has
+# 1.1 mm spare (3.1 mm at 2 mm under).
+POD_FRONT = RIM_CROWN[1] - 2.0
+POD_DEPTH = 12.2                     # ASSUMED: glass to lip top (the throat flare and rolled lip)
 POD_THROAT_TOP = 58.0                # ASSUMED: the black throat flares from the 104 mm glass edge to 116 mm at the lip
 
 FACE_T = 3.0                        # ASSUMED: printed or machined side-panel thickness
@@ -114,9 +116,9 @@ SCREEN_HOLDER_H = 4.0                # small screens: module back this far off t
 Z_GAUGES_FRONT = -17.8               # gauges/ component side; J1 (13.8 mm) stops 1 mm short of the faceplate
 Z_SMALL_BACK = Z_GAUGES_FRONT + SCREEN_HOLDER_H
 Z_SMALL_FRONT = Z_SMALL_BACK + RFA_T
-Z_TSD_BACK = 1.0                     # the centre panel sits in the pod, 1 mm off the faceplate so its FPC folds under the tab
+Z_TSD_BACK = POD_FRONT - POD_DEPTH - TSD_T   # the centre panel sits forward in the cup
 Z_PANEL_BARE = Z_GAUGES_FRONT - PCB_T - 3.0     # panel-tsd/ hangs below and behind gauges/, parts to the rear
-PANEL_Y = -25.0                      # panel-tsd/ centre height, set so the 69.8 mm FPC reaches J4
+PANEL_Y = -29.0                      # panel-tsd/ centre height, set so the 69.8 mm FPC reaches J4
 Z_BRAIN_BARE = Z_PANEL_BARE - PCB_T - 7.0      # brain/ behind it, parts (module, heatsink) to the rear
 TUB_OUT = (456.6, 115.5)             # passes the 457.2 x 116.69 opening, 0.3 mm a side across the car
 TUB_WALL, TUB_BACK_Z = 1.2, -56.0
@@ -376,9 +378,7 @@ def dome(r_in, r_out, z0, h, n=16):
 rim_body = cq.Workplane("XY").add(cq.Solid.makeLoft([trim_wire(d, z) for d, z in RIM_PROFILE], False))
 lower = cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1).center(0, -50).rect(300, 100).extrude(60)
 rim = (rim_body.cut(trim_shape(RIM_FOOT, Z_FACE_BACK - 1, FACE_T + 2)).cut(cyl(POD_OD + 1.0, Z_FACE_BACK - 1, 60).intersect(lower))
-       .cut(cyl(POD_OD - 6.0, Z_FACE_BACK - 1, POD_FRONT - 2.5)).cut(cyl(2 * POD_THROAT_TOP, Z_FACE_BACK - 1, POD_FRONT - 2.5))
-       .cut(cq.Workplane("XY").add(cq.Solid.makeCone(POD_THROAT_TOP, POD_THROAT_TOP + SCOOP[0], SCOOP[1] - POD_FRONT + 2.5,
-                                                      cq.Vector(0, 0, POD_FRONT - 2.5)))))
+       .cut(cyl(POD_OD - 6.0, Z_FACE_BACK - 1, POD_FRONT - 2.5)).cut(cyl(2 * POD_THROAT_TOP, Z_FACE_BACK - 1, 60)))
 add("chrome trim rim", "housing", rim, CHROME)
 
 # Black grained side panels (one plate behind the pod), with the gauge, indicator and FPC openings.
@@ -451,8 +451,7 @@ def hood_angle(r_active, z_glass, section):
 
 # Seen from above, the hood also stands between the eye and the top of each face.
 hood = [(TRIM[1] / 2 - d, rim_z(z, TRIM[1] / 2 - d)) for d, z in RIM_PROFILE if z > 0]
-hood_pod = [(y, z) for y, z in hood                                  # over the cup only what is outside the scoop is left
-            if y >= POD_THROAT_TOP + max(0.0, z - POD_FRONT + 2.5) * SCOOP[0] / (SCOOP[1] - POD_FRONT + 2.5)]
+hood_pod = [(y, z) for y, z in hood if y >= POD_THROAT_TOP]          # over the cup only its band past the mouth is left
 view_angle = dict(speedometer=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION),
                   speedometer_from_above=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION + hood_pod),
                   small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)]),
@@ -650,5 +649,7 @@ for i in range(n_chunks):
         f.write(f"(window.DASH_GLB = window.DASH_GLB || [])[{i}] = \"{b64[i * CHUNK:(i + 1) * CHUNK]}\";\n")
 with open(os.path.join(VIEWER, "model-count.js"), "w") as f:
     f.write(f"window.DASH_GLB_CHUNKS = {n_chunks};\n")
+    f.write("window.DASH_FACES = " + json.dumps(dict(tsd_z=round(Z_GLASS, 2), small_z=round(Z_SMALL_FRONT, 2),
+                                                      small_x=[GAUGE_X[r] for r in SCREEN_REFS])) + ";\n")
 
 print(json.dumps({k: report[k] for k in ("clashes", "under_small_screens_mm", "small_fpc", "tsd_fpc", "ffc_mm", "opening_fit", "depth_mm", "view_angle_deg")}, indent=1))

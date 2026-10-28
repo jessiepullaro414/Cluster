@@ -460,6 +460,10 @@ TURN_LED_X = {"D26": 91.7, "D27": 350.5}                  # left arrow, right ar
 # 2026-10-08), so each arrow now sits midway between that side's two gauges.
 # Still a placeholder until the faceplate drawing gives the window positions.
 TURN_LED_X = {"D26": (_row_x["U6"] + _row_x["U7"]) / 2, "D27": (_row_x["U8"] + _row_x["U9"]) / 2}
+# 2026-10-28: the stock cluster's indicator windows sit high in each side panel, about 29 mm above the
+# small-gauge centres (front photo IMG_1697, scaled from the 518 mm trim, +/-3 mm); the faceplate in
+# mech/build_assembly.py puts its windows there, so the LEDs move up from the connector row to match.
+TURN_ABOVE_SCREEN = 29.0
 TURN_GROUPS = {"D26": ["R82", "D24"], "D27": ["R83", "D25"]}
 TURN_REFS = set(TURN_LED_X) | {r for refs in TURN_GROUPS.values() for r in refs}
 
@@ -519,10 +523,25 @@ for disp_ref, cluster_refs in LOCAL_CLUSTERS.items():
           f"{c_w:.1f}x{c_h:.1f}mm")
 
 # 2. Core zones: same, pack first, place later once board_height is real.
+# 2026-10-28 (mech/build_assembly.py): the small screens hang over the lower part of the board with
+# their backs 4 mm off it, so a part taller than that must sit in the top band, above every screen.
+# J1 (13.8 mm terminal block) and F1 (7.4 mm fuse holder) had packed under the fuel screen; they are
+# now packed first (as their INPUT cell, cells.py), along the top edge of the POWER zone, and the rest
+# of the zone below them.
+PIN_TOP = {"POWER": ["@INPUT"]}
 zone_packed = []
 for name, refs in CORE_ZONES:
     pack_refs = [r for r in refs if r not in CELL_OF] + sorted({CELL_OF[r] for r in refs if r in CELL_OF})
-    z_placed, z_rot, z_w, z_h = best_skyline_pack(pack_refs, max_width=46.0, margin=MARGIN)
+    top_refs = PIN_TOP.get(name, [])
+    if top_refs:
+        t_placed, t_rot, t_w, t_h = best_skyline_pack(top_refs, max_width=46.0, margin=MARGIN)
+        z_placed, z_rot, z_w, z_h = best_skyline_pack([r for r in pack_refs if r not in top_refs], max_width=46.0,
+                                                      margin=MARGIN, initial_skyline=[(0.0, 46.0, t_h + MARGIN)])
+        z_placed.update(t_placed)
+        z_rot |= t_rot
+        z_w = max(z_w, t_w)
+    else:
+        z_placed, z_rot, z_w, z_h = best_skyline_pack(pack_refs, max_width=46.0, margin=MARGIN)
     for vname in [r for r in pack_refs if r in VIRTUAL]:
         vx, vy = z_placed.pop(vname)
         cell_placed = _cell_res[vname[1:]][0]
@@ -542,7 +561,14 @@ for name, refs in CORE_ZONES:
 
 CORE_TOP_MARGIN = BOARD_MARGIN + MARGIN
 CORE_LOCAL_GAP = 6.0        # breathing room between core zones and local clusters
-DISPLAY_ROW_BOTTOM_MARGIN = 6.0  # same real DRC-driven value established earlier
+# 2026-10-28: the connectors sit on the bottom edge (courtyard 0.1 mm inside it), cable entry facing down.
+# The Raystar FPC leaves the module 21.6 mm below its centre with 18.3 mm of free tail and folds back
+# under it, so it reaches only 9.1 mm below the screen centre (mech/build_assembly.py models the fold).
+# With each connector 11 mm below its screen the tail goes 4.1 mm past the cable-entry edge of the
+# 4.5 mm body: fully seated with about 1 mm of slack. Before this the connectors sat under the screen
+# centres and every tail was 9.8 mm short.
+DISPLAY_ROW_BOTTOM_MARGIN = 0.1
+SCREEN_ABOVE_CONNECTOR = 11.0    # screen centre above the connector origin (body centre), mm
 core_max_h = max((z_h for _, _, _, z_w, z_h in zone_packed), default=0.0)
 display_h = max(_disp_h.values())
 
@@ -558,6 +584,8 @@ print(f"Real minimal board height: {board_height:.1f}mm (vs the "
       f"just an available maximum)")
 
 ROW_Y = board_height - DISPLAY_ROW_BOTTOM_MARGIN - display_h / 2
+_d0 = _disp_bbox[DISPLAY_REFS[0]]
+SCREEN_Y = ROW_Y - (_d0[1] + _d0[3]) / 2 - SCREEN_ABOVE_CONNECTOR   # small-screen centres (faceplate holes)
 
 # Now place the display row, using the real (not oversized) ROW_Y.
 for ref in DISPLAY_REFS:
@@ -568,12 +596,17 @@ print(f"Display row: {len(DISPLAY_REFS)} connectors at x="
       f"{sorted(round(v) for v in _row_x.values())}, y~{ROW_Y:.1f}mm "
       f"(evenly-spaced estimate, not real dimensioned hole-center data)")
 
-# Place the turn-signal arrows: LED at its X on the display row's centre line, series resistor to its left and clamp to its right.
+# Place the turn-signal arrows: LED at its X, TURN_ABOVE_SCREEN above the screen centres, clamp and series
+# resistor in a column below it (narrow, and downward, where the gap between two core zones is clear).
 for led_ref, led_x in TURN_LED_X.items():
     r_ref, d_ref = TURN_GROUPS[led_ref]
-    for ref, dx in ((r_ref, -5.5), (led_ref, 0.0), (d_ref, 4.5)):
+    y_top = None
+    for ref in (led_ref, d_ref, r_ref):
         bx0, by0, bx1, by1 = footprint_bbox(load_footprint(parts[ref]["footprint"]))
-        placed_rel[ref] = (led_x + dx - (bx0 + bx1) / 2, ROW_Y - (by0 + by1) / 2)
+        if y_top is None:
+            y_top = SCREEN_Y - TURN_ABOVE_SCREEN - (by1 - by0) / 2      # LED centred on the window height
+        placed_rel[ref] = (led_x - (bx0 + bx1) / 2, y_top - by0)
+        y_top += (by1 - by0) + 0.2
 
 # Place local clusters, directly above their own display.
 for disp_ref, (c_placed, c_w, c_h) in local_packed.items():
@@ -761,7 +794,7 @@ DISPLAY_GLASS_DIA = {  # real Active Area diagonal/diameter, mm
     "U6": 32.4, "U7": 32.4, "U8": 32.4, "U9": 32.4,  # Raystar RFA401280B-AYW-DNF1
 }
 for _ref, _dia in DISPLAY_GLASS_DIA.items():
-    _cx, _cy = _row_x[_ref] + BOARD_OFFSET_X, ROW_Y + BOARD_OFFSET_Y
+    _cx, _cy = _row_x[_ref] + BOARD_OFFSET_X, SCREEN_Y + BOARD_OFFSET_Y
     board.graphicItems.append(GrCircle(
         center=Position(round(_cx, 3), round(_cy, 3)),
         end=Position(round(_cx + _dia / 2, 3), round(_cy, 3)),

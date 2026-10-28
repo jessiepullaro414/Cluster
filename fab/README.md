@@ -27,7 +27,7 @@ Checked against JLCPCB's published multilayer capabilities (min trace/space 0.09
 
 - brain/: 188.9 x 103.2 mm.
 - panel-tsd/: 75.4 x 52.3 mm.
-- gauges/: 447.1 x 63.4 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
+- gauges/: 447.1 x 65.6 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
 
 ## What is still unconfirmed (could force a respin of brain/ or panel-tsd/)
 

@@ -1,6 +1,7 @@
-"""Dash assembly v1: the three routed boards in a housing of our own, with every screen.
+"""Dash assembly v2: the three routed boards in a factory-style 1966 housing, with every screen.
 
-Builds the faceplate, chrome bezels, gauge cups, the centre pod, the housing tub, a stand-in
+Builds the chrome trim and black side panels of the stock five-dial cluster (from the owner's
+photos), chrome gauge rings and cups, the centre pod, the housing tub, a stand-in
 for the steel dash around the opening, all five screens, the Verdin module and heatsink and the
 flat cables, places the three boards from their kicad-cli STEP exports, and checks every pair
 of solids for overlap. Writes:
@@ -20,6 +21,7 @@ script does that itself when a STEP is missing or older than its board).
 import json
 import math
 import os
+import re
 import subprocess
 import sys
 
@@ -52,10 +54,16 @@ PCB_T = 1.6
 DASH_OPENING = (457.2, 116.69)      # owner drawing 2026-09-23 (outer); inner is 441.09 x 105.54
 DASH_INNER = (441.09, 105.54)
 TRIM = (518.0, 120.0)               # stock chrome trim outline, owner photos 2026-10-08 (+/-5 mm)
-GAUGE_X = {"U6": -196.89, "U7": -118.0, "U8": 118.0, "U9": 196.89}   # gauges/ slot centres (board)
+# The stock trim (front photo IMG_1697) leans in at both ends toward the bottom; the bottom width is
+# ASSUMED from the photo (perspective makes it +/-5 mm), the corner radius too.
+TRIM_BOTTOM_W, TRIM_R = 490.0, 16.0
+RIM_W, RIM_PROUD = 6.0, 6.0          # ASSUMED: rolled chrome lip, 6 mm wide, 6 mm in front of the panels
+GAUGE_RING = (58.0, 48.0, 3.0)       # small chrome rings: OD, opening, height (stock about 61 / 47-50, photos and calipers)
+CUP_OD = 54.0                        # ASSUMED: black cup round the 50.2 mm lens
+INDICATOR = (13.0, 5.5, 29.0)        # turn windows: w, h, height above the small-gauge centres (photo IMG_1697)
+POD_FRONT = 14.0                     # ASSUMED: speedometer pod lip, like the stock proud cup (stock 36 mm deep)
 
-FACE_T = 3.0                        # ASSUMED: printed or machined faceplate thickness
-SMALL_WINDOW = 34.0                 # mechanical-fit.md: at least 33-35 mm over the 32.4 mm active area
+FACE_T = 3.0                        # ASSUMED: printed or machined side-panel thickness
 CENTRE_WINDOW = 103.5               # mechanical-fit.md: 102.5-104.5, nominal 103.5
 POD_OD = 127.0                      # owner limit: 5 in across including the bezel (2026-10-08)
 
@@ -73,6 +81,8 @@ RFA_TOP_TO_TAIL = 65.04               # lens top edge to the FPC end
 RFA_BOND_R = 37.74 / 2 + 2.76         # FPC bonding edge, (2.76) below the backlight edge
 RFA_FPC_W = 9.5
 RFA_FPC_FREE = RFA_TOP_TO_TAIL - RFA_LENS_D / 2 - RFA_BOND_R   # about 18.3 mm of free tail
+F32Q_BODY = 4.5                       # Amphenol F32Q body depth, cable entry to back (KiCad footprint F.Fab)
+F32Q_MIN_INSERT = 3.0                 # ASSUMED: seated when the tail is 3 mm past the entry edge
 
 # Verdin module, socket and heatsink (Toradex Carrier Board Design Guide V1.2, mechanical-stackup.md)
 VERDIN_L, VERDIN_W, VERDIN_T = 69.6, 31.0, 1.2
@@ -85,12 +95,11 @@ SOCKET_H, SOCKET_D, SOCKET_L = 5.2, 6.0, 79.0                       # ASSUMED st
 # Our stack-up (ASSUMED: the design this file proposes; change here and re-run)
 # ---------------------------------------------------------------------------
 Z_FACE_BACK = -FACE_T                # the faceplate sits on the dash surface
-SCREEN_HOLDER_H = 4.0                # small screen holders: lens back sits this far off the board
+SCREEN_HOLDER_H = 4.0                # small screens: module back this far off the board (they hang from their cups)
 Z_GAUGES_FRONT = -17.8               # gauges/ component side; J1 (13.8 mm) stops 1 mm short of the faceplate
 Z_SMALL_BACK = Z_GAUGES_FRONT + SCREEN_HOLDER_H
 Z_SMALL_FRONT = Z_SMALL_BACK + RFA_T
 Z_TSD_BACK = 1.0                     # the centre panel sits in the pod, 1 mm off the faceplate so its FPC folds under the tab
-POD_H = Z_TSD_BACK + TSD_T + 2.2                 # pod stands this proud of the faceplate (lip 2 mm in front of the glass)
 Z_PANEL_BARE = Z_GAUGES_FRONT - PCB_T - 3.0     # panel-tsd/ hangs below and behind gauges/, parts to the rear
 PANEL_Y = -25.0                      # panel-tsd/ centre height, set so the 69.8 mm FPC reaches J4
 Z_BRAIN_BARE = Z_PANEL_BARE - PCB_T - 7.0      # brain/ behind it, parts (module, heatsink) to the rear
@@ -210,8 +219,15 @@ for k, L in lay.items():
     x0, y0, x1, y1 = L.board_bbox()
     centre[k] = ((x0 + x1) / 2, (y0 + y1) / 2, x1 - x0, y1 - y0)
 
-g_row_x = (lay["gauges"].fp["U7"][0] + lay["gauges"].fp["U8"][0]) / 2     # speedometer centre on gauges/
-g_row_y = 232.34                                                          # screen row (silk circles)
+# Small-screen centres: gauges/ marks each one with a 32.4 mm F.SilkS circle (build_pcb.py, SCREEN_Y).
+_circles = sorted((float(a), float(b)) for a, b in re.findall(
+    r"\(gr_circle\s+\(center ([\d.]+) ([\d.]+)\)\s+\(end [\d.]+ [\d.]+\)\s+\(stroke\s+\(width [\d.]+\)\s+\(type \w+\)\s+\)"
+    r"\s+\(fill no\)\s+\(layer \"F.SilkS\"\)", open(BOARDS["gauges"], encoding="utf-8").read()))
+assert len(_circles) == 4, _circles
+SCREEN_REFS = ["U6", "U7", "U8", "U9"]                                    # left to right
+g_row_x = (_circles[1][0] + _circles[2][0]) / 2                           # speedometer centre on gauges/
+g_row_y = _circles[0][1]
+GAUGE_X = {r: round(c[0] - g_row_x, 2) for r, c in zip(SCREEN_REFS, _circles)}
 T = {
     "gauges": trsf_board((g_row_x, g_row_y), (0, 0), Z_GAUGES_FRONT, False),
     "panel": trsf_board(centre["panel"][:2], (0, PANEL_Y), Z_PANEL_BARE, True),
@@ -302,23 +318,79 @@ for i in range(12):
 # ---------------------------------------------------------------------------
 CHROME = (0.86, 0.87, 0.9)
 BLACK = (0.07, 0.07, 0.08)
+GRAIN = (0.10, 0.10, 0.11)           # the stock panels are black grained vinyl-look
 
-face = rrect(TRIM[0], TRIM[1], 28, FACE_T, Z_FACE_BACK)
+
+def trim_shape(inset, z0, t):
+    """The stock trim outline (wider at the top, ends leaning in), shrunk by `inset`, extruded t from z0."""
+    hwt, hwb, hh = TRIM[0] / 2 - inset, TRIM_BOTTOM_W / 2 - inset, TRIM[1] / 2 - inset
+    return (cq.Workplane("XY").workplane(offset=z0).polyline([(-hwt, hh), (hwt, hh), (hwb, -hh), (-hwb, -hh)])
+            .close().extrude(t).edges("|Z").fillet(max(TRIM_R - inset, 3.0)))
+
+
+def soften(wp, r):
+    """Round the front edges (the rolled look of plated trim); keep the sharp shape if OCC refuses."""
+    try:
+        return wp.faces(">Z").edges().fillet(r)
+    except Exception:
+        return wp
+
+
+# Chrome rim: the rolled lip round the whole cluster, cut where the speedometer pod passes through it.
+rim = trim_shape(0, Z_FACE_BACK, FACE_T + RIM_PROUD).cut(trim_shape(RIM_W, Z_FACE_BACK - 1, FACE_T + RIM_PROUD + 2))
+rim = soften(rim, 2.0).cut(cyl(POD_OD + 1.0, Z_FACE_BACK - 1, POD_FRONT + 1))
+add("chrome trim rim", "housing", rim, CHROME)
+
+# Black grained side panels (one plate behind the pod), with the gauge, indicator and FPC openings.
+face = trim_shape(RIM_W - 0.4, Z_FACE_BACK, FACE_T)
 for x in GAUGE_X.values():
-    face = face.cut(cyl(SMALL_WINDOW, Z_FACE_BACK - 1, 1, x))
+    face = face.cut(cyl(GAUGE_RING[1], Z_FACE_BACK - 1, 1, x))
+IND_X = [(GAUGE_X["U6"] + GAUGE_X["U7"]) / 2, (GAUGE_X["U8"] + GAUGE_X["U9"]) / 2]
+for x in IND_X:
+    face = face.cut(cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1).center(x, INDICATOR[2])
+                    .rect(INDICATOR[0], INDICATOR[1]).extrude(FACE_T + 2))
 face = face.cut(cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1)
-                .center(0, -55.3).rect(TSD_FPC_W + 4, 3.5).extrude(FACE_T + 2))   # panel FPC slot, inside the tub wall
-add("faceplate (ASSUMED 3 mm, trim outline)", "housing", face, (0.11, 0.11, 0.12))
+                .center(0, -55.3).rect(TSD_FPC_W + 4, 3.5).extrude(FACE_T + 2))   # panel FPC slot, under the pod
+add("side panels, black grain (ASSUMED 3 mm)", "housing", face, GRAIN)
+
+# The thin chrome bead that frames each side panel on the stock cluster.
+for side in (-1, 1):
+    x_out, x_in = side * (TRIM_BOTTOM_W / 2 - RIM_W - 4.0), side * (POD_OD / 2 + 6.0)
+    cx, w = (x_out + x_in) / 2, abs(x_out - x_in)
+    bead = rrect(w, 90.0, 14.0, 0.8, 0).cut(rrect(w - 2.4, 87.6, 12.8, 2.0, -0.5))
+    add(f"chrome panel bead {'left' if side < 0 else 'right'}", "housing", bead.translate((cx, 0, 0)), CHROME)
 
 for ref, x in GAUGE_X.items():
-    add(f"bezel ring {ref}", "housing", ring(50.0, SMALL_WINDOW, 0, 2.5, x), CHROME)
-    add(f"gauge cup {ref}", "housing", ring(40.0, 35.0, Z_SMALL_FRONT, Z_FACE_BACK, x), BLACK)
+    add(f"chrome gauge ring {ref}", "housing", soften(ring(GAUGE_RING[0], GAUGE_RING[1], 0, GAUGE_RING[2], x), 1.2), CHROME)
+    # The cup carries its screen, like the stock gauges hang from the cluster face: the lens sits against
+    # the cup's end, a sleeve round it and a clip lip behind its rim (outside the 37.74 mm backlight).
+    z_clip = Z_SMALL_FRONT - RFA_LENS_T - 0.8
+    cup = (ring(CUP_OD, GAUGE_RING[1], Z_SMALL_FRONT, Z_FACE_BACK, x)
+           .union(ring(CUP_OD, RFA_LENS_D + 0.4, Z_SMALL_FRONT - RFA_LENS_T, Z_SMALL_FRONT, x))
+           .union(ring(CUP_OD, RFA_BODY_D + 3.0, z_clip, Z_SMALL_FRONT - RFA_LENS_T, x)))
+    add(f"gauge cup {ref} (carries the screen)", "housing", cup, BLACK)
+for i, x in enumerate(IND_X):
+    side = "left" if i == 0 else "right"
+    frame = (cq.Workplane("XY").center(x, INDICATOR[2]).rect(INDICATOR[0] + 2.4, INDICATOR[1] + 2.4).extrude(1.0)
+             .cut(cq.Workplane("XY").workplane(offset=-0.5).center(x, INDICATOR[2]).rect(*INDICATOR[:2]).extrude(2.0)))
+    add(f"chrome indicator frame {side}", "housing", frame, CHROME)
+    add(f"turn lens {side}", "housing",
+        cq.Workplane("XY").workplane(offset=-1.5).center(x, INDICATOR[2]).rect(*INDICATOR[:2]).extrude(1.4), (0.15, 0.75, 0.3))
+    # Light pipe from the turn LED (gauges/ D26, D27) up to the back of the lens.
+    led = lay["gauges"].fp["D26" if i == 0 else "D27"]
+    lx, ly, _ = kpt(T["gauges"], led[0], led[1], 0)
+    col = [d["bb"][5] if "bb" in d else bbox(d["shape"])[5] for d in solids
+           if d["name"] in {f"gauges:{r}" for r in (("D26", "D24", "R82") if i == 0 else ("D27", "D25", "R83"))}]
+    z0 = max(col) + 0.3
+    add(f"turn light pipe {side} (ASSUMED 2.5 mm square)", "housing",
+        cq.Workplane("XY").workplane(offset=z0).center(lx, ly).rect(2.5, 2.5).extrude(-1.5 - z0), (0.8, 0.95, 0.85), alpha=0.6)
 
-pod = (cq.Workplane("XY").circle(POD_OD / 2).extrude(POD_H)
-       .cut(cq.Workplane("XY").circle(TSD_BODY_D / 2 + 0.5).extrude(POD_H - 2.0))
-       .cut(cq.Workplane("XY").circle(CENTRE_WINDOW / 2).extrude(POD_H + 1))
-       .cut(cq.Workplane("XY").center(0, -55.0).rect(TSD_TAB_W + 1, 12).extrude(Z_TSD_BACK + TSD_T + 0.3)))
-add("centre pod bezel", "housing", pod, CHROME)
+# Speedometer pod: a chrome barrel standing proud of the panels and through the rim at top and bottom,
+# rolled lip, black throat in front of the TSD glass.
+add("centre pod barrel", "housing", ring(POD_OD, POD_OD - 6.0, 0, POD_FRONT - 2.5)
+    .cut(cq.Workplane("XY").workplane(offset=-1).center(0, -60).rect(TSD_TAB_W + 2, 12).extrude(Z_TSD_BACK + 1.5 + 1.5)), CHROME)
+add("centre pod lip", "housing", soften(ring(POD_OD, CENTRE_WINDOW, POD_FRONT - 2.5, POD_FRONT), 1.5), CHROME)
+add("centre pod throat", "housing", ring(POD_OD - 6.0, TSD_GLASS_D - 1.0, Z_TSD_BACK + TSD_T, POD_FRONT - 2.5), BLACK)
 
 tub_outer = rrect(TUB_OUT[0], TUB_OUT[1], 4, Z_FACE_BACK - TUB_BACK_Z, TUB_BACK_Z)
 tub_inner = rrect(TUB_OUT[0] - 2 * TUB_WALL, TUB_OUT[1] - 2 * TUB_WALL, 3, Z_FACE_BACK - TUB_BACK_Z - 2.0, TUB_BACK_Z + 2.0)
@@ -342,31 +414,25 @@ add("TSD glass (101.52 active)", "screens", cyl(TSD_GLASS_D, Z_TSD_BACK + TSD_T 
 for ref, x in GAUGE_X.items():
     add(f"Raystar {ref} lens", "screens", cyl(RFA_LENS_D, Z_SMALL_FRONT - RFA_LENS_T, Z_SMALL_FRONT, x), (0.02, 0.03, 0.06))
     add(f"Raystar {ref} LCD + backlight", "screens", cyl(RFA_BODY_D, Z_SMALL_BACK, Z_SMALL_FRONT - RFA_LENS_T, x), (0.3, 0.3, 0.32))
-    holder = (ring(RFA_LENS_D, RFA_BODY_D + 1.0, Z_GAUGES_FRONT, Z_SMALL_BACK, x)
-              .cut(cq.Workplane("XY").workplane(offset=Z_GAUGES_FRONT - 1).center(x, -RFA_LENS_D / 2).rect(RFA_FPC_W + 4, 16).extrude(8)))
-    add(f"screen holder {ref} (ASSUMED printed ring)", "housing", holder, (0.3, 0.32, 0.36))
 
 # Small-screen FPC, folded under the module toward its connector, at its real length.
 fpc_report = {}
 for ref, x in GAUGE_X.items():
-    conn_y = -(lay["gauges"].fp[ref][1] - g_row_y)                     # connector centre, assembly Y
-    pads = [p[0] for (r, _), p in lay["gauges"].pads.items() if r == ref]
-    entry_y = -(max(p["y"] for p in pads) + 0.5 + 2.0 - g_row_y)       # body front edge (cable side), ASSUMED 2 mm past the pads
+    conn_y = -(lay["gauges"].fp[ref][1] - g_row_y)                     # connector origin (body centre), assembly Y
+    entry_y = conn_y - F32Q_BODY / 2                                    # cable-entry edge (faces the board edge, down)
     y_bond = -RFA_BOND_R
     z_top = Z_SMALL_BACK - 0.1
-    z_low = Z_GAUGES_FRONT + 2.2                                        # rides over the board parts into the connector
-    # The fold: out of the bonding edge, down past the lens edge, back under the module.
-    pts = [(y_bond, z_top), (y_bond - 2.0, z_top - 0.8), (y_bond - 2.6, z_low + 0.8), (y_bond - 2.0, z_low)]
-    used = path_len(pts)
-    need = used + abs((y_bond - 2.0) - (entry_y + 2.0))                  # plus the run to 2 mm inside the connector
-    left = RFA_FPC_FREE - used
+    z_ins = Z_GAUGES_FRONT + 0.9                                        # the connector's slot height
+    # The fold: out of the bonding edge, down past the lens edge, back under the module, then up into the slot.
+    pts = [(y_bond, z_top), (y_bond - 2.0, z_top - 0.8), (y_bond - 2.6, z_ins + 0.8), (y_bond - 2.0, z_ins)]
+    left = RFA_FPC_FREE - path_len(pts)
     end_y = (y_bond - 2.0) + left
-    pts.append((end_y, z_low))
+    pts.append((end_y, z_ins))
     add(f"Raystar {ref} FPC (real 18.3 mm tail)", "cables",
         strip(pts, RFA_FPC_W).translate((x, 0, 0)), (0.85, 0.55, 0.1))
-    fpc_report[ref] = dict(tail_mm=round(RFA_FPC_FREE, 1), needed_mm=round(need, 1),
-                           short_by_mm=round(need - RFA_FPC_FREE, 1),
-                           connector_y_from_screen_centre=round(conn_y, 1), tail_end_y=round(end_y, 1))
+    fpc_report[ref] = dict(tail_mm=round(RFA_FPC_FREE, 1), connector_y_from_screen_centre=round(conn_y, 1),
+                           inserted_mm=round(end_y - entry_y, 2), body_depth_mm=F32Q_BODY,
+                           seated=F32Q_MIN_INSERT <= end_y - entry_y <= F32Q_BODY)
 
 # Centre panel FPC: from the tab, back through the faceplate slot, under panel-tsd/, up into J4.
 pj4 = lay["panel"].fp["J4"]
@@ -421,6 +487,7 @@ for ref in ("MH1", "MH2", "MH3", "MH4"):
 # 4. Clash check: every pair of solids from different groups (or different boards)
 # ---------------------------------------------------------------------------
 INTENDED = [("housing", "dash")]           # the tub passes through the dash opening by design (checked separately)
+MATES = {(f"Raystar {r} FPC (real 18.3 mm tail)", f"gauges:{r}") for r in GAUGE_X}   # each tail sits in its connector
 for d in solids:
     d["bb"] = bbox(d["shape"])
 clashes = []
@@ -432,6 +499,8 @@ for i, a in enumerate(solids):
         if a["group"] == b["group"] and not a["board"]:
             continue                                    # parts of one generated group touch by design
         if (a["group"], b["group"]) in INTENDED or (b["group"], a["group"]) in INTENDED:
+            continue
+        if (a["name"], b["name"]) in MATES or (b["name"], a["name"]) in MATES:
             continue
         if not boxes_overlap(a["bb"], b["bb"]):
             continue
@@ -473,7 +542,7 @@ for ref, x in GAUGE_X.items():
     worst.sort(reverse=True)
     under[ref] = worst[:4]
 
-depth = dict(faceplate_front=0.0, pod_front=round(POD_H, 1),
+depth = dict(faceplate_front=0.0, pod_front=POD_FRONT,
              deepest_part=round(min(d["bb"][2] for d in solids if d["group"] not in ("housing", "dash", "clash")), 1),
              tub_back=TUB_BACK_Z)
 report = dict(clashes=clashes, under_small_screens_mm=under, small_fpc=fpc_report,
@@ -499,7 +568,7 @@ for g in groups.values():
 assy.export(os.path.join(OUT, "dash_assembly.step"))
 # The writer turns OCC's Z-up into glTF's Y-up; the viewer turns it back (mech/viewer/index.html).
 glb = os.path.join(OUT, "dash_assembly.glb")
-assy.export(glb, tolerance=0.5, angularTolerance=0.8)
+assy.export(glb, tolerance=0.25, angularTolerance=0.2)   # fine enough that the chrome rings read round
 
 # The web viewer: artifact hosting serves no .glb, so the model ships as base64 in script chunks.
 import base64  # noqa: E402

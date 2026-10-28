@@ -54,6 +54,7 @@ h2 { font: 600 13px/1 var(--display); letter-spacing: .12em; text-transform: upp
 .finding.clash { --sev: var(--clash); }
 .finding.warn { --sev: var(--accent); }
 .finding.ok { --sev: var(--ok); cursor: default; }
+.finding.ok.go { cursor: pointer; }
 .finding:hover .ft { color: var(--accent); }
 .finding:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ft { font-weight: 600; margin: 0 0 4px; }
@@ -81,7 +82,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
 <div class="app">
   <div class="bay">
     <canvas id="c" aria-label="3D view of the dash assembly"></canvas>
-    <div class="loading" id="loading">Loading the assembly, 12 MB…</div>
+    <div class="loading" id="loading">Loading the assembly, 16 MB…</div>
     <div class="bay-top" role="toolbar" aria-label="Views">
       <button class="chip" data-view="front" id="v-front">Front</button>
       <button class="chip" data-view="iso" id="v-iso">Three-quarter</button>
@@ -105,30 +106,36 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
 
   <aside class="sheet">
     <header>
-      <h1>Cluster dash, assembly v1</h1>
-      <p class="sub">The three routed boards from their KiCad models, in a faceplate, pod and housing tub drawn for them, checked solid against solid. 1966 Mustang opening, 457.2 × 116.69 mm.</p>
+      <h1>Cluster dash, assembly v2</h1>
+      <p class="sub">The three routed boards from their KiCad models in a housing drawn after the stock 1966 five-dial cluster: chrome rim, black grained side panels with a chrome bead, chrome-ringed cups, a proud speedometer pod. Checked solid against solid; no clashes left.</p>
     </header>
 
     <section>
-      <h2>Findings</h2>
-      <div class="finding clash" tabindex="0" data-go="fuel">
-        <p class="ft">The fuel screen hits two parts <span class="tag">clash</span></p>
-        <p class="fd">The far-left screen (U6) sits over J1, the power terminal block, 13.8 mm tall, and F1, the blade fuse holder, 7.4 mm tall. The screen's back is 4 mm off the board, so J1 passes right through the 4 mm screen and into its cup, and F1 runs 3.4 mm into the backlight and lens.</p>
-        <p class="fix"><b>Fix:</b> move J1 and F1 out from under the 50.2 mm lens circle (r = 25.1 mm around the fuel gauge centre), or onto the back of the board. The other three screens only cover 2 mm of parts or less.</p>
+      <h2>Fixed on gauges/ since v1</h2>
+      <div class="finding ok go" tabindex="0" data-go="fuel">
+        <p class="ft">The fuel screen no longer hits anything <span class="tag">fixed</span></p>
+        <p class="fd">J1 (power terminal block, 13.8 mm) and F1 (fuse holder, 7.4 mm) moved to the top edge of the board, above the screens: 15.6 mm and 12.2 mm clear of the fuel screen now. The tallest part under any screen is 2.3 mm, with 4 mm of room.</p>
       </div>
-      <div class="finding clash" tabindex="0" data-go="fpc">
-        <p class="ft">The small screens' cables don't reach their connectors <span class="tag">all 4</span></p>
-        <p class="fd">Each Raystar module has an 18.3 mm FPC tail from its bonding edge (65.04 mm lens-top to tail-end, datasheet p5). U6 to U9 sit 0.6 mm from each screen's centre, so folded under the module the tail needs about 28 mm. It ends about 9.8 mm short (orange strips in the model).</p>
-        <p class="fix"><b>Fix:</b> turn each screen 180° (tail up, image flipped in software) and move U6 to U9 about 10 mm above the screen centre, turned so the opening faces up toward the tail. That stays inside the board outline. Keeping the tail down instead needs the board about 3 mm deeper below the screens.</p>
+      <div class="finding ok go" tabindex="0" data-go="fpc">
+        <p class="ft">All four screen cables reach <span class="tag">fixed</span></p>
+        <p class="fd">The FPC connectors moved to the board's bottom edge, 11 mm below each screen centre, opening down toward the tail. The 18.3 mm tail folds under the module and goes 3.25 mm into the 4.5 mm connector body. No screen rotation or software flip needed.</p>
       </div>
+      <div class="finding ok go" tabindex="0" data-go="ind">
+        <p class="ft">Turn arrows behind factory-style windows</p>
+        <p class="fd">The two turn LEDs moved up to where the stock indicator windows are, 29 mm above the small gauges, with a light pipe to a green lens in a chrome frame.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Still open</h2>
       <div class="finding warn" tabindex="0" data-go="right">
         <p class="ft">gauges/ is wider than the inner opening</p>
-        <p class="fd">447.1 mm against the 441.09 mm inner opening, and it sits 3 mm right of the speedometer centre, so its right end is 226.6 mm out. The tub needs 456.6 mm across, 0.3 mm a side inside the 457.2 mm outer opening.</p>
-        <p class="fix"><b>Check:</b> how deep the 457.2 mm outer step is on the real dash. If it is shallower than 20 mm the board needs trimming to 441 mm or centring.</p>
+        <p class="fd">447.1 mm against the 441.09 mm inner opening (it is 65.6 mm tall now). The housing needs 456.6 mm across, 0.3 mm a side inside the 457.2 mm outer opening.</p>
+        <p class="fix"><b>Check:</b> how deep the 457.2 mm outer step is on the real dash. If it is shallower than 20 mm the board needs trimming to 441 mm.</p>
       </div>
       <div class="finding ok">
         <p class="ft">Everything else fits</p>
-        <p class="fd">The centre panel's 69.8 mm FPC reaches panel-tsd/ with 8.1 mm spare. The screen-port ribbon needs about 106 mm. The whole stack is 56 mm deep behind the faceplate (stock cluster about 60 mm) plus the 11 mm pod in front.</p>
+        <p class="fd">The centre panel's 69.8 mm FPC reaches panel-tsd/ with 8.1 mm spare. The screen-port ribbon needs about 106 mm. 56 mm deep behind the panels (stock about 60 mm), the pod lip 14 mm in front.</p>
       </div>
     </section>
 
@@ -136,23 +143,25 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       <h2>Stack, front to back</h2>
       <table>
         <tr><th>Layer</th><th class="n">Z, mm</th></tr>
-        <tr><td>Centre pod lip (127 mm across)</td><td class="n">+11.0</td></tr>
+        <tr><td>Speedometer pod lip (127 mm across)</td><td class="n">+14.0</td></tr>
         <tr><td>TSD 4 in panel, glass front</td><td class="n">+9.8</td></tr>
-        <tr><td>Faceplate front</td><td class="n">0.0</td></tr>
-        <tr><td>Dash surface, faceplate back</td><td class="n">−3.0</td></tr>
-        <tr><td>Small screens, lens front (9.8 mm deep cups)</td><td class="n">−9.8</td></tr>
-        <tr><td>gauges/ component side</td><td class="n">−17.8</td></tr>
-        <tr><td>panel-tsd/, parts facing back</td><td class="n">−22.4</td></tr>
-        <tr><td>brain/, Verdin and heatsink facing back</td><td class="n">−31.0</td></tr>
-        <tr><td>Heatsink fins (height assumed)</td><td class="n">−51.6</td></tr>
-        <tr><td>Housing tub back, vented</td><td class="n">−56.0</td></tr>
+        <tr><td>Chrome rim, front edge</td><td class="n">+6.0</td></tr>
+        <tr><td>Chrome gauge rings</td><td class="n">+3.0</td></tr>
+        <tr><td>Side panels, front</td><td class="n">0.0</td></tr>
+        <tr><td>Dash surface, panel back</td><td class="n">&minus;3.0</td></tr>
+        <tr><td>Small screens, lens front (in their cups)</td><td class="n">&minus;9.8</td></tr>
+        <tr><td>gauges/ component side</td><td class="n">&minus;17.8</td></tr>
+        <tr><td>panel-tsd/, parts facing back</td><td class="n">&minus;22.4</td></tr>
+        <tr><td>brain/, Verdin and heatsink facing back</td><td class="n">&minus;31.0</td></tr>
+        <tr><td>Heatsink fins (height assumed)</td><td class="n">&minus;51.6</td></tr>
+        <tr><td>Housing tub back, vented</td><td class="n">&minus;56.0</td></tr>
       </table>
-      <p class="note">Z is toward the driver; 0 is the faceplate's front face at the speedometer centre.</p>
+      <p class="note">Z is toward the driver; 0 is the side panels' front face at the speedometer centre.</p>
     </section>
 
     <section>
       <h2>What is real and what is assumed</h2>
-      <p class="note">Real: the board models (kicad-cli STEP), the TSD outline (110 mm body, 7.8 mm, tab to 58.49 mm), the Raystar outline (50.2 mm lens, 37.74 mm backlight, 3.99 mm), the Verdin module and standoff heights, the dash opening. Assumed and drawn by us: faceplate 3 mm on the 518 × 120 mm trim outline, 4 mm screen holders, pod, tub walls, heatsink fin height, the SODIMM socket and the four FPC connectors (magenta boxes, no library model).</p>
+      <p class="note">Real: the board models (kicad-cli STEP), the TSD outline (110 mm body, 7.8 mm, tab to 58.49 mm), the Raystar outline (50.2 mm lens, 37.74 mm backlight, 3.99 mm), the Verdin module and standoff heights, the dash opening. Taken from your cluster's photos and calipers: the 518 × 120 mm trim, the gauge spacing, the ring and cup sizes, the indicator window height. Assumed and drawn by us: the trim's bottom width (490 mm) and rim section, 3 mm panels, the cups that carry the small screens, the light pipes, the pod depth, tub walls, heatsink fin height, the SODIMM socket and the four FPC connectors (magenta boxes, no library model).</p>
       <div class="legend">
         <span><i style="background:#ff2626"></i>Clash volume</span>
         <span><i style="background:#d98c1a"></i>Flat cable</span>
@@ -165,6 +174,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
 <script>
 (function () {
   const canvas = document.getElementById("c");
@@ -175,7 +185,12 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
   const camera = new THREE.PerspectiveCamera(32, 1, 1, 5000);
   const controls = new THREE.OrbitControls(camera, canvas);
   controls.enableDamping = true;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x404048, 0.9));
+  // A soft studio room for the chrome to reflect; the lights below shape the rest.
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x404048, 0.45));
   const key = new THREE.DirectionalLight(0xffffff, 0.9); key.position.set(-300, 400, 600); scene.add(key);
   const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(400, -100, -500); scene.add(fill);
 
@@ -184,7 +199,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
     if (/^CLASH/.test(name)) return { cls: "clash", dz: 0 };
     if (group === "dash") return { cls: "dash", dz: -140 };
     if (/tub/.test(name)) return { cls: "housing", dz: -140 };
-    if (/faceplate|bezel|gauge cup|pod/.test(name)) return { cls: "housing", dz: 110 };
+    if (/chrome|side panels|gauge cup|pod|turn lens|light pipe/.test(name)) return { cls: "housing", dz: 110 };
     if (/TSD.*FPC/.test(name)) return { cls: "cables", dz: -40 };
     if (/FPC/.test(name)) return { cls: "cables", dz: 50 };
     if (/FFC/.test(name)) return { cls: "cables", dz: -70 };
@@ -232,7 +247,8 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       // Tree: dash_assembly_v1 > group (gauges, housing, ...) > "NNN part name" > mesh
       let name = o.name || "", group = "";
       for (let n = o; n && n !== root; n = n.parent) {
-        if (/^\d{3} /.test(n.name)) name = n.name.slice(4);
+        // GLTFLoader turns spaces into underscores and may add a "_N" to keep names unique.
+        if (/^\d{3}[ _]/.test(n.name)) name = n.name.slice(4).replace(/_/g, " ").replace(/ \d+$/, "");
         if (n.parent && n.parent.name === "dash_assembly_v1") group = n.name;
       }
       const c = classify(name, group);
@@ -242,8 +258,15 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
         if (c.cls === "dash") { m.transparent = true; m.opacity = 0.22; m.depthWrite = false; }
         if (/tub/.test(name)) { m.transparent = true; m.opacity = 0.28; m.depthWrite = false; }
         if (c.cls === "clash") { m.emissive = new THREE.Color(0x880000); }
-        m.metalness = /bezel|pod|standoff|head|heatsink/.test(name) ? 0.8 : 0.1;
-        m.roughness = /bezel|pod/.test(name) ? 0.25 : 0.6;
+        const chrome = /chrome|pod barrel|pod lip/.test(name);
+        m.metalness = chrome ? 1.0 : /standoff|head|heatsink/.test(name) ? 0.8 : 0.05;
+        m.roughness = chrome ? 0.12 : /side panels/.test(name) ? 0.82 : /cup|throat/.test(name) ? 0.55 : 0.6;
+        if (chrome) m.color.setRGB(0.95, 0.95, 0.97);
+        else m.envMapIntensity = 0.4;
+        // The model's colours are display values; the black parts need linear-space black to read as black.
+        if (/side panels|gauge cup|throat/.test(name)) m.color.setRGB(0.012, 0.012, 0.014);
+        if (/turn lens/.test(name)) { m.emissive = new THREE.Color(0x0b5a22); m.roughness = 0.2; }
+        if (/light pipe/.test(name)) { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; }
       });
       o.userData.part = name;
       parts.push({ obj: o, cls: c.cls, dz: c.dz, base: o.position.clone() });
@@ -255,46 +278,80 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
     applyExplode();
   }
 
-  // Lit gauge faces on the screen glass: the 101.52 mm TSD active circle and the 32.4 mm Raystar ones.
-  function dial(label, lo, hi, ticks, value, big) {
-    const s = 512, c = document.createElement("canvas"); c.width = c.height = s;
-    const g = c.getContext("2d"), r = s / 2, a0 = Math.PI * 0.75, a1 = Math.PI * 2.25;
-    const grd = g.createRadialGradient(r, r * 0.8, 10, r, r, r);
-    grd.addColorStop(0, "#1b2230"); grd.addColorStop(1, "#05070b");
-    g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, 7); g.fill();
-    g.strokeStyle = "#f2b33d"; g.lineCap = "round";
-    for (let i = 0; i <= ticks; i++) {
-      const a = a0 + (a1 - a0) * i / ticks, major = i % (big ? 2 : 1) === 0;
-      g.lineWidth = major ? 7 : 3;
-      g.beginPath(); g.moveTo(r + Math.cos(a) * r * 0.92, r + Math.sin(a) * r * 0.92);
-      g.lineTo(r + Math.cos(a) * r * (major ? 0.78 : 0.85), r + Math.sin(a) * r * (major ? 0.78 : 0.85)); g.stroke();
-      if (big && major) {
-        g.fillStyle = "#e9ecf2"; g.font = "600 34px Barlow Condensed, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
-        g.fillText(String(lo + (hi - lo) * i / ticks), r + Math.cos(a) * r * 0.64, r + Math.sin(a) * r * 0.64);
-      }
-    }
-    if (!big) {
-      g.fillStyle = "#e9ecf2"; g.font = "600 60px Barlow Condensed, sans-serif"; g.textAlign = "center";
-      g.fillText(lo, r + Math.cos(a0) * r * 0.55, r + Math.sin(a0) * r * 0.55 + 10);
-      g.fillText(hi, r + Math.cos(a1) * r * 0.55, r + Math.sin(a1) * r * 0.55 + 10);
-    }
-    g.fillStyle = "#f2b33d"; g.font = `700 ${big ? 46 : 70}px Barlow Condensed, sans-serif`; g.textAlign = "center";
-    g.fillText(label, r, r + (big ? 150 : 140));
-    if (big) { g.fillStyle = "#e9ecf2"; g.font = "700 120px Barlow Condensed, sans-serif"; g.fillText(String(value), r, r + 60); }
-    const av = a0 + (a1 - a0) * (value - (big ? lo : 0)) / (big ? hi - lo : 1);
-    g.strokeStyle = "#ff4b2b"; g.lineWidth = big ? 8 : 14;
-    g.beginPath(); g.moveTo(r + Math.cos(av) * r * 0.12, r + Math.sin(av) * r * 0.12); g.lineTo(r + Math.cos(av) * r * 0.86, r + Math.sin(av) * r * 0.86); g.stroke();
-    g.fillStyle = "#2a3140"; g.beginPath(); g.arc(r, r, big ? 22 : 34, 0, 7); g.fill();
+  // Illustrations on the screen glass, drawn like the stock 1966 faces: black, white ticks and figures,
+  // an orange-red needle. The 101.52 mm TSD active circle and the 32.4 mm Raystar ones.
+  const INK = "#f1efe6", NEEDLE = "#ff5a1f";
+  function canvasMat(c) {
     const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding; tex.anisotropy = 4;
     return new THREE.MeshBasicMaterial({ map: tex, toneMapped: false });
   }
+  function base(s) {
+    const c = document.createElement("canvas"); c.width = c.height = s;
+    const g = c.getContext("2d"), r = s / 2;
+    const grd = g.createRadialGradient(r, r * 0.75, 10, r, r, r);
+    grd.addColorStop(0, "#1a1c20"); grd.addColorStop(1, "#060607");
+    g.fillStyle = grd; g.beginPath(); g.arc(r, r, r, 0, 7); g.fill();
+    return [c, g, r];
+  }
+  function needle(g, r, a, len, w) {
+    g.strokeStyle = NEEDLE; g.lineWidth = w; g.lineCap = "round";
+    g.beginPath(); g.moveTo(r - Math.cos(a) * r * 0.12, r - Math.sin(a) * r * 0.12);
+    g.lineTo(r + Math.cos(a) * r * len, r + Math.sin(a) * r * len); g.stroke();
+  }
+  function speedo(mph) {
+    const [c, g, r] = base(1024), a0 = Math.PI * 0.72, a1 = Math.PI * 2.28;
+    g.strokeStyle = INK; g.lineCap = "butt";
+    for (let v = 0; v <= 140; v += 5) {
+      const a = a0 + (a1 - a0) * v / 140, major = v % 10 === 0;
+      g.lineWidth = major ? 9 : 4;
+      g.beginPath(); g.moveTo(r + Math.cos(a) * r * 0.93, r + Math.sin(a) * r * 0.93);
+      g.lineTo(r + Math.cos(a) * r * (major ? 0.8 : 0.86), r + Math.sin(a) * r * (major ? 0.8 : 0.86)); g.stroke();
+      if (major) {
+        g.save(); g.translate(r + Math.cos(a) * r * 0.68, r + Math.sin(a) * r * 0.68); g.rotate(a + Math.PI / 2);
+        g.fillStyle = INK; g.font = "600 64px Barlow Condensed, Arial Narrow, sans-serif"; g.textAlign = "center"; g.textBaseline = "middle";
+        g.fillText(String(v), 0, 0); g.restore();
+      }
+    }
+    g.fillStyle = INK; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = "500 40px Barlow Condensed, Arial Narrow, sans-serif"; g.fillText("MILES PER HOUR", r, r + 250);
+    g.fillStyle = "#0d0e10"; g.fillRect(r - 120, r + 150, 240, 56);
+    g.strokeStyle = "#3a3d44"; g.lineWidth = 3; g.strokeRect(r - 120, r + 150, 240, 56);
+    g.fillStyle = INK; g.font = "500 44px IBM Plex Mono, monospace"; g.fillText("0 4 6 6 1", r, r + 180);
+    needle(g, r, a0 + (a1 - a0) * mph / 140, 0.9, 12);
+    g.fillStyle = "#c9c9c4"; g.beginPath(); g.arc(r, r, 34, 0, 7); g.fill();
+    g.fillStyle = "#1c1d20"; g.beginPath(); g.arc(r, r, 22, 0, 7); g.fill();
+    return canvasMat(c);
+  }
+  function small(label, lo, hi, value) {
+    // The stock small gauges sweep across the top half, figures at the ends, the name below the pivot.
+    const [c, g, r] = base(512), a0 = Math.PI * 1.2, a1 = Math.PI * 1.8, py = r * 1.18;
+    g.strokeStyle = INK; g.lineWidth = 6;
+    g.beginPath(); g.arc(r, py, r * 0.72, a0, a1); g.stroke();
+    for (let i = 0; i <= 4; i++) {
+      const a = a0 + (a1 - a0) * i / 4, l = i % 2 === 0 ? 0.56 : 0.62;
+      g.lineWidth = i % 2 === 0 ? 8 : 5;
+      g.beginPath(); g.moveTo(r + Math.cos(a) * r * 0.72, py + Math.sin(a) * r * 0.72);
+      g.lineTo(r + Math.cos(a) * r * l, py + Math.sin(a) * r * l); g.stroke();
+    }
+    g.fillStyle = INK; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = "700 58px Barlow Condensed, Arial Narrow, sans-serif";
+    g.fillText(lo, r + Math.cos(a0) * r * 0.86, py + Math.sin(a0) * r * 0.86 - 6);
+    g.fillText(hi, r + Math.cos(a1) * r * 0.86, py + Math.sin(a1) * r * 0.86 - 6);
+    g.font = "700 64px Barlow Condensed, Arial Narrow, sans-serif"; g.fillText(label, r, r * 1.5);
+    g.strokeStyle = NEEDLE; g.lineWidth = 12; g.lineCap = "round";
+    const av = a0 + (a1 - a0) * value;
+    g.beginPath(); g.moveTo(r + Math.cos(av) * r * 0.2, py + Math.sin(av) * r * 0.2);
+    g.lineTo(r + Math.cos(av) * r * 0.74, py + Math.sin(av) * r * 0.74); g.stroke();
+    g.fillStyle = "#2a2b2f"; g.beginPath(); g.arc(r, py, 26, 0, 7); g.fill();
+    return canvasMat(c);
+  }
   function addFaces() {
     const faces = [
-      [0, 9.8 + 0.05, 101.52, dial("MPH", 0, 120, 12, 45, true), 80],
-      [-196.89, -9.81 + 0.05, 32.4, dial("FUEL", "E", "F", 4, 0.7, false), 50],
-      [-118.0, -9.81 + 0.05, 32.4, dial("OIL", "L", "H", 4, 0.55, false), 50],
-      [118.0, -9.81 + 0.05, 32.4, dial("AMP", "D", "C", 4, 0.5, false), 50],
-      [196.89, -9.81 + 0.05, 32.4, dial("TEMP", "C", "H", 4, 0.45, false), 50],
+      [0, 9.8 + 0.05, 101.52, speedo(45), 80],
+      [-196.89, -9.81 + 0.05, 32.4, small("FUEL", "E", "F", 0.7), 50],
+      [-118.0, -9.81 + 0.05, 32.4, small("OIL", "L", "H", 0.55), 50],
+      [118.0, -9.81 + 0.05, 32.4, small("AMPS", "D", "C", 0.5), 50],
+      [196.89, -9.81 + 0.05, 32.4, small("TEMP", "C", "H", 0.45), 50],
     ];
     faces.forEach(([x, z, d, mat, dz]) => {
       const m = new THREE.Mesh(new THREE.CircleGeometry(d / 2 * unit, 96), mat);
@@ -313,7 +370,8 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
     top: [[0, 650, -20], [0, 0, -20]],
     rear: [[260, 160, -760], [0, 0, -25]],
     fuel: [[-110, 120, 190], [-192, 12, -14]],
-    fpc: [[-90, -110, 60], [-118, -10, -14]],
+    fpc: [[-80, -120, 50], [-118, -12, -15]],
+    ind: [[-120, 70, 170], [-157, 24, -8]],
     right: [[330, 120, 160], [215, 10, -20]],
   };
   const WIDE = { front: 1, iso: 1, side: 0, top: 1, rear: 1 };
@@ -334,7 +392,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
   }
   document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => setView(b.dataset.view)));
   document.querySelectorAll("[data-go]").forEach((f) => {
-    const go = () => { const v = f.dataset.go; if (v !== "right") { document.getElementById("t-housing").checked = false; applyVis(); } setView(v); };
+    const go = () => { const v = f.dataset.go; if (v !== "right" && v !== "ind") { document.getElementById("t-housing").checked = false; applyVis(); } setView(v); };
     f.addEventListener("click", go);
     f.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); go(); } });
   });

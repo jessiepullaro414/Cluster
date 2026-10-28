@@ -1,4 +1,4 @@
-# Dash assembly v2 (2026-10-28)
+# Dash assembly v2.1 (2026-10-28)
 
 `mech/build_assembly.py` puts the three routed boards (brain/, panel-tsd/, gauges/, from their
 `kicad-cli pcb export step` models) into a housing drawn after the stock 1966 five-dial cluster,
@@ -14,29 +14,38 @@ Frame: X right as the driver sees it, Y up, Z toward the driver, origin at the s
 on the side panels' front face. The small-screen centres come from gauges/ itself (its 32.4 mm
 F.SilkS circles), so the assembly follows the board when it moves.
 
-## The housing (v2: factory look)
+## The housing (factory shape)
 
-Drawn from the owner's photos of the stock cluster (IMG_1682..1700, see `mechanical-fit.md`):
+Drawn from the owner's photos of the stock cluster (IMG_1682..1700, see `mechanical-fit.md`). v2.1
+gave it depth: the side photos (IMG_1689, IMG_1691) show a deep chrome pan with a rolled outer wall,
+not a flat plate.
 
 - **Chrome rim**: the 518 x 120 mm trim outline, its ends leaning in toward the bottom (490 mm across
-  at the bottom, ASSUMED from the photo), a 6 mm rolled lip standing 6 mm proud of the panels, cut
+  at the bottom, ASSUMED from the photo) and rounded at 30 mm (ASSUMED). Its section is lofted round
+  the whole outline (`RIM_PROFILE`, ASSUMED): up from the dash surface, a rolled crown 12 mm in front
+  of the panels, and an inner wall that falls to the panels 18.5 mm in from the outline. It is cut
   where the speedometer pod passes through it at the top and bottom.
-- **Black grained side panels** (3 mm), each framed by a thin chrome bead.
-- **Small gauges**: chrome rings (58 mm outside, 48 mm opening, 3 mm proud) over black cups. Each cup
-  carries its screen: the lens sits against the cup's end with a sleeve round it and a clip lip
-  behind its rim, so nothing stands on the board under the screen.
+- **Black grained side panels** (3 mm), each with a thin chrome bead following its edge, closed
+  beside the pod.
+- **Small gauges**: domed chrome bezels turned from a half-round section (58 mm outside, 48 mm
+  opening, 4 mm high) over black cups. Each cup carries its screen: the lens sits against the cup's
+  end with a sleeve round it and a clip lip behind its rim, so nothing stands on the board under the
+  screen.
 - **Turn indicators**: a 13 x 5.5 mm green lens in a chrome frame high in each side panel, 29 mm
   above the small-gauge centres as on the stock cluster, lit by gauges/ D26/D27 through a light pipe.
-- **Speedometer pod**: a 127 mm chrome barrel with a rolled lip 14 mm in front of the panels and a
-  black throat in front of the TSD glass, notched at the bottom for the TSD tab and its FPC.
+- **Speedometer pod**: a turned 127 mm chrome cup with a rolled lip 22 mm in front of the panels and
+  a black throat that flares from the TSD glass edge (104 mm) to 116 mm at the lip, notched at the
+  bottom for the TSD tab and its FPC. The whole 101.52 mm active area stays in view up to 32 degrees
+  off-axis (each small face up to 29 degrees past its bezel; `clearance.json` `view_angle_deg`). A
+  deeper, stock-depth cup would shade more of the speedometer.
 - Behind: the vented tub, 456.6 x 115.5 mm, through the dash opening.
 
 | Layer | Z, mm | Notes |
 |---|---|---|
-| Speedometer pod lip, 127 mm across | +14.0 | owner limit 5 in including the bezel |
+| Speedometer pod lip, 127 mm across | +22.0 | owner limit 5 in including the bezel |
+| Chrome rim, crown | +12.0 | |
 | TSD panel glass | +9.8 | 110 mm body sits in the pod |
-| Chrome rim, front edge | +6.0 | |
-| Small chrome rings | +3.0 | |
+| Small chrome bezels, dome top | +4.0 | |
 | Side panels front | 0.0 | |
 | Side panels back, dash surface | -3.0 | |
 | Small screens, lens front | -9.8 | in their cups |
@@ -72,7 +81,7 @@ Still open:
 
 ## Assumed, not measured
 
-The trim's bottom width and rim section, panel thickness, the cups that carry the small screens,
+The trim's bottom width, end radius and rim section, the bezel dome and throat flare, panel thickness, the cups that carry the small screens,
 the light pipes, the pod depth, tub walls, panel-tsd/ and brain/ positions, heatsink fin height
 (Toradex datasheet not retrieved), the TSD tab width and FPC exit side, the F32Q seating depth, and
 stand-in boxes for parts with no library 3D model: the four FFC connectors on gauges/ (2.0 mm), the

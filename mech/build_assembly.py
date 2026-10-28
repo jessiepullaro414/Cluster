@@ -1,7 +1,7 @@
 """Dash assembly v2: the three routed boards in a factory-style 1966 housing, with every screen.
 
-Builds the chrome trim and black side panels of the stock five-dial cluster (from the owner's
-photos), chrome gauge rings and cups, the centre pod, the housing tub, a stand-in
+Builds the stock five-dial cluster's shape (from the owner's photos): a deep chrome pan lofted
+round the trim outline, black side panels, domed chrome bezels and cups, a turned speedometer cup, the housing tub, a stand-in
 for the steel dash around the opening, all five screens, the Verdin module and heatsink and the
 flat cables, places the three boards from their kicad-cli STEP exports, and checks every pair
 of solids for overlap. Writes:
@@ -56,12 +56,18 @@ DASH_INNER = (441.09, 105.54)
 TRIM = (518.0, 120.0)               # stock chrome trim outline, owner photos 2026-10-08 (+/-5 mm)
 # The stock trim (front photo IMG_1697) leans in at both ends toward the bottom; the bottom width is
 # ASSUMED from the photo (perspective makes it +/-5 mm), the corner radius too.
-TRIM_BOTTOM_W, TRIM_R = 490.0, 16.0
-RIM_W, RIM_PROUD = 6.0, 6.0          # ASSUMED: rolled chrome lip, 6 mm wide, 6 mm in front of the panels
-GAUGE_RING = (58.0, 48.0, 3.0)       # small chrome rings: OD, opening, height (stock about 61 / 47-50, photos and calipers)
+TRIM_BOTTOM_W, TRIM_R = 490.0, 30.0
+# ASSUMED rim section (side photos IMG_1689/1691: a deep chrome pan with a rolled outer wall): (inset from
+# the trim outline, Z) from the dash surface, over a crown 12 mm in front of the panels, down an inner
+# wall to the panels 18.5 mm in from the outline.
+RIM_PROFILE = [(0.0, -3.0), (0.0, 2.0), (0.8, 6.0), (2.4, 9.2), (4.8, 11.3), (7.5, 12.0), (10.0, 11.6),
+               (12.2, 10.0), (14.2, 7.2), (16.2, 3.8), (17.8, 1.0), (18.5, 0.0)]
+RIM_FOOT = RIM_PROFILE[-1][0]
+GAUGE_RING = (58.0, 48.0, 4.0)       # small chrome bezels: OD, opening, dome height (stock about 61 / 47-50, photos and calipers)
 CUP_OD = 54.0                        # ASSUMED: black cup round the 50.2 mm lens
 INDICATOR = (13.0, 5.5, 29.0)        # turn windows: w, h, height above the small-gauge centres (photo IMG_1697)
-POD_FRONT = 14.0                     # ASSUMED: speedometer pod lip, like the stock proud cup (stock 36 mm deep)
+POD_FRONT = 22.0                     # ASSUMED: speedometer pod lip, like the stock proud cup (stock 36 mm deep)
+POD_THROAT_TOP = 58.0                # ASSUMED: the black throat flares from the 104 mm glass edge to 116 mm at the lip
 
 FACE_T = 3.0                        # ASSUMED: printed or machined side-panel thickness
 CENTRE_WINDOW = 103.5               # mechanical-fit.md: 102.5-104.5, nominal 103.5
@@ -321,28 +327,37 @@ BLACK = (0.07, 0.07, 0.08)
 GRAIN = (0.10, 0.10, 0.11)           # the stock panels are black grained vinyl-look
 
 
-def trim_shape(inset, z0, t):
-    """The stock trim outline (wider at the top, ends leaning in), shrunk by `inset`, extruded t from z0."""
+def trim_wire(inset, z):
+    """The stock trim outline (wider at the top, ends leaning in), shrunk by `inset`, as a wire at height z."""
     hwt, hwb, hh = TRIM[0] / 2 - inset, TRIM_BOTTOM_W / 2 - inset, TRIM[1] / 2 - inset
-    return (cq.Workplane("XY").workplane(offset=z0).polyline([(-hwt, hh), (hwt, hh), (hwb, -hh), (-hwb, -hh)])
-            .close().extrude(t).edges("|Z").fillet(max(TRIM_R - inset, 3.0)))
+    w = cq.Wire.makePolygon([cq.Vector(-hwt, hh, z), cq.Vector(hwt, hh, z), cq.Vector(hwb, -hh, z),
+                             cq.Vector(-hwb, -hh, z)], close=True)
+    return w.fillet2D(max(TRIM_R - inset, 3.0), w.Vertices())
 
 
-def soften(wp, r):
-    """Round the front edges (the rolled look of plated trim); keep the sharp shape if OCC refuses."""
-    try:
-        return wp.faces(">Z").edges().fillet(r)
-    except Exception:
-        return wp
+def trim_shape(inset, z0, t):
+    return cq.Workplane("XY").add(cq.Solid.extrudeLinear(cq.Face.makeFromWires(trim_wire(inset, z0)), cq.Vector(0, 0, t)))
 
 
-# Chrome rim: the rolled lip round the whole cluster, cut where the speedometer pod passes through it.
-rim = trim_shape(0, Z_FACE_BACK, FACE_T + RIM_PROUD).cut(trim_shape(RIM_W, Z_FACE_BACK - 1, FACE_T + RIM_PROUD + 2))
-rim = soften(rim, 2.0).cut(cyl(POD_OD + 1.0, Z_FACE_BACK - 1, POD_FRONT + 1))
+def turned(pts, x=0.0):
+    """A part turned about the Z axis from an (r, z) section, centred at (x, 0)."""
+    return cq.Workplane("XZ").polyline(pts).close().revolve(360, (0, 0, 0), (0, 1, 0)).translate((x, 0, 0))
+
+
+def dome(r_in, r_out, z0, h, n=16):
+    """(r, z) points over a rolled half-round lip from r_out to r_in, its base at z0."""
+    rc, a = (r_in + r_out) / 2, (r_out - r_in) / 2
+    return [(rc + a * math.cos(math.pi * i / n), z0 + h * math.sin(math.pi * i / n)) for i in range(n + 1)]
+
+
+# Chrome rim: a deep pan round the whole cluster, lofted through the rim section at every inset, then
+# opened in the middle (the panels) and where the speedometer pod passes through it top and bottom.
+rim = cq.Workplane("XY").add(cq.Solid.makeLoft([trim_wire(d, z) for d, z in RIM_PROFILE], False))
+rim = rim.cut(trim_shape(RIM_FOOT, Z_FACE_BACK - 1, FACE_T + 2)).cut(cyl(POD_OD + 1.0, Z_FACE_BACK - 1, RIM_PROFILE[5][1] + 2))
 add("chrome trim rim", "housing", rim, CHROME)
 
 # Black grained side panels (one plate behind the pod), with the gauge, indicator and FPC openings.
-face = trim_shape(RIM_W - 0.4, Z_FACE_BACK, FACE_T)
+face = trim_shape(RIM_FOOT - 0.3, Z_FACE_BACK, FACE_T)
 for x in GAUGE_X.values():
     face = face.cut(cyl(GAUGE_RING[1], Z_FACE_BACK - 1, 1, x))
 IND_X = [(GAUGE_X["U6"] + GAUGE_X["U7"]) / 2, (GAUGE_X["U8"] + GAUGE_X["U9"]) / 2]
@@ -353,15 +368,18 @@ face = face.cut(cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1)
                 .center(0, -55.3).rect(TSD_FPC_W + 4, 3.5).extrude(FACE_T + 2))   # panel FPC slot, under the pod
 add("side panels, black grain (ASSUMED 3 mm)", "housing", face, GRAIN)
 
-# The thin chrome bead that frames each side panel on the stock cluster.
+# The thin chrome bead that follows each side panel's edge on the stock cluster, closed beside the pod.
 for side in (-1, 1):
-    x_out, x_in = side * (TRIM_BOTTOM_W / 2 - RIM_W - 4.0), side * (POD_OD / 2 + 6.0)
-    cx, w = (x_out + x_in) / 2, abs(x_out - x_in)
-    bead = rrect(w, 90.0, 14.0, 0.8, 0).cut(rrect(w - 2.4, 87.6, 12.8, 2.0, -0.5))
-    add(f"chrome panel bead {'left' if side < 0 else 'right'}", "housing", bead.translate((cx, 0, 0)), CHROME)
+    x_in = POD_OD / 2 + 6.0
+    keep = cq.Workplane("XY").workplane(offset=-1).center(side * 200, 0).rect(400 - 2 * x_in, 200).extrude(3)
+    hole = cq.Workplane("XY").workplane(offset=-1).center(side * 201.2, 0).rect(400 - 2 * x_in - 2.4, 200).extrude(3)
+    bead = trim_shape(RIM_FOOT + 2.2, 0, 0.8).intersect(keep).cut(trim_shape(RIM_FOOT + 3.4, -0.5, 2).intersect(hole))
+    add(f"chrome panel bead {'left' if side < 0 else 'right'}", "housing", bead, CHROME)
 
 for ref, x in GAUGE_X.items():
-    add(f"chrome gauge ring {ref}", "housing", soften(ring(GAUGE_RING[0], GAUGE_RING[1], 0, GAUGE_RING[2], x), 1.2), CHROME)
+    r_in, r_out = GAUGE_RING[1] / 2, GAUGE_RING[0] / 2
+    add(f"chrome gauge ring {ref}", "housing",
+        turned([(r_in, 0.0), (r_out, 0.0)] + dome(r_in, r_out, 0.6, GAUGE_RING[2] - 0.6), x), CHROME)
     # The cup carries its screen, like the stock gauges hang from the cluster face: the lens sits against
     # the cup's end, a sleeve round it and a clip lip behind its rim (outside the 37.74 mm backlight).
     z_clip = Z_SMALL_FRONT - RFA_LENS_T - 0.8
@@ -385,12 +403,25 @@ for i, x in enumerate(IND_X):
     add(f"turn light pipe {side} (ASSUMED 2.5 mm square)", "housing",
         cq.Workplane("XY").workplane(offset=z0).center(lx, ly).rect(2.5, 2.5).extrude(-1.5 - z0), (0.8, 0.95, 0.85), alpha=0.6)
 
-# Speedometer pod: a chrome barrel standing proud of the panels and through the rim at top and bottom,
-# rolled lip, black throat in front of the TSD glass.
-add("centre pod barrel", "housing", ring(POD_OD, POD_OD - 6.0, 0, POD_FRONT - 2.5)
+# Speedometer pod: a turned chrome cup standing proud of the panels and through the rim top and bottom,
+# a rolled lip, and a black throat that flares from the TSD glass to the lip (stock: a deep cup).
+Z_GLASS = Z_TSD_BACK + TSD_T
+z_lip = POD_FRONT - 2.5
+POD_SECTION = ([(POD_OD / 2 - 3.0, 0.0), (POD_OD / 2, 0.0), (POD_OD / 2, z_lip - 6.0), (POD_OD / 2 - 0.2, z_lip)]
+               + dome(POD_THROAT_TOP - 0.1, POD_OD / 2 - 0.2, z_lip, 2.5)[1:] + [(POD_OD / 2 - 3.0, z_lip)])
+add("centre pod barrel", "housing", turned(POD_SECTION)
     .cut(cq.Workplane("XY").workplane(offset=-1).center(0, -60).rect(TSD_TAB_W + 2, 12).extrude(Z_TSD_BACK + 1.5 + 1.5)), CHROME)
-add("centre pod lip", "housing", soften(ring(POD_OD, CENTRE_WINDOW, POD_FRONT - 2.5, POD_FRONT), 1.5), CHROME)
-add("centre pod throat", "housing", ring(POD_OD - 6.0, TSD_GLASS_D - 1.0, Z_TSD_BACK + TSD_T, POD_FRONT - 2.5), BLACK)
+THROAT = [(TSD_GLASS_D / 2 - 0.5, Z_GLASS), (POD_OD / 2 - 3.0, Z_GLASS), (POD_OD / 2 - 3.0, z_lip), (POD_THROAT_TOP, z_lip)]
+add("centre pod throat", "housing", turned(THROAT), BLACK)
+
+
+def hood_angle(r_active, z_glass, section):
+    """How far off-axis the far edge of the active area stays in view past a turned hood's (r, z) section."""
+    return round(min(math.degrees(math.atan2(r - r_active, z - z_glass)) for r, z in section if z > z_glass + 0.1), 1)
+
+
+view_angle = dict(speedometer=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION),
+                  small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)]))
 
 tub_outer = rrect(TUB_OUT[0], TUB_OUT[1], 4, Z_FACE_BACK - TUB_BACK_Z, TUB_BACK_Z)
 tub_inner = rrect(TUB_OUT[0] - 2 * TUB_WALL, TUB_OUT[1] - 2 * TUB_WALL, 3, Z_FACE_BACK - TUB_BACK_Z - 2.0, TUB_BACK_Z + 2.0)
@@ -542,12 +573,12 @@ for ref, x in GAUGE_X.items():
     worst.sort(reverse=True)
     under[ref] = worst[:4]
 
-depth = dict(faceplate_front=0.0, pod_front=POD_FRONT,
+depth = dict(faceplate_front=0.0, rim_front=max(z for _, z in RIM_PROFILE), pod_front=POD_FRONT,
              deepest_part=round(min(d["bb"][2] for d in solids if d["group"] not in ("housing", "dash", "clash")), 1),
              tub_back=TUB_BACK_Z)
 report = dict(clashes=clashes, under_small_screens_mm=under, small_fpc=fpc_report,
               tsd_fpc=dict(length_mm=TSD_FPC_LEN, path_mm=round(tsd_need, 1), spare_mm=round(TSD_FPC_LEN - tsd_need, 1)),
-              ffc_mm=round(path_len(ffc_pts) + 6, 1), opening_fit=fit, depth_mm=depth,
+              ffc_mm=round(path_len(ffc_pts) + 6, 1), opening_fit=fit, depth_mm=depth, view_angle_deg=view_angle,
               stack=dict(Z_FACE_BACK=Z_FACE_BACK, Z_SMALL_FRONT=Z_SMALL_FRONT, Z_SMALL_BACK=Z_SMALL_BACK,
                          Z_GAUGES_FRONT=Z_GAUGES_FRONT, Z_TSD_BACK=Z_TSD_BACK, Z_PANEL_BARE=Z_PANEL_BARE,
                          Z_BRAIN_BARE=Z_BRAIN_BARE, PANEL_Y=PANEL_Y))
@@ -584,4 +615,4 @@ for i in range(n_chunks):
 with open(os.path.join(VIEWER, "model-count.js"), "w") as f:
     f.write(f"window.DASH_GLB_CHUNKS = {n_chunks};\n")
 
-print(json.dumps({k: report[k] for k in ("clashes", "under_small_screens_mm", "small_fpc", "tsd_fpc", "ffc_mm", "opening_fit", "depth_mm")}, indent=1))
+print(json.dumps({k: report[k] for k in ("clashes", "under_small_screens_mm", "small_fpc", "tsd_fpc", "ffc_mm", "opening_fit", "depth_mm", "view_angle_deg")}, indent=1))

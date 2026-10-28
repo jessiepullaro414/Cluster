@@ -1,4 +1,4 @@
-# Dash assembly v2.3 (2026-10-28)
+# Dash assembly v2.4 (2026-10-28)
 
 `mech/build_assembly.py` puts the three routed boards (brain/, panel-tsd/, gauges/, from their
 `kicad-cli pcb export step` models) into a housing drawn after the stock 1966 five-dial cluster,
@@ -18,17 +18,17 @@ F.SilkS circles), so the assembly follows the board when it moves.
 
 Drawn from the owner's photos of the stock cluster (IMG_1682..1700, see `mechanical-fit.md`). v2.1
 gave it depth: the side photos (IMG_1689, IMG_1691) show a deep chrome pan with a rolled outer wall,
-not a flat plate. v2.2 gave it the angle: seen end-on (IMG_1689) and from above (the owner's photo of
-2026-10-28) the trim is a wedge, its top edge standing out like a hood over the speedometer cup and
-its bottom edge shallow, the cup standing out past it.
+not a flat plate. v2.2 gave it the angle: seen end-on (IMG_1689) the trim is a wedge. v2.4 put the
+deep side where it belongs (owner, 2026-10-28): the wide, deep edge is the bottom, standing out toward
+the driver, and the top edge is shallow. (v2.2/v2.3 had it upside down, as a hood over the top.)
 
 - **Chrome rim**: the 518 x 120 mm trim outline, its ends leaning in toward the bottom (490 mm across
   at the bottom, ASSUMED from the photo) and rounded at 30 mm (ASSUMED). Its section is lofted round
   the whole outline (`RIM_PROFILE`, ASSUMED): up from the dash surface, a rolled crown, and an inner
   wall that falls to the panels 18.5 mm in from the outline. The part above the panels scales with
   height on the cluster (`RIM_CROWN`, ASSUMED: about 25 mm apart in IMG_1689), so the crown stands
-  32 mm out at the top edge and 9 mm at the bottom. The speedometer cup passes through the bottom
-  edge and tucks under the hood at the top.
+  32 mm out at the bottom edge and 9 mm at the top. The speedometer cup stands out through the top
+  edge; at the bottom the deep edge runs in front of the cup's lip, opened round the cup's mouth.
 - **Black grained side panels** (3 mm), each with a thin chrome bead following its edge, closed
   beside the pod.
 - **Small gauges**: chrome bezel collars turned from a tapered section with a rolled top (58 mm
@@ -37,29 +37,26 @@ its bottom edge shallow, the cup standing out past it.
   screen.
 - **Turn indicators**: a 13 x 5.5 mm green lens in a chrome frame high in each side panel, 29 mm
   above the small-gauge centres as on the stock cluster, lit by gauges/ D26/D27 through a light pipe.
-- **Speedometer pod**: a turned 127 mm chrome cup with a rolled lip 30 mm in front of the panels,
-  2 mm under the hood crown (`POD_FRONT`), and a black throat that flares from the TSD glass edge
-  (104 mm) to 116 mm at the lip, notched at the bottom for the TSD tab and its FPC. Our 127 mm cup is
-  taller than the 120 mm trim, so with the glass back near the panels the hood would hide the top of
-  the speedometer; instead the TSD sits forward in the cup (owner's call, 2026-10-28), 12.2 mm behind
-  the lip (`POD_DEPTH`, ASSUMED). The whole 101.52 mm active area stays in view up to 34 degrees
-  off-axis (each small face up to 28 degrees past its bezel; the hood takes nothing more from above;
-  `clearance.json` `view_angle_deg`). With the lip flush with the crown the TSD FPC was 2.9 mm short
-  (1.1 mm spare after lowering panel-tsd/), so the lip stays 2 mm under it.
+- **Speedometer pod**: a turned 127 mm chrome cup with a rolled lip 22 mm in front of the panels
+  (`POD_FRONT`) and a black throat that flares from the TSD glass edge (104 mm) to 116 mm at the lip,
+  notched at the bottom for the TSD tab and its FPC. The glass is 13.2 mm behind the lip (`POD_DEPTH`,
+  ASSUMED). The whole 101.52 mm active area stays in view up to 32 degrees off-axis (each small face up
+  to 28 degrees past its bezel; the deep bottom edge takes nothing more, even from below;
+  `clearance.json` `view_angle_deg`). A deeper, stock-depth cup would shade more of the speedometer.
 - Behind: the vented tub, 456.6 x 115.5 mm, through the dash opening.
 
 | Layer | Z, mm | Notes |
 |---|---|---|
-| Chrome trim hood, top edge | +32.0 | ASSUMED from IMG_1689 |
-| Speedometer pod lip, 127 mm across | +30.0 | owner limit 5 in including the bezel |
-| TSD panel glass | +17.8 | 110 mm body sits forward in the pod |
-| Chrome trim, bottom edge | +9.0 | |
+| Chrome trim, bottom edge | +32.0 | ASSUMED from IMG_1689 |
+| Speedometer pod lip, 127 mm across | +22.0 | owner limit 5 in including the bezel |
+| Chrome trim, top edge | +9.0 | |
+| TSD panel glass | +8.8 | 110 mm body sits in the pod |
 | Small chrome bezels, top | +6.0 | |
 | Side panels front | 0.0 | |
 | Side panels back, dash surface | -3.0 | |
 | Small screens, lens front | -9.8 | in their cups |
 | gauges/ component side, facing forward | -17.8 | J1 (13.8 mm) stops 1 mm behind the panels |
-| panel-tsd/ bare side, parts facing back, 29 mm low | -22.4 | its J4 faces down, the panel FPC comes up from under gauges/ |
+| panel-tsd/ bare side, parts facing back, 25 mm low | -22.4 | its J4 faces down, the panel FPC comes up from under gauges/ |
 | brain/ bare side, Verdin and heatsink facing back | -31.0 | screen-port FFC goes over its top edge to J4 |
 | Heatsink fins | -51.6 | fin height assumed (9 mm) |
 | Tub back, vented | -56.0 | stock cluster about 60 mm deep |
@@ -85,14 +82,12 @@ Still open:
 - **gauges/ is 447.1 mm wide against the 441.09 mm inner opening** (known since rev C), and its
   centre is 3 mm right of the speedometer centre, so the tub needs nearly the full 457.2 mm outer
   opening. Check how deep the outer step is on the real dash.
-- **The TSD's 69.8 mm FPC is tight**: bringing the screen 9 mm forward added 9 mm to its run; with
-  panel-tsd/ 4 mm lower (centre at Y = -29, as low as the tub floor allows) it reaches J4 with 3.1 mm
-  spare (was 8.1). Options: accept it, a short FPC extension, or less forward travel.
-- Fits: the screen-port FFC is about 109 mm (buy 120 mm and check).
+- Fits: the TSD's 69.8 mm FPC reaches panel-tsd/ J4 with 8.1 mm spare; the screen-port FFC is
+  about 106 mm (buy 100 or 120 mm and check).
 
 ## Assumed, not measured
 
-The trim's bottom width, end radius, rim section and hood heights, the scoop round the cup, the bezel
+The trim's bottom width, end radius, rim section and edge heights, the cup depth, the bezel
 collars and throat flare, panel thickness, the cups that carry the small screens,
 the light pipes, the pod depth, tub walls, panel-tsd/ and brain/ positions, heatsink fin height
 (Toradex datasheet not retrieved), the TSD tab width and FPC exit side, the F32Q seating depth, and

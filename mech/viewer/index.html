@@ -107,7 +107,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
   <aside class="sheet">
     <header>
       <h1>Cluster dash, assembly v2</h1>
-      <p class="sub">The three routed boards from their KiCad models in a housing shaped after the stock 1966 five-dial cluster: a wedge-shaped chrome trim that stands out like a hood at the top and is shallow at the bottom (see Side), black grained side panels with a chrome bead, chrome bezel collars, and the speedometer forward in a chrome cup whose lip tucks just under the hood. Checked solid against solid; no clashes left.</p>
+      <p class="sub">The three routed boards from their KiCad models in a housing shaped after the stock 1966 five-dial cluster: a wedge-shaped chrome trim, deep at the bottom and shallow at the top (see Side), black grained side panels with a chrome bead, chrome bezel collars, and the speedometer in a chrome cup that stands out through the top edge and tucks behind the deep bottom edge. Checked solid against solid; no clashes left.</p>
     </header>
 
     <section>
@@ -133,18 +133,13 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
         <p class="fd">447.1 mm against the 441.09 mm inner opening (it is 65.6 mm tall now). The housing needs 456.6 mm across, 0.3 mm a side inside the 457.2 mm outer opening.</p>
         <p class="fix"><b>Check:</b> how deep the 457.2 mm outer step is on the real dash. If it is shallower than 20 mm the board needs trimming to 441 mm.</p>
       </div>
-      <div class="finding warn">
-        <p class="ft">The speedometer's cable is now tight</p>
-        <p class="fd">Bringing the centre screen 9 mm forward put 9 mm more into its 69.8 mm FPC. With panel-tsd/ moved 4 mm lower (as low as the tub allows) it reaches with 3.1 mm spare, down from 8.1 mm.</p>
-        <p class="fix"><b>Options:</b> live with 3 mm, add a short FPC extension, or bring the screen forward less.</p>
-      </div>
       <div class="finding ok">
         <p class="ft">Everything else fits</p>
-        <p class="fd">The screen-port ribbon needs about 109 mm. 56 mm deep behind the panels (stock about 60 mm); in front, the trim stands 32 mm out at the top and 9 mm at the bottom, the speedometer lip 30 mm.</p>
+        <p class="fd">The centre panel's 69.8 mm FPC reaches panel-tsd/ with 8.1 mm spare. The screen-port ribbon needs about 106 mm. 56 mm deep behind the panels (stock about 60 mm); in front, the trim stands 32 mm out at the bottom and 9 mm at the top, the speedometer lip 22 mm.</p>
       </div>
       <div class="finding ok">
-        <p class="ft">The hoods leave the screens readable</p>
-        <p class="fd">The speedometer's whole 101.5 mm face stays in view up to 34&deg; off-axis past the flared throat and lip; each small face up to 28&deg; past its bezel; the top hood takes nothing more from above. The centre screen sits 9 mm further forward, so its cup's lip comes up to just under the hood, as the stock cup tucks under its hood, without the hood hiding the top of the speedometer.</p>
+        <p class="ft">The trim leaves the screens readable</p>
+        <p class="fd">The speedometer's whole 101.5 mm face stays in view up to 32&deg; off-axis past the flared throat and lip; each small face up to 28&deg; past its bezel. The deep bottom edge takes nothing more, even from below, and the shallow top edge leaves the view from above (where the driver sits) open.</p>
       </div>
     </section>
 
@@ -152,16 +147,16 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       <h2>Stack, front to back</h2>
       <table>
         <tr><th>Layer</th><th class="n">Z, mm</th></tr>
-        <tr><td>Chrome trim hood, top edge</td><td class="n">+32.0</td></tr>
-        <tr><td>Speedometer pod lip (127 mm across)</td><td class="n">+30.0</td></tr>
-        <tr><td>TSD 4 in panel, glass front</td><td class="n">+17.8</td></tr>
-        <tr><td>Chrome trim, bottom edge</td><td class="n">+9.0</td></tr>
+        <tr><td>Chrome trim, bottom edge</td><td class="n">+32.0</td></tr>
+        <tr><td>Speedometer pod lip (127 mm across)</td><td class="n">+22.0</td></tr>
+        <tr><td>Chrome trim, top edge</td><td class="n">+9.0</td></tr>
+        <tr><td>TSD 4 in panel, glass front</td><td class="n">+8.8</td></tr>
         <tr><td>Chrome gauge bezels, top</td><td class="n">+6.0</td></tr>
         <tr><td>Side panels, front</td><td class="n">0.0</td></tr>
         <tr><td>Dash surface, panel back</td><td class="n">&minus;3.0</td></tr>
         <tr><td>Small screens, lens front (in their cups)</td><td class="n">&minus;9.8</td></tr>
         <tr><td>gauges/ component side</td><td class="n">&minus;17.8</td></tr>
-        <tr><td>panel-tsd/, parts facing back, 29 mm low</td><td class="n">&minus;22.4</td></tr>
+        <tr><td>panel-tsd/, parts facing back, 25 mm low</td><td class="n">&minus;22.4</td></tr>
         <tr><td>brain/, Verdin and heatsink facing back</td><td class="n">&minus;31.0</td></tr>
         <tr><td>Heatsink fins (height assumed)</td><td class="n">&minus;51.6</td></tr>
         <tr><td>Housing tub back, vented</td><td class="n">&minus;56.0</td></tr>
@@ -171,7 +166,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
 
     <section>
       <h2>What is real and what is assumed</h2>
-      <p class="note">Real: the board models (kicad-cli STEP), the TSD outline (110 mm body, 7.8 mm, tab to 58.49 mm), the Raystar outline (50.2 mm lens, 37.74 mm backlight, 3.99 mm), the Verdin module and standoff heights, the dash opening. Taken from your cluster's photos and calipers: the 518 × 120 mm trim, the gauge spacing, the ring and cup sizes, the indicator window height. Assumed and drawn by us: the trim's bottom width (490 mm), its 30 mm end radius, the rim section and the hood heights (read off the side photos), the cup depth in front of the glass, 3 mm panels, the bezel collars, the throat flare, the cups that carry the small screens, the light pipes, the pod depth, tub walls, heatsink fin height, the SODIMM socket and the four FPC connectors (magenta boxes, no library model).</p>
+      <p class="note">Real: the board models (kicad-cli STEP), the TSD outline (110 mm body, 7.8 mm, tab to 58.49 mm), the Raystar outline (50.2 mm lens, 37.74 mm backlight, 3.99 mm), the Verdin module and standoff heights, the dash opening. Taken from your cluster's photos and calipers: the 518 × 120 mm trim, the gauge spacing, the ring and cup sizes, the indicator window height. Assumed and drawn by us: the trim's bottom width (490 mm), its 30 mm end radius, the rim section and the edge heights (read off the side photos), the cup depth in front of the glass, 3 mm panels, the bezel collars, the throat flare, the cups that carry the small screens, the light pipes, the pod depth, tub walls, heatsink fin height, the SODIMM socket and the four FPC connectors (magenta boxes, no library model).</p>
       <div class="legend">
         <span><i style="background:#ff2626"></i>Clash volume</span>
         <span><i style="background:#d98c1a"></i>Flat cable</span>

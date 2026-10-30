@@ -82,6 +82,8 @@ def dash_z(y):
 
 GAUGE_RING = (58.0, 48.0, 6.0)       # small chrome bezels: OD, opening, height (stock about 61 / 47-50, photos and calipers)
 CUP_OD = 54.0                        # ASSUMED: black cup round the 50.2 mm lens
+SMALL_WINDOW = 35.0                  # the cup tapers in from the 48 mm ring to this at the glass, as the stock
+                                     # holes do (owner, 2026-10-30); 32.4 mm active, mechanical-fit.md 33-35
 INDICATOR = (13.0, 5.5, 29.0)        # turn windows: w, h, height above the small-gauge centres (photo IMG_1697)
 # The speedometer cup stands out through the trim top and bottom, its lip about 13 mm in front of the
 # rim's crown (owner's side photo, ruler against the long edge); the centre screen sits near its front.
@@ -404,7 +406,7 @@ add("rim inner wall, black", "housing", rim.intersect(inner), BLACK)
 # Black grained side panels (one plate behind the pod), with the gauge, indicator and FPC openings.
 face = trim_shape(RIM_FOOT - 0.3, Z_FACE_BACK, FACE_T)
 for x in GAUGE_X.values():
-    face = face.cut(cyl(GAUGE_RING[1], Z_FACE_BACK - 1, 1, x))
+    face = face.cut(cyl(CUP_OD + 0.2, Z_FACE_BACK - 1, 1, x))   # the cup's taper runs through the panel
 IND_X = [(GAUGE_X["U6"] + GAUGE_X["U7"]) / 2, (GAUGE_X["U8"] + GAUGE_X["U9"]) / 2]
 for x in IND_X:
     face = face.cut(cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1).center(x, INDICATOR[2])
@@ -427,10 +429,11 @@ for ref, x in GAUGE_X.items():
     add(f"chrome gauge ring {ref}", "housing",
         turned([(r_in, 0.0), (r_out, 0.0), (r_out - 0.8, h - 1.6)] + dome(r_in + 0.8, r_out - 0.8, h - 1.6, 1.6)[1:]
                + [(r_in, h - 2.4)], x), CHROME)
-    # The cup carries its screen, like the stock gauges hang from the cluster face: the lens sits against
-    # the cup's end, a sleeve round it and a clip lip behind its rim (outside the 37.74 mm backlight).
+    # The cup carries its screen, like the stock gauges hang from the cluster face: it runs up through
+    # the panel to the ring and tapers in from the ring's opening to SMALL_WINDOW at the glass; the lens
+    # sits against its end, a sleeve round it and a clip lip behind its rim (outside the 37.74 mm backlight).
     z_clip = Z_SMALL_FRONT - RFA_LENS_T - 0.8
-    cup = (ring(CUP_OD, GAUGE_RING[1], Z_SMALL_FRONT, Z_FACE_BACK, x)
+    cup = (turned([(SMALL_WINDOW / 2, Z_SMALL_FRONT), (CUP_OD / 2, Z_SMALL_FRONT), (CUP_OD / 2, 0.0), (r_in, 0.0)], x)
            .union(ring(CUP_OD, RFA_LENS_D + 0.4, Z_SMALL_FRONT - RFA_LENS_T, Z_SMALL_FRONT, x))
            .union(ring(CUP_OD, RFA_BODY_D + 3.0, z_clip, Z_SMALL_FRONT - RFA_LENS_T, x)))
     add(f"gauge cup {ref} (carries the screen)", "housing", cup, BLACK)
@@ -468,7 +471,8 @@ def hood_angle(r_active, z_glass, section):
 
 
 view_angle = dict(speedometer=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION),
-                  small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)]))
+                  small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0),
+                                                              (SMALL_WINDOW / 2, Z_SMALL_FRONT)]))
 
 tub_outer = rrect(TUB_OUT[0], TUB_OUT[1], 4, Z_FACE_BACK - TUB_BACK_Z, TUB_BACK_Z)
 tub_inner = rrect(TUB_OUT[0] - 2 * TUB_WALL, TUB_OUT[1] - 2 * TUB_WALL, 3, Z_FACE_BACK - TUB_BACK_Z - 2.0, TUB_BACK_Z + 2.0)

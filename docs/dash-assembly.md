@@ -34,7 +34,9 @@ boards and the tub are all square to the driver. (v2.2 to v2.4 tilted the trim's
 - **Black grained side panels** (3 mm), each with a thin chrome bead following its edge, closed
   beside the pod.
 - **Small gauges**: chrome bezel collars turned from a tapered section with a rolled top (58 mm
-  outside, 48 mm opening, 6 mm high) over black cups. Each cup carries its screen: the lens sits against the cup's
+  outside, 48 mm opening, 6 mm high) over black cups. Like the stock holes (owner, 2026-10-30), each
+  cup tapers in from the ring's 48 mm opening at the panel face to a 35 mm window at the glass, 9.8 mm
+  deeper, framing the 32.4 mm active area. Each cup carries its screen: the lens sits against the cup's
   end with a sleeve round it and a clip lip behind its rim, so nothing stands on the board under the
   screen.
 - **Turn indicators**: a 13 x 5.5 mm green lens in a chrome frame high in each side panel, 29 mm

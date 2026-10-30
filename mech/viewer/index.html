@@ -107,7 +107,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
   <aside class="sheet">
     <header>
       <h1>Cluster dash, assembly v2</h1>
-      <p class="sub">The three routed boards from their KiCad models in a housing shaped after the stock 1966 five-dial cluster: a wedge-shaped chrome trim, deep at the bottom and shallow at the top (see Side), black grained side panels with a chrome bead, chrome bezel collars, and the speedometer in a chrome cup that stands out through the top edge and tucks behind the deep bottom edge. Checked solid against solid; no clashes left.</p>
+      <p class="sub">The three routed boards from their KiCad models in a housing shaped after the stock 1966 five-dial cluster: gauge faces square to the driver on a dash that leans back toward the bottom, so the chrome trim is deep at the bottom to meet it (see Side); a rolled chrome edge with a black inner wall, black grained side panels with a chrome bead, chrome bezel collars, and the speedometer in a chrome cup standing out through the trim top and bottom. Checked solid against solid; no clashes left.</p>
     </header>
 
     <section>
@@ -135,11 +135,11 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       </div>
       <div class="finding ok">
         <p class="ft">Everything else fits</p>
-        <p class="fd">The centre panel's 69.8 mm FPC reaches panel-tsd/ with 8.1 mm spare. The screen-port ribbon needs about 106 mm. 56 mm deep behind the panels (stock about 60 mm); in front, the trim stands 32 mm out at the bottom and 9 mm at the top, the speedometer lip 22 mm.</p>
+        <p class="fd">The centre panel's 69.8 mm FPC reaches panel-tsd/ with 8.6 mm spare. The screen-port ribbon needs about 106 mm. The tub, square to the driver, crosses the leaning dash at an angle: 114.5 mm tall, 116.1 mm in the dash's plane, inside the 116.69 mm opening. 56 mm deep behind the panels (stock about 60 mm); in front, the trim crown stands 9 mm out and the speedometer lip 22 mm.</p>
       </div>
       <div class="finding ok">
         <p class="ft">The trim leaves the screens readable</p>
-        <p class="fd">The speedometer's whole 101.5 mm face stays in view up to 32&deg; off-axis past the flared throat and lip; each small face up to 28&deg; past its bezel. The deep bottom edge takes nothing more, even from below, and the shallow top edge leaves the view from above (where the driver sits) open.</p>
+        <p class="fd">The speedometer's whole 101.5 mm face stays in view up to 32&deg; off-axis past the flared throat and lip; each small face up to 28&deg; past its bezel. The trim's crown is only 9 mm proud, so it takes nothing more.</p>
       </div>
     </section>
 
@@ -147,16 +147,16 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       <h2>Stack, front to back</h2>
       <table>
         <tr><th>Layer</th><th class="n">Z, mm</th></tr>
-        <tr><td>Chrome trim, bottom edge</td><td class="n">+32.0</td></tr>
         <tr><td>Speedometer pod lip (127 mm across)</td><td class="n">+22.0</td></tr>
-        <tr><td>Chrome trim, top edge</td><td class="n">+9.0</td></tr>
+        <tr><td>Chrome trim, crown</td><td class="n">+9.0</td></tr>
         <tr><td>TSD 4 in panel, glass front</td><td class="n">+8.8</td></tr>
         <tr><td>Chrome gauge bezels, top</td><td class="n">+6.0</td></tr>
         <tr><td>Side panels, front</td><td class="n">0.0</td></tr>
-        <tr><td>Dash surface, panel back</td><td class="n">&minus;3.0</td></tr>
+        <tr><td>Panel back; dash surface at the trim's top edge</td><td class="n">&minus;3.0</td></tr>
         <tr><td>Small screens, lens front (in their cups)</td><td class="n">&minus;9.8</td></tr>
         <tr><td>gauges/ component side</td><td class="n">&minus;17.8</td></tr>
         <tr><td>panel-tsd/, parts facing back, 25 mm low</td><td class="n">&minus;22.4</td></tr>
+        <tr><td>Dash surface at the trim's bottom edge (leans 9.5&deg;)</td><td class="n">&minus;23.1</td></tr>
         <tr><td>brain/, Verdin and heatsink facing back</td><td class="n">&minus;31.0</td></tr>
         <tr><td>Heatsink fins (height assumed)</td><td class="n">&minus;51.6</td></tr>
         <tr><td>Housing tub back, vented</td><td class="n">&minus;56.0</td></tr>
@@ -166,7 +166,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
 
     <section>
       <h2>What is real and what is assumed</h2>
-      <p class="note">Real: the board models (kicad-cli STEP), the TSD outline (110 mm body, 7.8 mm, tab to 58.49 mm), the Raystar outline (50.2 mm lens, 37.74 mm backlight, 3.99 mm), the Verdin module and standoff heights, the dash opening. Taken from your cluster's photos and calipers: the 518 × 120 mm trim, the gauge spacing, the ring and cup sizes, the indicator window height. Assumed and drawn by us: the trim's bottom width (490 mm), its 30 mm end radius, the rim section and the edge heights (read off the side photos), the cup depth in front of the glass, 3 mm panels, the bezel collars, the throat flare, the cups that carry the small screens, the light pipes, the pod depth, tub walls, heatsink fin height, the SODIMM socket and the four FPC connectors (magenta boxes, no library model).</p>
+      <p class="note">Real: the board models (kicad-cli STEP), the TSD outline (110 mm body, 7.8 mm, tab to 58.49 mm), the Raystar outline (50.2 mm lens, 37.74 mm backlight, 3.99 mm), the Verdin module and standoff heights, the dash opening. Taken from your cluster's photos and calipers: the 518 × 120 mm trim, the gauge spacing, the ring and cup sizes, the indicator window height. Assumed and drawn by us: the trim's bottom width (490 mm), its 30 mm end radius, the rim section and the dash's 9.5&deg; lean (read off the side photos), the cup depth in front of the glass, 3 mm panels, the bezel collars, the throat flare, the cups that carry the small screens, the light pipes, the pod depth, tub walls, heatsink fin height, the SODIMM socket and the four FPC connectors (magenta boxes, no library model).</p>
       <div class="legend">
         <span><i style="background:#ff2626"></i>Clash volume</span>
         <span><i style="background:#d98c1a"></i>Flat cable</span>
@@ -204,7 +204,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
     if (/^CLASH/.test(name)) return { cls: "clash", dz: 0 };
     if (group === "dash") return { cls: "dash", dz: -140 };
     if (/tub/.test(name)) return { cls: "housing", dz: -140 };
-    if (/chrome|side panels|gauge cup|pod|turn lens|light pipe/.test(name)) return { cls: "housing", dz: 110 };
+    if (/chrome|side panels|gauge cup|pod|turn lens|light pipe|rim inner wall/.test(name)) return { cls: "housing", dz: 110 };
     if (/TSD.*FPC/.test(name)) return { cls: "cables", dz: -40 };
     if (/FPC/.test(name)) return { cls: "cables", dz: 50 };
     if (/FFC/.test(name)) return { cls: "cables", dz: -70 };
@@ -261,7 +261,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       // The writer shares one material between parts of one colour (the rim and the standoffs to the
       // tub); styling below is per part, so each distinct style gets its own copy.
       const style = [c.cls, /tub/.test(name), /chrome|pod barrel|pod lip/.test(name), /standoff|head|heatsink/.test(name),
-        /side panels|gauge cup|throat/.test(name), /cup|throat/.test(name), /turn lens/.test(name), /light pipe/.test(name)].join();
+        /side panels|gauge cup|throat|inner wall/.test(name), /cup|throat|inner wall/.test(name), /turn lens/.test(name), /light pipe/.test(name)].join();
       const own = (m) => {
         const k = m.uuid + "|" + style;
         if (!matCache.has(k)) matCache.set(k, m.clone());
@@ -276,11 +276,11 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
         if (c.cls === "clash") { m.emissive = new THREE.Color(0x880000); }
         const chrome = /chrome|pod barrel|pod lip/.test(name);
         m.metalness = chrome ? 1.0 : /standoff|head|heatsink/.test(name) ? 0.8 : 0.05;
-        m.roughness = chrome ? 0.12 : /side panels/.test(name) ? 0.82 : /cup|throat/.test(name) ? 0.55 : 0.6;
+        m.roughness = chrome ? 0.12 : /side panels/.test(name) ? 0.82 : /cup|throat|inner wall/.test(name) ? 0.55 : 0.6;
         if (chrome) m.color.setRGB(0.95, 0.95, 0.97);
         else m.envMapIntensity = 0.4;
         // The model's colours are display values; the black parts need linear-space black to read as black.
-        if (/side panels|gauge cup|throat/.test(name)) m.color.setRGB(0.012, 0.012, 0.014);
+        if (/side panels|gauge cup|throat|inner wall/.test(name)) m.color.setRGB(0.012, 0.012, 0.014);
         if (/turn lens/.test(name)) { m.emissive = new THREE.Color(0x0b5a22); m.roughness = 0.2; }
         if (/light pipe/.test(name)) { m.transparent = true; m.opacity = 0.45; m.depthWrite = false; }
       });
@@ -396,7 +396,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
   function setView(v) {
     let [p, t] = VIEWS[v];
     if (WIDE[v] !== undefined) {
-      // Back the camera off until the whole 518 mm trim (or, end-on, the trim's wedge section) fits the canvas.
+      // Back the camera off until the whole 518 mm trim (or, end-on, the trim's section) fits the canvas.
       const span = WIDE[v] ? 560 : 200, tanh = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       const need = Math.max(span / (2 * tanh * camera.aspect), 160 / (2 * tanh));
       const len = Math.hypot(p[0] - t[0], p[1] - t[1], p[2] - t[2]);

@@ -1,4 +1,4 @@
-"""Dash assembly v2.4: the three routed boards in a factory-style 1966 housing, with every screen.
+"""Dash assembly v2.5: the three routed boards in a factory-style 1966 housing, with every screen.
 
 Builds the stock five-dial cluster's shape (from the owner's photos): a deep chrome pan lofted
 round the trim outline, black side panels, domed chrome bezels and cups, a turned speedometer cup, the housing tub, a stand-in
@@ -57,24 +57,35 @@ TRIM = (518.0, 120.0)               # stock chrome trim outline, owner photos 20
 # The stock trim (front photo IMG_1697) leans in at both ends toward the bottom; the bottom width is
 # ASSUMED from the photo (perspective makes it +/-5 mm), the corner radius too.
 TRIM_BOTTOM_W, TRIM_R = 490.0, 30.0
-# ASSUMED rim section (side photos IMG_1689/1691: a deep chrome pan with a rolled outer wall): (inset from
-# the trim outline, Z) from the dash surface, over a crown 12 mm in front of the panels, down an inner
-# wall to the panels 18.5 mm in from the outline.
-RIM_PROFILE = [(0.0, -3.0), (0.0, 2.0), (0.8, 6.0), (2.4, 9.2), (4.8, 11.3), (7.5, 12.0), (10.0, 11.6),
-               (12.2, 10.0), (14.2, 7.2), (16.2, 3.8), (17.8, 1.0), (18.5, 0.0)]
+# ASSUMED rim section (side photos IMG_1689/1691): (inset from the trim outline, height) from where the
+# trim meets the dash, up an outer wall to the panels' plane, over a crown 12 mm (scaled by RIM_SCALE)
+# in front of the panels, down an inner wall to the panels 18.5 mm in from the outline. Evenly spaced
+# wall sections: one big step between sections makes the smooth loft bulge out. Only the outer roll is
+# chrome; the inner wall is black (owner's photos 2026-10-28), from RIM_CHROME_W in.
+RIM_PROFILE = [(0.0, -3.0), (0.0, -2.0), (0.0, -1.0), (0.0, 0.0), (0.0, 2.0), (0.8, 6.0), (2.4, 9.2),
+               (4.8, 11.3), (7.5, 12.0), (10.0, 11.6), (12.2, 10.0), (14.2, 7.2), (16.2, 3.8), (17.8, 1.0),
+               (18.5, 0.0)]
 RIM_FOOT = RIM_PROFILE[-1][0]
-# The stock trim is a wedge, not a flat ring (IMG_1689 end-on): its bottom edge is the deep, wide one,
-# standing out toward the driver, and its top edge is shallow (owner, 2026-10-28). ASSUMED crown
-# heights at the bottom and top edges (about 25 mm apart across the 120 mm height in IMG_1689); the
-# section above the panels scales between them.
-RIM_CROWN = (32.0, 9.0)
+RIM_SCALE = 0.75                     # ASSUMED: crown 9 mm proud of the panels, all round
+RIM_CHROME_W = 9.0
+# The car's dash face is not upright: it leans back toward the bottom. The gauge faces stand square to
+# the driver and the trim makes up the difference: its back edge follows the dash, so it is about 20 mm
+# deeper at the bottom than at the top (owner, 2026-10-29; the end-on and side photos of 2026-10-28).
+# Everything else (panels, gauges, boards, tub) stays square to the driver.
+DASH_TILT = math.radians(9.5)        # ASSUMED: atan(20 / 120)
+
+
+def dash_z(y):
+    """The dash surface at height y: Z -3 at the trim's top edge, further back toward the bottom."""
+    return -3.0 - (60.0 - y) * math.tan(DASH_TILT)
+
+
 GAUGE_RING = (58.0, 48.0, 6.0)       # small chrome bezels: OD, opening, height (stock about 61 / 47-50, photos and calipers)
 CUP_OD = 54.0                        # ASSUMED: black cup round the 50.2 mm lens
 INDICATOR = (13.0, 5.5, 29.0)        # turn windows: w, h, height above the small-gauge centres (photo IMG_1697)
-# The speedometer cup stands out through the shallow top edge, and at the bottom it tucks behind the
-# deep edge. Nothing stands over the top of the speedometer, so the centre screen sits back near the
-# panels, where its 69.8 mm FPC reaches panel-tsd/ comfortably.
-POD_FRONT = 22.0                     # ASSUMED: speedometer cup lip, like the stock proud cup (stock 36 mm deep)
+# The speedometer cup stands out through the trim top and bottom, its lip about 13 mm in front of the
+# rim's crown (owner's side photo, ruler against the long edge); the centre screen sits near its front.
+POD_FRONT = 22.0                     # speedometer cup lip
 POD_DEPTH = 13.2                     # ASSUMED: glass to lip top (the throat flare and rolled lip)
 POD_THROAT_TOP = 58.0                # ASSUMED: the black throat flares from the 104 mm glass edge to 116 mm at the lip
 
@@ -118,7 +129,9 @@ Z_TSD_BACK = POD_FRONT - POD_DEPTH - TSD_T   # the centre panel sits forward in 
 Z_PANEL_BARE = Z_GAUGES_FRONT - PCB_T - 3.0     # panel-tsd/ hangs below and behind gauges/, parts to the rear
 PANEL_Y = -25.0                      # panel-tsd/ centre height, set so the 69.8 mm FPC reaches J4
 Z_BRAIN_BARE = Z_PANEL_BARE - PCB_T - 7.0      # brain/ behind it, parts (module, heatsink) to the rear
-TUB_OUT = (456.6, 115.5)             # passes the 457.2 x 116.69 opening, 0.3 mm a side across the car
+# The tub stays square to the driver, so it crosses the leaning dash at an angle: in the dash's plane it
+# is TUB_OUT[1] / cos(DASH_TILT) tall, and that must pass the 116.69 mm opening.
+TUB_OUT = (456.6, round(116.69 * math.cos(DASH_TILT) - 0.6, 1))   # 0.3 mm a side in the opening, both ways
 TUB_WALL, TUB_BACK_Z = 1.2, -56.0
 
 
@@ -337,26 +350,24 @@ GRAIN = (0.10, 0.10, 0.11)           # the stock panels are black grained vinyl-
 
 
 def rim_z(z, y):
-    """A rim-section height z (drawn for a 12 mm crown) at height y on the cluster: the part above the
-    panels scales from RIM_CROWN[0] at the bottom edge to RIM_CROWN[1] at the top (a plane in y)."""
-    if z <= 0:
-        return z
-    crown = max(zz for _, zz in RIM_PROFILE)
-    t = (y + TRIM[1] / 2) / TRIM[1]
-    return z * (RIM_CROWN[0] + (RIM_CROWN[1] - RIM_CROWN[0]) * t) / crown
+    """A rim-section height z at height y on the cluster: the outer wall (z < 0) rises evenly from the
+    leaning dash (z = -3) to the panels' plane (z = 0); above it the section is scaled. Each section
+    only has corners at its top and bottom heights, so it stays planar."""
+    return dash_z(y) * -z / 3.0 if z < 0 else z * RIM_SCALE
 
 
-def trim_wire(inset, z):
+def trim_wire(inset, z, lean=True):
     """The stock trim outline (wider at the top, ends leaning in), shrunk by `inset`, as a planar wire at
-    section height z (tilted with the wedge when z is above the panels)."""
+    section height z (the wall sections lean with the dash)."""
     hwt, hwb, hh = TRIM[0] / 2 - inset, TRIM_BOTTOM_W / 2 - inset, TRIM[1] / 2 - inset
-    w = cq.Wire.makePolygon([cq.Vector(-hwt, hh, rim_z(z, hh)), cq.Vector(hwt, hh, rim_z(z, hh)),
-                             cq.Vector(hwb, -hh, rim_z(z, -hh)), cq.Vector(-hwb, -hh, rim_z(z, -hh))], close=True)
+    zt, zb = (rim_z(z, hh), rim_z(z, -hh)) if lean else (z, z)
+    w = cq.Wire.makePolygon([cq.Vector(-hwt, hh, zt), cq.Vector(hwt, hh, zt),
+                             cq.Vector(hwb, -hh, zb), cq.Vector(-hwb, -hh, zb)], close=True)
     return w.fillet2D(max(TRIM_R - inset, 3.0), w.Vertices())
 
 
 def trim_shape(inset, z0, t):
-    return cq.Workplane("XY").add(cq.Solid.extrudeLinear(cq.Face.makeFromWires(trim_wire(inset, z0)), cq.Vector(0, 0, t)))
+    return cq.Workplane("XY").add(cq.Solid.extrudeLinear(cq.Face.makeFromWires(trim_wire(inset, z0, lean=False)), cq.Vector(0, 0, t)))
 
 
 def turned(pts, x=0.0):
@@ -370,16 +381,25 @@ def dome(r_in, r_out, z0, h, n=16):
     return [(rc + a * math.cos(math.pi * i / n), z0 + h * math.sin(math.pi * i / n)) for i in range(n + 1)]
 
 
-# Chrome rim: a deep pan round the whole cluster, lofted through the rim section at every inset (deep
-# at the bottom, shallow at the top), then opened in the middle (the panels), where the speedometer cup
-# stands out through its top edge, and round the cup's inside and mouth at the bottom, where the deep
-# edge runs in front of the cup.
+# The rim: a pan round the whole cluster, lofted through the rim section at every inset, its back edge
+# on the leaning dash; opened in the middle (the panels) and where the speedometer cup stands out
+# through it top and bottom. Behind the panels it is only its outer wall, 1.5 mm, like the stock
+# pressing, lofted on its own: hollowing the one loft fails silently (and the broken solid then hangs
+# the clash check). The outer roll is chrome, the inner wall black.
 rim_body = cq.Workplane("XY").add(cq.Solid.makeLoft([trim_wire(d, z) for d, z in RIM_PROFILE], False))
-upper = cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1).center(0, 50).rect(300, 100).extrude(60)
-lower = cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1).center(0, -50).rect(300, 100).extrude(60)
-rim = (rim_body.cut(trim_shape(RIM_FOOT, Z_FACE_BACK - 1, FACE_T + 2)).cut(cyl(POD_OD + 1.0, Z_FACE_BACK - 1, 60).intersect(upper))
-       .cut(cyl(POD_OD - 6.0, Z_FACE_BACK - 1, POD_FRONT - 2.5)).cut(cyl(2 * POD_THROAT_TOP, Z_FACE_BACK - 1, 60)))
-add("chrome trim rim", "housing", rim, CHROME)
+# (0.05 mm into the foot, 0.02 mm under the panels' plane: a cut whose edge lies exactly on a loft
+# section silently does nothing)
+rim = (rim_body.cut(trim_shape(RIM_FOOT - 0.05, -60, 100)).cut(cyl(POD_OD + 1.0, -1.0, 60))
+       .cut(trim_shape(-20.0, -60, 60 - 0.02)))
+assert volume(rim.val().wrapped) < 0.4 * volume(rim_body.val().wrapped), "rim cuts failed"
+WALL = [z for d, z in RIM_PROFILE if z <= 0 and d == 0]
+rim_wall = (cq.Workplane("XY").add(cq.Solid.makeLoft([trim_wire(0.0, z) for z in WALL], True))
+            .cut(cq.Workplane("XY").add(cq.Solid.makeLoft([trim_wire(1.5, z) for z in [WALL[0] - 0.05] + WALL[1:-1] + [0.05]], True))))
+assert 0 < volume(rim_wall.val().wrapped) < 0.1 * volume(rim_body.val().wrapped), "rim wall failed"
+inner = trim_shape(RIM_CHROME_W, -60, 120)
+add("chrome trim rim", "housing", rim.cut(inner), CHROME)
+add("chrome trim wall (to the dash)", "housing", rim_wall, CHROME)
+add("rim inner wall, black", "housing", rim.intersect(inner), BLACK)
 
 # Black grained side panels (one plate behind the pod), with the gauge, indicator and FPC openings.
 face = trim_shape(RIM_FOOT - 0.3, Z_FACE_BACK, FACE_T)
@@ -436,8 +456,7 @@ Z_GLASS = Z_TSD_BACK + TSD_T
 z_lip = POD_FRONT - 2.5
 POD_SECTION = ([(POD_OD / 2 - 3.0, 0.0), (POD_OD / 2, 0.0), (POD_OD / 2, z_lip - 6.0), (POD_OD / 2 - 0.2, z_lip)]
                + dome(POD_THROAT_TOP - 0.1, POD_OD / 2 - 0.2, z_lip, 2.5)[1:] + [(POD_OD / 2 - 3.0, z_lip)])
-tucked = rim_body.intersect(lower)             # the deep bottom edge takes the cup's wall where it passes in front
-add("centre pod barrel", "housing", turned(POD_SECTION).cut(tucked)
+add("centre pod barrel", "housing", turned(POD_SECTION)
     .cut(cq.Workplane("XY").workplane(offset=-1).center(0, -60).rect(TSD_TAB_W + 2, 12).extrude(Z_TSD_BACK + 1.5 + 1.5)), CHROME)
 THROAT = [(TSD_GLASS_D / 2 - 0.5, Z_GLASS), (POD_OD / 2 - 3.0, Z_GLASS), (POD_OD / 2 - 3.0, z_lip), (POD_THROAT_TOP, z_lip)]
 add("centre pod throat", "housing", turned(THROAT), BLACK)
@@ -448,14 +467,8 @@ def hood_angle(r_active, z_glass, section):
     return round(min(math.degrees(math.atan2(r - r_active, z - z_glass)) for r, z in section if z > z_glass + 0.1), 1)
 
 
-# Seen from below, the deep bottom edge also stands between the eye and the bottom of each face.
-chin = [(TRIM[1] / 2 - d, rim_z(z, d - TRIM[1] / 2)) for d, z in RIM_PROFILE if z > 0]
-chin_pod = [(y, z) for y, z in chin if y >= POD_THROAT_TOP]          # in front of the cup only its band past the mouth is left
 view_angle = dict(speedometer=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION),
-                  speedometer_from_below=hood_angle(101.52 / 2, Z_GLASS, THROAT + POD_SECTION + chin_pod),
-                  small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)]),
-                  small_from_below=hood_angle(32.4 / 2, Z_SMALL_FRONT,
-                                              [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)] + chin))
+                  small=hood_angle(32.4 / 2, Z_SMALL_FRONT, [(GAUGE_RING[1] / 2 + 0.8, GAUGE_RING[2]), (GAUGE_RING[1] / 2, 0.0)]))
 
 tub_outer = rrect(TUB_OUT[0], TUB_OUT[1], 4, Z_FACE_BACK - TUB_BACK_Z, TUB_BACK_Z)
 tub_inner = rrect(TUB_OUT[0] - 2 * TUB_WALL, TUB_OUT[1] - 2 * TUB_WALL, 3, Z_FACE_BACK - TUB_BACK_Z - 2.0, TUB_BACK_Z + 2.0)
@@ -464,8 +477,10 @@ for vx in range(-60, 61, 8):                                   # vents behind th
     tub = tub.cut(cq.Workplane("XY").workplane(offset=TUB_BACK_Z - 1).center(vx, -5).rect(3, 40).extrude(4))
 add("housing tub (ASSUMED 1.5 mm walls)", "housing", tub, (0.18, 0.18, 0.2), alpha=0.35)
 
-dash = (cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 1.2).rect(680, 240).extrude(1.2)
-        .cut(cq.Workplane("XY").workplane(offset=Z_FACE_BACK - 2).rect(*DASH_OPENING).extrude(3)))
+# The dash panel leans back toward the bottom; its opening is measured in its own plane.
+dash = (cq.Workplane("XY").workplane(offset=-1.2).rect(680, 240).extrude(1.2)
+        .cut(cq.Workplane("XY").workplane(offset=-2).rect(*DASH_OPENING).extrude(3))
+        .rotate((0, 0, 0), (1, 0, 0), math.degrees(DASH_TILT)).translate((0, 0, dash_z(0))))
 add("dash panel around the opening (reference)", "dash", dash, (0.42, 0.06, 0.07), alpha=0.25)
 
 # ---------------------------------------------------------------------------
@@ -589,8 +604,10 @@ for k in BOARDS:
     fit.append(dict(item=f"{k}/ board", w=round(w, 1), h=round(h, 1),
                     fits_outer=w <= DASH_OPENING[0] and h <= DASH_OPENING[1],
                     fits_inner=w <= DASH_INNER[0] and h <= DASH_INNER[1]))
-fit.append(dict(item="housing tub", w=TUB_OUT[0], h=TUB_OUT[1], fits_outer=True,
-                fits_inner=TUB_OUT[0] <= DASH_INNER[0] and TUB_OUT[1] <= DASH_INNER[1]))
+h_in_dash = TUB_OUT[1] / math.cos(DASH_TILT)
+fit.append(dict(item="housing tub", w=TUB_OUT[0], h=TUB_OUT[1], h_in_dash_plane=round(h_in_dash, 2),
+                fits_outer=TUB_OUT[0] <= DASH_OPENING[0] and h_in_dash <= DASH_OPENING[1],
+                fits_inner=TUB_OUT[0] <= DASH_INNER[0] and h_in_dash <= DASH_INNER[1]))
 
 # Gap under each small screen: the tallest gauges/ part inside the lens footprint
 under = {}
@@ -607,7 +624,8 @@ for ref, x in GAUGE_X.items():
     worst.sort(reverse=True)
     under[ref] = worst[:4]
 
-depth = dict(faceplate_front=0.0, rim_crown_bottom=RIM_CROWN[0], rim_crown_top=RIM_CROWN[1], pod_front=POD_FRONT,
+depth = dict(faceplate_front=0.0, rim_crown=round(12.0 * RIM_SCALE, 1), pod_front=POD_FRONT,
+             trim_back_top=round(dash_z(60.0), 1), trim_back_bottom=round(dash_z(-60.0), 1),
              deepest_part=round(min(d["bb"][2] for d in solids if d["group"] not in ("housing", "dash", "clash")), 1),
              tub_back=TUB_BACK_Z)
 report = dict(clashes=clashes, under_small_screens_mm=under, small_fpc=fpc_report,

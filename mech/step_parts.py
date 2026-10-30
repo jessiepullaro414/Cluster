@@ -54,8 +54,10 @@ def read_parts(path):
 
 
 def bbox(shape):
+    """Tight box. The quick one (BRepBndLib.Add) is the B-spline control net's for lofted parts, many
+    mm too big, and lets the clash check try slow exact intersections that cannot hit."""
     b = Bnd_Box()
-    BRepBndLib.Add_s(shape, b, True)
+    BRepBndLib.AddOptimal_s(shape, b, False, False)
     return b.Get()
 
 

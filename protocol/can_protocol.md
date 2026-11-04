@@ -153,7 +153,7 @@ Persistent settings owned by Android; sent on change and every second. gauges/ k
 
 ### 0x410 SpeedCalibration (DISPLAY, 1000 ms)
 
-Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile = 16000).
+Pulses per mile for the speed input, Hall or VR (AutoMeter 16-pulse sender at 1000 rev/mile = 16000; a Ford VSS is commonly quoted at 8000).
 
 | Signal | Start bit | Length | Scale | Offset | Range | Unit |
 |---|---|---|---|---|---|---|

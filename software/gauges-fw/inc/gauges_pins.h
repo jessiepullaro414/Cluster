@@ -20,6 +20,7 @@
 /* timer capture (FTM1) */
 #define PIN_SPEED_IN       58  /* PTA10, FTM1_CH4, Hall speed pulses */
 #define PIN_TACH_IN        57  /* PTA11, FTM1_CH5, tach pulses */
+#define PIN_VR_SPEED_IN    56  /* PTA12, FTM1_CH6, comparator output of the two-wire VR speed input (J12, U13) */
 
 /* ignition: pin interrupt, wakes the part from STOP/VLPS */
 #define PIN_IGN_SENSE      59  /* PTE1 */

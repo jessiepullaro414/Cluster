@@ -12,8 +12,8 @@ Generates (never hand-edit the outputs):
 TOPOLOGY (decided 2026-09-30, see the plan): gauges/ is the gateway. Only
 gauges/ is on the car bus, and it only listens. display/ (Android) talks to
 gauges/ over a private two-node CAN link. gauges/ aggregates the values
-(ECU if fresh, else its own sender readings; speed from the Hall input if
-present, else ECU) and sends display/ one consolidated state.
+(ECU if fresh, else its own sender readings; speed from its Hall or VR input
+if present, else ECU) and sends display/ one consolidated state.
 
 PRIVATE LINK: classic CAN, 11-bit IDs, little-endian (Intel), 500 kbit/s
 (proposed; it is a short two-node link and could go faster). Every
@@ -66,7 +66,7 @@ PRIVATE = [
              S("RpmValid", 1, 0, 0, 1, "", 49, 1, rx=D),
              S("BatteryValid", 1, 0, 0, 1, "", 50, 1, rx=D),
              S("SpeedFromHall", 1, 0, 0, 1, "", 51, 1, rx=D,
-               doc="1 = Hall sender, 0 = car bus"),
+               doc="1 = this board's own pulse input (Hall sender on J9 or VR sensor on J12), 0 = car bus"),
          ] + e2e(D)),
     dict(id=0x302, name="VehicleFluids", sender="GAUGES", period=100, dlc=8,
          doc="Consolidated fluid data: ECU value if fresh, else local sender.",
@@ -177,8 +177,8 @@ PRIVATE = [
                doc="converts a litres fuel level to a percentage"),
          ] + e2e(G)),
     dict(id=0x410, name="SpeedCalibration", sender="DISPLAY", period=1000,
-         dlc=8, doc="Pulses per mile for the Hall sender (AutoMeter 16-pulse "
-                    "sender at 1000 rev/mile = 16000).",
+         dlc=8, doc="Pulses per mile for the speed input, Hall or VR (AutoMeter 16-pulse "
+                    "sender at 1000 rev/mile = 16000; a Ford VSS is commonly quoted at 8000).",
          signals=[
              S("PulsesPerMile", 1, 0, 100, 200000, "", 0, 32, rx=G),
          ] + e2e(G)),

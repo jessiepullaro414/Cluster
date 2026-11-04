@@ -144,7 +144,7 @@
 #define LPSPI_FSR_TXCOUNT(fsr) ((fsr) & 7u)
 #define LPSPI_TXFIFO_WORDS 4u                       /* PARAM reset value 0x0000_0202: 2^2 words each way */
 
-/* ---- FTM1, base 0x4003_9000 (RM chapter 47); input capture on CH4 (PTA10) and CH5 (PTA11) ---- */
+/* ---- FTM1, base 0x4003_9000 (RM chapter 47); input capture on CH4 (PTA10), CH5 (PTA11) and CH6 (PTA12) ---- */
 #define FTM1_BASE       0x40039000u
 #define FTM1_SC         REG32(FTM1_BASE + 0x00u)
 #define FTM1_CNT        REG32(FTM1_BASE + 0x04u)

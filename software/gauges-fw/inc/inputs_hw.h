@@ -18,8 +18,8 @@ typedef struct {
 extern const inputs_hw_t inputs_hw_s32k;
 void inputs_hw_init(void);   /* pins, FTM1 and its interrupts */
 
-/* Called by the timer interrupt for each accepted capture: channel 0 = speed (FTM1 CH4), 1 = tach (FTM1 CH5), with the
- * capture time already extended to 32 bits. Defined in inputs.c. */
+/* Called by the timer interrupt for each accepted capture: channel 0 = Hall speed (FTM1 CH4), 1 = tach (FTM1 CH5), 2 = VR speed
+ * (FTM1 CH6), with the capture time already extended to 32 bits. Defined in inputs.c. */
 void inputs_on_capture(unsigned channel, uint32_t t_us);
 
 #endif

@@ -186,6 +186,57 @@ static void test_speed(void)
     CHECK(!inputs_speed_kph().valid);
 }
 
+/* The two-wire VR input (J12, U13): channel 2, the same logic as the Hall input, and nothing to set to choose between them. */
+static void test_vr_speed(void)
+{
+    begin();
+    inputs_configure(8000u, 4u);                                             /* a Ford VSS: 8000 pulses per mile */
+    run(100);
+    CHECK(!inputs_speed_kph().valid);                                        /* neither sensor: invalid, so the car bus can take over */
+    /* 60 mph at 8000 pulses/mile is 133.33 Hz */
+    pulses(2, 133.333, 1.0);
+    sample_t s = inputs_speed_kph();
+    CHECK(s.valid);
+    NEAR(s.value, 96.56, 0.2);
+    CHECK(s.stamp_ms == ms);
+    CHECK(!inputs_rpm_from_tach().valid);                                    /* it does not leak into the tach */
+    /* standing still: a valid zero, as for a Hall sender */
+    run(600);
+    s = inputs_speed_kph();
+    CHECK(s.valid && s.value == 0.0f);
+    /* a walking-pace crawl: 3 mph is 6.7 Hz */
+    pulses(2, 6.667, 3.0);
+    NEAR(inputs_speed_kph().value, 3.0 * 1.609344, 0.05);
+    /* noise faster than 2 kHz is not a speed */
+    begin();
+    pulses(2, 4000.0, 0.3);
+    CHECK(!inputs_speed_kph().valid);
+
+    /* a stray pair of edges on the unused Hall input makes it look like a sensor standing still: it must not pin a moving car to 0 */
+    begin();
+    inputs_configure(8000u, 4u);
+    inputs_on_capture(0, fake_us); inputs_on_capture(0, fake_us + 5000u);
+    run(1000);
+    CHECK(inputs_speed_kph().valid && inputs_speed_kph().value == 0.0f);      /* standing, as far as anyone can tell */
+    pulses(2, 133.333, 1.0);
+    NEAR(inputs_speed_kph().value, 96.56, 0.2);
+    /* and the same the other way round: a Hall car with a stray pair on the VR input */
+    begin();
+    inputs_on_capture(2, fake_us); inputs_on_capture(2, fake_us + 5000u);
+    run(1000);
+    pulses(0, 266.667, 1.0);
+    NEAR(inputs_speed_kph().value, 96.56, 0.2);
+    /* it stops: both inputs read a standing car, a valid zero */
+    run(600);
+    s = inputs_speed_kph();
+    CHECK(s.valid && s.value == 0.0f);
+    /* a channel number from nowhere is ignored */
+    begin();
+    inputs_on_capture(3, 1000u); inputs_on_capture(3, 2000u); inputs_on_capture(99, 3000u);
+    run(100);
+    CHECK(!inputs_speed_kph().valid && !inputs_rpm_from_tach().valid);
+}
+
 static void test_tach(void)
 {
     begin();
@@ -447,6 +498,7 @@ int main(void)
     test_capture_extend();
     test_capture_states();
     test_speed();
+    test_vr_speed();
     test_tach();
     test_lamps();
     test_ignition_and_dimmer();

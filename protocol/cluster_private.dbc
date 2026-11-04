@@ -124,7 +124,7 @@ CM_ BO_ 772 "Distance counters kept by gauges/ (they survive power loss there, s
 CM_ BO_ 773 "Live resistance of the three resistive senders, for measuring their curves in the car (docs/sender-calibration.md): read it off the display at known levels and generate software/gauges-fw/src/sender_curves.c from the readings. Added 2026-10-18.";
 CM_ BO_ 784 "Ignition and sleep coordination; also sent on every change.";
 CM_ BO_ 1024 "Persistent settings owned by Android; sent on change and every second. gauges/ keeps the last copy in flash.";
-CM_ BO_ 1040 "Pulses per mile for the Hall sender (AutoMeter 16-pulse sender at 1000 rev/mile = 16000).";
+CM_ BO_ 1040 "Pulses per mile for the speed input, Hall or VR (AutoMeter 16-pulse sender at 1000 rev/mile = 16000; a Ford VSS is commonly quoted at 8000).";
 CM_ BO_ 1072 "Trip meter reset. gauges/ resets the trip meter when TripResetCount differs from the last value it saw (so a repeated or lost frame resets it exactly once per button press); the first frame after power-up only records the value.";
 CM_ BO_ 1056 "Per-input options for the lamp and tach inputs on gauges/. A lamp wired ground-switched (the DNP pull-up fitted) idles high, so its bit here is set to invert it.";
 CM_ BO_ 1264 "Liveness plus coarse state; gauges/ marks the display offline if this stops.";

@@ -10,7 +10,8 @@
 static const inputs_hw_t *g_hw;
 static const adc_ops_t *g_adc;
 
-static capture_t g_cap[2];          /* written by the capture interrupt, read under irq_lock */
+enum { CAP_IN_HALL = 0, CAP_IN_TACH = 1, CAP_IN_VR = 2, CAP_IN_COUNT = 3 };   /* the channel numbers of inputs_on_capture() */
+static capture_t g_cap[CAP_IN_COUNT];   /* written by the capture interrupt, read under irq_lock */
 static uint32_t g_ppm = 16000u;
 static uint8_t g_tach_ppr = 4u;
 
@@ -28,7 +29,7 @@ static bool g_ign_state;
 void inputs_init(const inputs_hw_t *hw, const adc_ops_t *adc)
 {
     g_hw = hw; g_adc = adc;
-    capture_reset(&g_cap[0]); capture_reset(&g_cap[1]);
+    for (unsigned i = 0; i < CAP_IN_COUNT; i++) capture_reset(&g_cap[i]);
     g_speed = (sample_t){ 0.0f, false, 0u };
     g_tach = (sample_t){ 0.0f, false, 0u };
     for (unsigned i = 0; i < LAMP_COUNT; i++) g_lamp[i] = (lamp_debounce_t){ false, false, 0u };
@@ -45,7 +46,7 @@ void inputs_configure(uint32_t pulses_per_mile, uint8_t tach_pulses_per_rev)
 /* Interrupt context. */
 void inputs_on_capture(unsigned channel, uint32_t t_us)
 {
-    if (channel < 2u) capture_edge(&g_cap[channel], t_us);
+    if (channel < CAP_IN_COUNT) capture_edge(&g_cap[channel], t_us);
 }
 
 static capture_t snapshot(unsigned ch, uint32_t now_us)
@@ -79,6 +80,14 @@ static sample_t from_capture(unsigned ch, uint32_t now_us, uint32_t now_ms, bool
     return s;
 }
 
+/* One sensor is wired, to either input (inputs.h). */
+static sample_t pick_speed(sample_t hall, sample_t vr)
+{
+    if (!vr.valid) return hall;
+    if (!hall.valid) return vr;
+    return vr.value > hall.value ? vr : hall;
+}
+
 void inputs_poll(uint32_t now_ms)
 {
     if (g_hw == NULL) return;
@@ -88,8 +97,8 @@ void inputs_poll(uint32_t now_ms)
     g_last_poll_ms = now_ms;
 
     uint32_t now_us = g_hw->now_us();
-    g_speed = from_capture(0, now_us, now_ms, false);
-    g_tach = from_capture(1, now_us, now_ms, true);
+    g_speed = pick_speed(from_capture(CAP_IN_HALL, now_us, now_ms, false), from_capture(CAP_IN_VR, now_us, now_ms, false));
+    g_tach = from_capture(CAP_IN_TACH, now_us, now_ms, true);
 
     uint8_t raw = g_hw->lamps_raw();
     for (unsigned i = 0; i < LAMP_COUNT; i++)

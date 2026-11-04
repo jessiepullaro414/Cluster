@@ -21,6 +21,7 @@ static const pin_t LAMP_PINS[LAMP_COUNT] = {
 static const pin_t IGN_PIN = { PORTE, 1 };      /* PIN_IGN_SENSE */
 static const pin_t SPEED_PIN = { PORTA, 10 };   /* PIN_SPEED_IN */
 static const pin_t TACH_PIN = { PORTA, 11 };    /* PIN_TACH_IN */
+static const pin_t VR_SPEED_PIN = { PORTA, 12 }; /* PIN_VR_SPEED_IN */
 /* review 2026-11-03: outputs */
 static const pin_t SENDER_EXC_PIN = { PORTD, 2 };   /* PIN_SENDER_EXC_EN */
 static const pin_t SENDER_BIAS_PIN = { PORTE, 6 };  /* PIN_SENDER_BIAS */
@@ -28,6 +29,7 @@ static const pin_t VPULL_PIN = { PORTE, 2 };        /* PIN_VPULL_EN */
 
 #define FTM1_SPEED_CH 4u        /* FTM1_CH4 on PTA10, PORT mux alt 2 (IO signal table) */
 #define FTM1_TACH_CH  5u        /* FTM1_CH5 on PTA11, PORT mux alt 2 */
+#define FTM1_VR_CH    6u        /* FTM1_CH6 on PTA12, PORT mux alt 2 */
 
 static volatile uint16_t g_overflows;           /* counts TOF in the overflow interrupt */
 static uint32_t g_saved_primask;
@@ -72,6 +74,7 @@ void inputs_hw_init(void)
     gpio_input(IGN_PIN);
     ftm_pin(SPEED_PIN);
     ftm_pin(TACH_PIN);
+    ftm_pin(VR_SPEED_PIN);
 
     /* 8 MHz crystal -> SOSCDIV1 (divide by 1) -> FTM1 input clock, prescaled by 8 -> 1 MHz: one count is one microsecond. */
     SCG_SOSCDIV = (SCG_SOSCDIV & ~0x7u) | SCG_SOSCDIV1(1);
@@ -84,8 +87,10 @@ void inputs_hw_init(void)
     FTM1_CNT = 0u;
     FTM1_CNSC(FTM1_SPEED_CH) = FTM_CNSC_CHIE | FTM_CNSC_ELSA;
     FTM1_CNSC(FTM1_TACH_CH) = FTM_CNSC_CHIE | FTM_CNSC_ELSA;
+    FTM1_CNSC(FTM1_VR_CH) = FTM_CNSC_CHIE | FTM_CNSC_ELSA;
     NVIC_ENABLE(FTM1_OVF_RELOAD_IRQn);
     NVIC_ENABLE(FTM1_CH4_5_IRQn);
+    NVIC_ENABLE(FTM1_CH6_7_IRQn);
     FTM1_SC = FTM_SC_TOIE | FTM_SC_CLKS_SYS | FTM_SC_PS(3);   /* starts the counter */
 }
 
@@ -108,17 +113,26 @@ static uint32_t extended(uint16_t cnv)
     return capture_extend(g_overflows, tof, cnv);
 }
 
+static void service_capture(unsigned ch)
+{
+    uint32_t sc = FTM1_CNSC(ch);
+    if (sc & FTM_CNSC_CHF) {
+        uint16_t v = (uint16_t)FTM1_CNV(ch);
+        uint32_t t = extended(v);
+        FTM1_CNSC(ch) = sc & ~FTM_CNSC_CHF;
+        inputs_on_capture(ch - FTM1_SPEED_CH, t);       /* CH4, CH5, CH6: inputs_on_capture's channels 0, 1, 2 */
+    }
+}
+
 void FTM1_CH4_5_IRQHandler(void)
 {
-    for (unsigned ch = FTM1_SPEED_CH; ch <= FTM1_TACH_CH; ch++) {
-        uint32_t sc = FTM1_CNSC(ch);
-        if (sc & FTM_CNSC_CHF) {
-            uint16_t v = (uint16_t)FTM1_CNV(ch);
-            uint32_t t = extended(v);
-            FTM1_CNSC(ch) = sc & ~FTM_CNSC_CHF;
-            inputs_on_capture(ch - FTM1_SPEED_CH, t);
-        }
-    }
+    service_capture(FTM1_SPEED_CH);
+    service_capture(FTM1_TACH_CH);
+}
+
+void FTM1_CH6_7_IRQHandler(void)
+{
+    service_capture(FTM1_VR_CH);
 }
 
 /* ---- the ops the logic uses ---------------------------------------------------------------------------------- */

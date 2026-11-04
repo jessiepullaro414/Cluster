@@ -2,8 +2,9 @@
 #include "capture.h"
 #include "inputmath.h"
 #include "inputs.h"
+#include "senders.h"
 
-#define DIMMER_PERIOD_MS 100u
+#define DIMMER_PERIOD_MS 250u     /* a test load every 250 ms, on for one poll: 4 % of the time, about 20 mW in R105 */
 #define VREF_MV          3300u      /* VREFH is tied to the filtered 3V3 analog supply on gauges/ */
 #define IGN_DEBOUNCE_MS  50u
 
@@ -23,6 +24,10 @@ static bool g_first;
 static uint32_t g_dim_next_ms;
 static bool g_dim_on;
 static uint8_t g_dim_pct = 100u;
+static bool g_dim_loaded;           /* the test load is on, and the next poll reads the result */
+static float g_dim_open_v;          /* the feed just before the load went on */
+static float g_dim_ohm;             /* the rheostat, filtered */
+static bool g_dim_have;             /* g_dim_ohm holds a reading */
 static uint8_t g_ign_hold;          /* ignition debounce uses 50 ms; im_lamp_update debounces 20 ms, so count in steps */
 static bool g_ign_state;
 
@@ -35,6 +40,14 @@ void inputs_init(const inputs_hw_t *hw, const adc_ops_t *adc)
     for (unsigned i = 0; i < LAMP_COUNT; i++) g_lamp[i] = (lamp_debounce_t){ false, false, 0u };
     g_ign = (lamp_debounce_t){ false, false, 0u };
     g_first = true; g_dim_next_ms = 0u; g_dim_on = false; g_dim_pct = 100u; g_ign_hold = 0u; g_ign_state = false;
+    g_dim_have = false;
+    inputs_dim_load_off();
+}
+
+void inputs_dim_load_off(void)
+{
+    g_dim_loaded = false;
+    if (g_hw != NULL && g_hw->dim_load != NULL) g_hw->dim_load(false);
 }
 
 void inputs_configure(uint32_t pulses_per_mile, uint8_t tach_pulses_per_rev)
@@ -88,6 +101,45 @@ static sample_t pick_speed(sample_t hall, sample_t vr)
     return vr.value > hall.value ? vr : hall;
 }
 
+static float feed_volts(uint16_t adc12)
+{
+    return im_adc_to_mv(adc12, VREF_MV) / 1000.0f / IM_DIM_DIVIDER;
+}
+
+/* Read the feed; if the lights are on, switch the test load across it. One poll later, read it again, switch the load off, and
+ * work out the rheostat (inputmath.h). 10 ms is about 12 time constants of the ADC filter (C57). */
+static void dimmer_poll(uint32_t now_ms)
+{
+    if (g_dim_loaded) {
+        uint16_t a = g_adc->read(ADC_CH_DIMMER);
+        inputs_dim_load_off();                                  /* first, whatever the reading turned out to be */
+        if (a == ADC_FAIL) return;
+        uint16_t b = g_adc->read(ADC_CH_BATT);
+        float batt_v = (b == ADC_FAIL) ? 0.0f : im_adc_to_mv(b, VREF_MV) / 1000.0f * BATT_DIVIDER;
+        float ohm = im_dim_rheostat_ohm(g_dim_open_v, feed_volts(a), batt_v);
+        g_dim_ohm = g_dim_have ? g_dim_ohm + (ohm - g_dim_ohm) / 3.0f : ohm;
+        g_dim_have = true;
+        uint8_t pct = im_dim_percent(g_dim_ohm, g_dim_open_v, batt_v);
+        /* a little hysteresis, so noise of a percent does not reach the backlight; the ends are always reached */
+        unsigned diff = pct > g_dim_pct ? (unsigned)(pct - g_dim_pct) : (unsigned)(g_dim_pct - pct);
+        if (diff >= 2u || pct == 0u || pct == 100u) g_dim_pct = pct;
+        return;
+    }
+    if ((int32_t)(now_ms - g_dim_next_ms) < 0) return;
+    g_dim_next_ms = now_ms + DIMMER_PERIOD_MS;
+    uint16_t a = g_adc->read(ADC_CH_DIMMER);
+    if (a == ADC_FAIL) return;
+    g_dim_on = im_dim_lights_on(a, VREF_MV);
+    if (!g_dim_on) {
+        g_dim_pct = 0u;
+        g_dim_have = false;
+        return;
+    }
+    g_dim_open_v = feed_volts(a);
+    g_dim_loaded = true;
+    if (g_hw->dim_load != NULL) g_hw->dim_load(true);
+}
+
 void inputs_poll(uint32_t now_ms)
 {
     if (g_hw == NULL) return;
@@ -113,14 +165,7 @@ void inputs_poll(uint32_t now_ms)
         if (g_ign_hold >= IGN_DEBOUNCE_MS - IM_LAMP_DEBOUNCE_MS) { g_ign_state = ign; g_ign_hold = 0u; }
     }
 
-    if (g_adc != NULL && (int32_t)(now_ms - g_dim_next_ms) >= 0) {
-        g_dim_next_ms = now_ms + DIMMER_PERIOD_MS;
-        uint16_t a = g_adc->read(ADC_CH_DIMMER);
-        if (a != ADC_FAIL) {
-            g_dim_on = im_dim_lights_on(a, VREF_MV);
-            g_dim_pct = im_dim_percent(a, VREF_MV);
-        }
-    }
+    if (g_adc != NULL) dimmer_poll(now_ms);
 }
 
 sample_t inputs_speed_kph(void) { return g_speed; }

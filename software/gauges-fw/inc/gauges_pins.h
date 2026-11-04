@@ -35,6 +35,7 @@
 #define PIN_SENDER_EXC_EN  46  /* PTD2, U11 ON: the sender pull-ups on; low (R94) while the MCU resets */
 #define PIN_SENDER_BIAS    53  /* PTE6, 6.8 k bias on the three sender ADC pins; high while awake, low in VLPS */
 #define PIN_VPULL_EN       54  /* PTE2, U12 IN (through 10 k): VPULL on; low in VLPS */
+#define PIN_DIM_LOAD_EN    32  /* PTB2, Q4 base through R106: the dash dimmer's test load on; low in VLPS */
 
 /* six 12 V-active indicator lamps (active-low if the DNP pull-up is fitted) */
 #define PIN_LAMP_TURN_L    35  /* PTC9 */

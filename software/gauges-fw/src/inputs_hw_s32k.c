@@ -26,6 +26,7 @@ static const pin_t VR_SPEED_PIN = { PORTA, 12 }; /* PIN_VR_SPEED_IN */
 static const pin_t SENDER_EXC_PIN = { PORTD, 2 };   /* PIN_SENDER_EXC_EN */
 static const pin_t SENDER_BIAS_PIN = { PORTE, 6 };  /* PIN_SENDER_BIAS */
 static const pin_t VPULL_PIN = { PORTE, 2 };        /* PIN_VPULL_EN */
+static const pin_t DIM_LOAD_PIN = { PORTB, 2 };     /* PIN_DIM_LOAD_EN */
 
 #define FTM1_SPEED_CH 4u        /* FTM1_CH4 on PTA10, PORT mux alt 2 (IO signal table) */
 #define FTM1_TACH_CH  5u        /* FTM1_CH5 on PTA11, PORT mux alt 2 */
@@ -63,6 +64,12 @@ static void sender_excite(bool on)
 
 const sender_hw_t sender_hw_s32k = { sender_excite };
 
+static void dim_load(bool on)
+{
+    if (on) GPIO_PSOR(DIM_LOAD_PIN.port) = 1u << DIM_LOAD_PIN.pin;
+    else GPIO_PCOR(DIM_LOAD_PIN.port) = 1u << DIM_LOAD_PIN.pin;
+}
+
 void inputs_hw_init(void)
 {
     /* review 2026-11-03: the 12 V pull-up rail (lamp/tach pull-ups, Hall sender supply) and the senders' ADC bias are on while
@@ -70,6 +77,7 @@ void inputs_hw_init(void)
     gpio_output(VPULL_PIN, true);
     gpio_output(SENDER_BIAS_PIN, true);
     gpio_output(SENDER_EXC_PIN, true);
+    gpio_output(DIM_LOAD_PIN, false);
     for (unsigned i = 0; i < LAMP_COUNT; i++) gpio_input(LAMP_PINS[i]);
     gpio_input(IGN_PIN);
     ftm_pin(SPEED_PIN);
@@ -159,4 +167,4 @@ static uint8_t lamps_raw(void)
 
 static bool ign_raw(void) { return (GPIO_PDIR(IGN_PIN.port) & (1u << IGN_PIN.pin)) != 0u; }
 
-const inputs_hw_t inputs_hw_s32k = { now_us, lamps_raw, ign_raw, lock, unlock };
+const inputs_hw_t inputs_hw_s32k = { now_us, lamps_raw, ign_raw, lock, unlock, dim_load };

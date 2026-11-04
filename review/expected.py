@@ -58,6 +58,7 @@ GAUGES["U1"] = dict(
         58: ("PTA10", [("net", "SPEED_IN"), ("fn", "FTM1_CH4")]),
         57: ("PTA11", [("net", "TACH_IN"), ("fn", "FTM1_CH5")]),
         56: ("PTA12", [("net", "VR_SPEED_IN"), ("fn", "FTM1_CH6")]),
+        32: ("PTB2", [("net", "DIM_LOAD_EN"), ("fn", "PTB2")]),
         59: ("PTE1", [("net", "IGN_SENSE"), ("fn", "PTE1")]),
         60: ("PTE0", [("net", "CAN1_STB"), ("fn", "PTE0")]),
         13: ("PTE3", [("net", "AUX_CS0"), ("fn", "PTE3")]),
@@ -302,6 +303,16 @@ GAUGES["U11"] = dict(
     },
     decap=[dict(pin="1", net="+3V3", min_nom=1e-6, max_mm=5.0, why="CIN >= 1 uF, 10x CL (9.2.3)")],
 )
+# 2026-11-04: the dash dimmer's pulsed test load. Diodes Inc. MMBT5551Q (DS42560 Rev 1-2 page 1, top view drawing, read as a picture):
+# C alone on one side, E and B on the other, which on KiCad's SOT-23 is 1 B, 2 E, 3 C.
+GAUGES["Q4"] = dict(part="Diodes Inc. MMBT5551Q-7, SOT23", status="READ",
+                    ds="Diodes Inc. DS42560 Rev 1-2 (Aug 2020), pin-out drawing, ratings and on characteristics",
+                    pins={1: ("B", [("net", "DIM_LOAD_B"), ("r", "DIM_LOAD_EN", 470.0, 4.7e3), ("r", "GND", 10e3, 100e3)]),
+                          2: ("E", [("net", "GND")]),
+                          3: ("C", [("net", "DIM_LOAD_C"), ("r", "DIM_LOAD", 100.0, 1e3)])})
+GAUGES["D37"] = dict(part="Nexperia BAV99-Q (both sections in series, dimmer test load)", status="READ",
+                     ds="Nexperia BAV99 series Rev. 8",
+                     pins={1: ("A1", [("net", "DIM_RAW")]), 2: ("K2", [("net", "DIM_LOAD")]), 3: ("CA", [("nc",)])})
 # U13 (2026-11-04): the VR speed input's comparator, TI TLV7031-Q1 (SNOSDA5D table 5-1)
 GAUGES["U13"] = dict(
     part="TI TLV7031QDBVRQ1, SOT-23-5", status="READ",

@@ -506,6 +506,14 @@ register_symbol(f"{LIB}:TPS1H000", "U", "TPS1H000-Q1", "TI_DGN0008K:TI_DGN0008K_
 register_symbol(f"{LIB}:SJ", "JP", "solder jumper, open", "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm",
                 {'L': [P(1, "A", "passive")], 'R': [P(2, "B", "passive")]},
                 hide_pin_names=True)
+# 2026-11-04: the dash dimmer's test load, a 1 W part so that a load stuck on is only warm (see the comment at R105).
+register_symbol(f"{LIB}:R_2512", "R", "330R", "Resistor_SMD:R_2512_6332Metric",
+                {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
+                hide_pin_names=True)
+# Diodes Inc. MMBT5551Q (DS42560 Rev 1-2, SOT23 top view): 1 B, 2 E, 3 C. 160 V VCEO, 180 V VCBO, 600 mA, AEC-Q101. hFE 30 min at
+# 50 mA, VCE(sat) 0.2 V max at 50 mA / 5 mA.
+register_symbol(f"{LIB}:NPN_SOT23", "Q", "MMBT5551Q", "Package_TO_SOT_SMD:SOT-23",
+                {'L': [P(1, "B", "passive")], 'R': [P(3, "C", "passive")], 'B': [P(2, "E", "passive")]})
 register_symbol(f"{LIB}:R_1206", "R", "5m", "Resistor_SMD:R_1206_3216Metric",
                 {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
                 hide_pin_names=True)
@@ -638,7 +646,10 @@ MCU_BOTTOM_EXTRA = [P(30, "LPSPI2_CS", "output"), P(42, "AUX_RST", "output"),
                     # PTD2 / PTE6 / PTE2 reset to their ADC function (high impedance); each line has a pull-down or the
                     # switch's own. PTD3 was passed over: it carries NMI_b.
                     P(46, "SENDER_EXC_EN", "output"), P(53, "SENDER_BIAS", "output"),
-                    P(54, "VPULL_EN", "output")]
+                    P(54, "VPULL_EN", "output"),
+                    # 2026-11-04: switches the dash dimmer's test load (Q4). PTB2 resets to its ADC function, high impedance,
+                    # and R107 holds the load off until firmware drives it.
+                    P(32, "DIM_LOAD_EN", "output")]
 register_symbol(f"{LIB}:MCU_STM32", "U", "NXP S32K144 automotive (AEC-Q100)",
                 "Package_QFP:LQFP-64_10x10mm_P0.5mm",
                 {'L': MCU_LEFT,
@@ -1244,19 +1255,44 @@ for i, (net, what) in enumerate(LAMPS):
 # Dash dimmer (J10 pin 8): the 1966 Mustang headlight switch dims the
 # instrument lamps by feeding them through a rheostat, so the feed wire reads
 # 0 V with the lights off and roughly 4 to 12 V as the knob is turned (loaded
-# by the lamp bulbs). The input measures that feed: 22k/6.8k divider (0.236):
-# 14 V -> 3.3 V, 12 V -> 2.8 V, and a BAV99-Q clamp for spikes; 100 nF
-# filters PWM-type dimmers to their average; the 5.2 kohm source impedance is
-# fine with the filter capacitor feeding the ADC. Firmware: below about 1.5 V
-# on the pin = lights off (day), otherwise brightness follows the voltage.
+# by the lamp bulbs). The input measures that feed: 22k/4.7k divider (0.176):
+# 18.75 V -> 3.3 V, 14.4 V -> 2.53 V, and a BAV99-Q clamp for spikes; the 3.9 kohm
+# source impedance is fine with the filter capacitor feeding the ADC. Below
+# about 0.35 V on the pin (a 2 V feed) the lights are off.
+# 2026-11-04: the divider was 22k/6.8k, 14 V full scale. With the alternator charging at 14.4 V the ADC sat at full scale, so
+# the firmware's test-load reading could see no sag at all and the knob stopped working once the engine started. Found by the
+# circuit model in software/gauges-fw/test/test_inputs.c.
+# 2026-11-04 (docs/electrical-review.md G-38): a rheostat only drops voltage while current flows, and with the stock cluster's
+# bulbs gone almost nothing draws from that feed, so its voltage says nothing about the knob. The board now draws the current
+# itself, briefly: R105 is switched across the feed for 10 ms, 4 times a second, only while the lights are on, and firmware
+# reads the rheostat's resistance from how far the feed sags (inputmath.h). No resistor or bulb under the dash, no learning,
+# and the engine starting does not move the reading, because the two readings are 10 ms apart.
+#   R105      330 ohm 2512 1 W: about 38 mA, a 0.45 V sag across a 12 ohm rheostat, 20 mW on average. Stuck on through a fault it
+#             dissipates 0.49 W at 14.4 V, so nothing has to be fast enough to save it.
+#   D37       both BAV99-Q sections in series, 200 V: a reversed battery or a negative pulse on the feed sees an open circuit.
+#   Q4        MMBT5551Q 160 V NPN: blocks the positive pulses and a load dump with nothing conducting (a 60 V MOSFET would need a
+#             clamp to survive +112 V). A bipolar part because a 100 V MOSFET's threshold is not safe with a 3.3 V gate.
+#   R106/R107 1 k gives 2.5 mA of base current, forced gain 15 at 38 mA; 47 k holds it off with the MCU in reset.
+#   C57       220 nF (was 100 nF): 0.85 ms with the divider, so 10 ms is about 12 time constants, and it takes alternator
+#             ripple at about 1 kHz down by 15 dB, so the two readings are not comparing ripple.
 place(f"{LIB}:R_V", "R80", "22k divider top, dash dimmer (AEC-Q200)", 1060, 580,
       conn={'1': ('label', 'DIM_RAW'), '2': ('label', 'DIM_ADC')})
-place(f"{LIB}:R_V", "R81", "6.8k divider bottom, dash dimmer (AEC-Q200)", 1100, 600,
+place(f"{LIB}:R_V", "R81", "4.7k divider bottom, dash dimmer (AEC-Q200)", 1100, 600,
       conn={'1': ('label', 'DIM_ADC'), '2': ('pwr', 'GND')})
-place(f"{LIB}:C_V", "C57", "100nF input filter, dash dimmer (AEC-Q200)", 1140, 600,
+place(f"{LIB}:C_V", "C57", "220nF input filter, dash dimmer (AEC-Q200)", 1140, 600,
       conn={'1': ('label', 'DIM_ADC'), '2': ('pwr', 'GND')})
 place(f"{LIB}:D_BAV99", "D23", "BAV99-Q input clamp, dash dimmer (AEC-Q101)", 1180, 585,
       conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'DIM_ADC')})
+place(f"{LIB}:D_BAV99", "D37", "BAV99-Q both sections in series, blocks a negative feed from the dimmer test load (AEC-Q101)", 1070, 650,
+      conn={'1': ('label', 'DIM_RAW'), '2': ('label', 'DIM_LOAD'), '3': ('nc',)})
+place(f"{LIB}:R_2512", "R105", "330R dimmer test load, 1W (AEC-Q200)", 1110, 655,
+      conn={'1': ('label', 'DIM_LOAD'), '2': ('label', 'DIM_LOAD_C')})
+place(f"{LIB}:NPN_SOT23", "Q4", "MMBT5551Q dimmer test load switch (AEC-Q101)", 1150, 650,
+      conn={'1': ('label', 'DIM_LOAD_B'), '3': ('label', 'DIM_LOAD_C'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R106", "1k base resistor, dimmer test load (AEC-Q200)", 1090, 705,
+      conn={'1': ('label', 'DIM_LOAD_EN'), '2': ('label', 'DIM_LOAD_B')})
+place(f"{LIB}:R_V", "R107", "47k base pull-down, dimmer test load (AEC-Q200)", 1130, 705,
+      conn={'1': ('label', 'DIM_LOAD_B'), '2': ('pwr', 'GND')})
 
 # --- Physical turn-signal arrows (owner decision 2026-10-16: the arrows on the dash are physical lamps, none are drawn on any screen) ---
 # Two green LED arrows sit behind the faceplate (positions: TURN_LED_X in build_pcb.py, to be set from the faceplate drawing).

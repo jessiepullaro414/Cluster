@@ -427,7 +427,9 @@ CORE_ZONES = [
     ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2", "R84", "R85"]),
     # Rev C (2026-10-04): six 12 V-active indicator-lamp inputs and the tach input.
     ("LAMPS+TACH", ["J10", "J11"] + [f"R{n}" for n in range(58, 82)] +
-                   [f"C{n}" for n in range(50, 58)] + [f"D{n}" for n in range(16, 24)]),
+                   [f"C{n}" for n in range(50, 58)] + [f"D{n}" for n in range(16, 24)] +
+                   # 2026-11-04: the dash dimmer's pulsed test load
+                   ["Q4", "R105", "R106", "R107", "D37"]),
     # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
     # ignition sense - see build_schematic.py's rev B comments.
     ("SPEED+IGN", ["J9", "D32", "R43", "R44", "R45", "C43", "D10",

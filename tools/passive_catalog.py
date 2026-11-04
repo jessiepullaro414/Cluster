@@ -115,6 +115,10 @@ def lookup(prefix, value_token, package):
             # series resistor must stand off an inductive tach spike.
             return (f"AC1206FR-07{yageo_code(n)}L", "Yageo",
                     f"Resistor {yageo_code(n).replace('K', 'k')} 1% 1206 thick film, 200 V, AEC-Q200", "pattern")
+        if pk == "2512":
+            # Yageo AC2512 AEC-Q200 series, 1 W. 330 ohm seen on Octopart as AC2512FK-07330RL (production, automotive, 2026-11-04).
+            return (f"AC2512FK-07{yageo_code(n)}L", "Yageo",
+                    f"Resistor {yageo_code(n).replace('K', 'k')} 1% 2512 thick film, 1 W, AEC-Q200", "verified" if n == 330 else "pattern")
         if pk != "0603":
             return None
         if n == 0:

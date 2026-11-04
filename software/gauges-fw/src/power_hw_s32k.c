@@ -57,6 +57,7 @@ static void enter_sleep(void)
         for (uint8_t s = 0; s < 4u; s++)
             gc9a01_sleep(hal, s);
     GPIO_PCOR(PORTB) = (1u << 5) | (1u << 4);             /* TJA1043T EN (PTB5) and STB_N (PTB4) low: Standby */
+    GPIO_PCOR(PORTB) = 1u << 2;                           /* the dash dimmer's test load off (PTB2), in case the key went off during a pulse */
     GPIO_PSOR(PORTE) = 1u << 0;                           /* TCAN1044V STB (PTE0) high: standby */
     /* review 2026-11-03: the sender excitation (PTD2), the senders' ADC bias (PTE6) and the 12 V pull-up rail (PTE2) off, so
      * nothing but the always-on parts draws from the battery with the car parked (about 9 mA through the senders before) */

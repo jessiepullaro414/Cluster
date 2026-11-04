@@ -55,12 +55,30 @@ bool im_dim_lights_on(uint16_t adc12, uint16_t vref_mv)
     return im_adc_to_mv(adc12, vref_mv) >= (float)IM_DIM_LIGHTS_ON_MV;
 }
 
-uint8_t im_dim_percent(uint16_t adc12, uint16_t vref_mv)
+/* feed / battery, or 1 with no battery reading. A feed can read a little above the battery: the battery is read on this board,
+ * after its own fuse, wire and front end. */
+static float dim_ratio(float open_v, float batt_v)
 {
-    if (!im_dim_lights_on(adc12, vref_mv))
-        return 0;
-    float feed_v = im_adc_to_mv(adc12, vref_mv) / 1000.0f / IM_DIM_DIVIDER;
-    float f = (feed_v - IM_DIM_FEED_MIN_V) / (IM_DIM_FEED_FULL_V - IM_DIM_FEED_MIN_V);
+    float k = batt_v > 0.0f ? open_v / batt_v : 1.0f;
+    return k > 1.0f ? 1.0f : k;
+}
+
+float im_dim_rheostat_ohm(float open_v, float loaded_v, float batt_v)
+{
+    float amps = (loaded_v - IM_DIM_LOAD_DROP_V) / IM_DIM_LOAD_OHM;
+    if (amps < 0.001f) return IM_DIM_RHEO_MAX_OHM;       /* almost nothing flows: the feed is dead, or the knob is far down on bulbs */
+    float sag = open_v - loaded_v;
+    if (sag < 0.0f) sag = 0.0f;                          /* noise, or the battery rose between the readings */
+    float k = dim_ratio(open_v, batt_v);
+    float ohm = k > 0.05f ? sag / amps / k : IM_DIM_RHEO_MAX_OHM;
+    return ohm > IM_DIM_RHEO_MAX_OHM ? IM_DIM_RHEO_MAX_OHM : ohm;
+}
+
+uint8_t im_dim_percent(float rheostat_ohm, float open_v, float batt_v)
+{
+    float f = 1.0f - (rheostat_ohm - IM_DIM_RHEO_TOP_OHM) / (IM_DIM_RHEO_FULL_OHM - IM_DIM_RHEO_TOP_OHM);
+    float by_ratio = (dim_ratio(open_v, batt_v) - IM_DIM_RATIO_ZERO) / (IM_DIM_RATIO_FULL - IM_DIM_RATIO_ZERO);
+    if (by_ratio < f) f = by_ratio;
     if (f < 0.0f) f = 0.0f;
     if (f > 1.0f) f = 1.0f;
     return (uint8_t)(f * 100.0f + 0.5f);

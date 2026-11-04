@@ -1,5 +1,5 @@
 /* Capture, inputs and senders against fake hardware: pulse trains with 16-bit timer wraps, stopped and absent senders, glitches,
- * lamp debounce and inversion, ignition, the dimmer, ADC readings with open and shorted wires. */
+ * lamp debounce and inversion, ignition, the dimmer against a model of its circuit, ADC readings with open and shorted wires. */
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -27,13 +27,40 @@ static void f_unlock(void) { unlocks++; }
 /* review 2026-11-03: the three sender channels can come from a model of the real front end instead of fixed codes */
 static bool sender_model;
 static uint16_t model_code(adc_ch_t ch);
+/* 2026-11-04: the dash dimmer against a model of its circuit: the battery, the rheostat, any bulbs left on the feed, and the test load */
+static bool dim_model;
+static double m_batt, m_rheo, m_bulb, m_drop;   /* m_bulb 0: none */
+static bool m_lights, m_load;
+static unsigned m_pulses;
+static int m_noise;                             /* +- this many ADC counts on every reading */
+static unsigned m_seed = 12345u;
+static void f_dim_load(bool on) { if (on && !m_load) m_pulses++; m_load = on; }
+static uint16_t dim_code(adc_ch_t ch)
+{
+    double v;
+    if (ch == ADC_CH_BATT) v = m_batt / BATT_DIVIDER;
+    else {
+        double g = 1.0 / m_rheo, i = m_batt / m_rheo;
+        if (m_bulb > 0.0) g += 1.0 / m_bulb;
+        double feed = i / g;
+        if (m_load && feed > m_drop) feed = (i + m_drop / IM_DIM_LOAD_OHM) / (g + 1.0 / IM_DIM_LOAD_OHM);
+        v = m_lights ? feed * IM_DIM_DIVIDER : 0.0;
+    }
+    double code = v / 3.3 * 4095.0 + 0.5;
+    if (m_noise) {
+        m_seed = m_seed * 1664525u + 1013904223u;
+        code += (int)((m_seed >> 16) % (unsigned)(2 * m_noise + 1)) - m_noise;
+    }
+    return code < 0.0 ? 0u : (code > 4095.0 ? 4095u : (uint16_t)code);
+}
 static uint16_t f_adc(adc_ch_t ch)
 {
     if (adc_fail_mask & (1u << ch)) return ADC_FAIL;
     if (sender_model && ch <= ADC_CH_TEMP) return model_code(ch);
+    if (dim_model && (ch == ADC_CH_DIMMER || ch == ADC_CH_BATT)) return dim_code(ch);
     return fake_adc[ch];
 }
-static const inputs_hw_t HW = { f_now, f_lamps, f_ign, f_lock, f_unlock };
+static const inputs_hw_t HW = { f_now, f_lamps, f_ign, f_lock, f_unlock, f_dim_load };
 static const adc_ops_t ADC = { f_adc };
 
 /* ---- capture.c ---------------------------------------------------------------------------------------------- */
@@ -303,27 +330,179 @@ static void test_ignition_and_dimmer(void)
     fake_ign = false; run(100);
     CHECK(!inputs_ignition_on());
 
-    /* dimmer: divider 0.236, VREF 3.3 V; the feed at 12 V is 2.83 V on the pin = code 3515 */
-    fake_adc[ADC_CH_DIMMER] = 100; run(200);
+    /* lights on or off: divider 0.176, VREF 3.3 V; a feed of 2 V is 352 mV on the pin = code 437 */
+    fake_adc[ADC_CH_DIMMER] = 400; run(300);                                  /* 0.32 V on the pin = 1.8 V feed: switched off */
     CHECK(!inputs_dash_lights_on());
-    fake_adc[ADC_CH_DIMMER] = 3515; run(200);
-    CHECK(inputs_dash_lights_on() && inputs_dimmer_pct() >= 98u);
-    fake_adc[ADC_CH_DIMMER] = 1800; run(200);                                 /* 1.45 V on the pin = 6.1 V feed: the knob turned well down */
-    CHECK(inputs_dash_lights_on() && inputs_dimmer_pct() > 20u && inputs_dimmer_pct() < 35u);
-    fake_adc[ADC_CH_DIMMER] = 900; run(200);                                  /* 0.73 V on the pin = 3.1 V feed: lit, at the bottom of the range */
-    CHECK(inputs_dash_lights_on() && inputs_dimmer_pct() == 0u);
-    fake_adc[ADC_CH_DIMMER] = 400; run(200);                                  /* 0.32 V on the pin = 1.4 V feed: switched off */
-    CHECK(!inputs_dash_lights_on());
-    fake_adc[ADC_CH_DIMMER] = 2400; run(200);                                 /* 1.93 V on the pin = 8.2 V feed */
+    fake_adc[ADC_CH_DIMMER] = 900; run(300);                                  /* 0.73 V on the pin = 4.1 V feed: lit */
     CHECK(inputs_dash_lights_on());
-    CHECK(inputs_dimmer_pct() > 40u && inputs_dimmer_pct() < 60u);
     adc_fail_mask = 1u << ADC_CH_DIMMER; run(300);
     CHECK(inputs_dash_lights_on());                                           /* a failed conversion keeps the last good state ... */
-    adc_fail_mask = 0; fake_adc[ADC_CH_DIMMER] = 100; run(200);
+    adc_fail_mask = 0; fake_adc[ADC_CH_DIMMER] = 100; run(300);
     CHECK(!inputs_dash_lights_on());
     adc_fail_mask = 1u << ADC_CH_DIMMER; run(300);
     CHECK(!inputs_dash_lights_on());                                          /* ... whichever state that was */
     adc_fail_mask = 0;
+}
+
+static double dim_expect(double rheo)
+{
+    double f = 1.0 - (rheo - IM_DIM_RHEO_TOP_OHM) / (IM_DIM_RHEO_FULL_OHM - IM_DIM_RHEO_TOP_OHM);
+    return f < 0.0 ? 0.0 : (f > 1.0 ? 100.0 : f * 100.0);
+}
+
+static void dim_setup(void)
+{
+    begin();
+    dim_model = true; m_batt = 12.6; m_rheo = 0.1; m_bulb = 0.0; m_drop = IM_DIM_LOAD_DROP_V;
+    m_lights = true; m_load = false; m_pulses = 0; m_noise = 0;
+}
+
+/* The whole path: the state machine, the ADC, the sum, against the circuit. */
+static void test_dimmer(void)
+{
+    /* lights off: no pulses at all, however long, and nothing lit */
+    dim_setup();
+    m_lights = false;
+    run(5000);
+    CHECK(m_pulses == 0u && !m_load && !inputs_dash_lights_on() && inputs_dimmer_pct() == 0u);
+
+    /* no bulbs on the feed, the case the circuit exists for: the feed reads the battery at every position, and the knob still reads */
+    m_lights = true;
+    static const double knob[] = { 0.1, 1.0, 3.0, 6.25, 9.0, 11.0, 12.0, 15.0, 9.0, 3.0, 0.1 };   /* down, and back up */
+    for (unsigned i = 0; i < sizeof knob / sizeof knob[0]; i++) {
+        m_rheo = knob[i];
+        run(4000);
+        CHECK(inputs_dash_lights_on());
+        NEAR(inputs_dimmer_pct(), dim_expect(knob[i]), 3.0);
+    }
+
+    /* the engine starting moves the battery by more than the whole knob moves the feed: the reading must not care */
+    dim_setup();
+    m_rheo = 6.25;
+    run(4000);
+    NEAR(inputs_dimmer_pct(), 50.0, 3.0);
+    unsigned before = inputs_dimmer_pct();
+    m_batt = 14.4; run(4000);
+    NEAR(inputs_dimmer_pct(), before, 3.0);
+    m_batt = 11.8; run(4000);
+    NEAR(inputs_dimmer_pct(), before, 3.0);
+
+    /* bulbs still on the feed (radio, heater, clock): the same knob position reads the same */
+    dim_setup();
+    m_bulb = 20.0;
+    m_rheo = 0.1; run(4000);
+    NEAR(inputs_dimmer_pct(), 100.0, 2.0);
+    m_rheo = 6.25; run(4000);
+    NEAR(inputs_dimmer_pct(), 50.0, 4.0);
+    /* and knob well down on bulbs, where the sag is too small to read: the low feed itself says so */
+    m_bulb = 6.0; m_rheo = 15.0; run(4000);
+    CHECK(inputs_dash_lights_on() && inputs_dimmer_pct() == 0u);
+
+    /* the two diodes and Q4 are not exactly 1.8 V: +-0.4 V is about +-3 % of the load current */
+    for (int d = -1; d <= 1; d += 2) {
+        dim_setup();
+        m_drop = IM_DIM_LOAD_DROP_V + d * 0.4;
+        m_rheo = 6.25; run(4000);
+        NEAR(inputs_dimmer_pct(), 50.0, 4.0);
+    }
+
+    /* the load: one poll on, 24 off, so 4 % of the time and never two polls running. It heats R105 for 10 ms, not for good. */
+    dim_setup();
+    m_rheo = 6.25;
+    unsigned on = 0, run_on = 0, longest = 0;
+    for (int i = 0; i < 2500; i++) {
+        ms += 10u; fake_us += 10000u; inputs_poll(ms);
+        if (m_load) { on++; if (++run_on > longest) longest = run_on; } else run_on = 0;
+    }
+    CHECK(on >= 95u && on <= 105u);
+    CHECK(longest == 1u);
+
+    /* whatever goes wrong during a pulse, the load comes off at the next poll */
+    dim_setup();
+    while (!m_load) { ms += 10u; fake_us += 10000u; inputs_poll(ms); }
+    adc_fail_mask = 1u << ADC_CH_DIMMER;
+    ms += 10u; fake_us += 10000u; inputs_poll(ms);
+    CHECK(!m_load);
+    adc_fail_mask = 0;
+    /* a lost battery reading: it carries on, with the bulbs left in the sum */
+    dim_setup();
+    m_rheo = 6.25;
+    adc_fail_mask = 1u << ADC_CH_BATT;
+    run(4000);
+    NEAR(inputs_dimmer_pct(), 50.0, 3.0);
+    adc_fail_mask = 0;
+    /* a lost feed reading before the pulse: no pulse */
+    dim_setup();
+    adc_fail_mask = 1u << ADC_CH_DIMMER;
+    run(2000);
+    CHECK(m_pulses == 0u);
+    adc_fail_mask = 0;
+    /* the lights go off during a pulse: off, and a valid reading of 0 at the next look */
+    dim_setup();
+    run(1000);
+    while (!m_load) { ms += 10u; fake_us += 10000u; inputs_poll(ms); }
+    m_lights = false;
+    run(1000);
+    CHECK(!m_load && !inputs_dash_lights_on() && inputs_dimmer_pct() == 0u);
+
+    /* for main.c: the task can be stopped with the load on, and for the init */
+    dim_setup();
+    while (!m_load) { ms += 10u; fake_us += 10000u; inputs_poll(ms); }
+    inputs_dim_load_off();
+    CHECK(!m_load);
+    m_load = true;
+    inputs_init(&HW, &ADC);
+    CHECK(!m_load);
+
+    /* a part with no test load fitted (the null operation): no crash */
+    static const inputs_hw_t NO_LOAD = { f_now, f_lamps, f_ign, f_lock, f_unlock, 0 };
+    dim_setup();
+    inputs_init(&NO_LOAD, &ADC);
+    inputs_configure(16000u, 4u);
+    run(1000);
+    CHECK(inputs_dash_lights_on());
+
+    /* a charging system well above normal stays on scale, so the knob still reads */
+    dim_setup();
+    m_rheo = 6.25;
+    m_batt = 16.0;
+    run(4000);
+    NEAR(inputs_dimmer_pct(), 50.0, 3.0);
+
+    /* the lights go off and the knob moves while they are off: the first reading afterwards is the new position, not a slow climb from the old one */
+    dim_setup();
+    m_rheo = 6.25;
+    run(4000);
+    m_lights = false;
+    run(1000);
+    m_rheo = 0.1;
+    m_lights = true;
+    run(300);
+    CHECK(inputs_dash_lights_on() && inputs_dimmer_pct() == 100u);
+
+    /* noise: +-4 ADC counts on every reading, which is 18 mV on the feed. Unfiltered that is about 3.8 % RMS on the reading; the filter
+     * takes it under 2.6 %, and it does not hunt beyond a few percent */
+    dim_setup();
+    m_noise = 4;
+    m_rheo = 6.25;
+    run(4000);
+    unsigned lo = 100u, hi = 0u;
+    double sq = 0.0;
+    for (int i = 0; i < 400; i++) {
+        run(250);
+        unsigned p = inputs_dimmer_pct();
+        if (p < lo) lo = p;
+        if (p > hi) hi = p;
+        sq += ((double)p - 50.0) * ((double)p - 50.0);
+    }
+    CHECK(lo >= 38u && hi <= 62u);
+    CHECK(sqrt(sq / 400.0) < 2.6);
+    /* at the top of the knob the same noise must not dim it noticeably */
+    m_rheo = 0.1; run(4000);
+    CHECK(inputs_dimmer_pct() >= 92u);
+
+    m_noise = 0;
+    dim_model = false;
 }
 
 static void test_dead_inputs(void)
@@ -502,6 +681,7 @@ int main(void)
     test_tach();
     test_lamps();
     test_ignition_and_dimmer();
+    test_dimmer();
     test_dead_inputs();
     test_senders();
     if (failures) { printf("test_inputs: %d FAILED\n", failures); return 1; }

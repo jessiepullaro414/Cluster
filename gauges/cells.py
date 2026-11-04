@@ -137,6 +137,12 @@ CELLS = {
                         "D35": {"VR_FP": pull("R101", [1], 3)},
                         "R99": {"VR_FP": pull("R101", [1], 3)},
                         "R100": {"VR_N": pull("U13", [4], 3)}}),
+    # 2026-11-04: the dash dimmer's pulsed test load. MMBT5551Q: 1 B, 2 E, 3 C.
+    "DIMLOAD": dict(anchor="Q4", order=["R107", "R106", "R105", "D37"],
+                    pulls={"R107": {"DIM_LOAD_B": pull("Q4", [1], 4)},
+                           "R106": {"DIM_LOAD_B": pull("Q4", [1], 4)},
+                           "R105": {"DIM_LOAD_C": pull("Q4", [3], 4)},
+                           "D37": {"DIM_LOAD": pull("R105", [1], 4)}}),
     "INPUT": dict(anchor="J1", order=["F1"],
                   pulls={"F1": {"VIN": pull("J1", [1], 6)}}),
     "LDO": dict(anchor="U4", order=["C3", "C58"],

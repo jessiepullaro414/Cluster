@@ -74,6 +74,7 @@ static void step(uint32_t now)
         lamps = inputs_lamps(cfg.lamp_invert_mask);
         dash_lights = inputs_dash_lights_on(); dimmer = inputs_dimmer_pct();
     });
+    if (!fault_task_enabled(&g_fault, TASK_INPUTS)) inputs_dim_load_off();   /* the task may have stopped with the dimmer's test load on */
 
     car_bus_t car = {0};
     RUN_TASK(TASK_CAN, { can_link_poll(now); car = can_link_car(); cfg = can_link_settings(); if (can_link_update_requested()) g_update_pending = true; });

@@ -13,6 +13,7 @@ typedef struct {
     bool     (*ign_raw)(void);          /* the ignition sense pin is HIGH */
     void     (*irq_lock)(void);         /* the capture interrupt is held off while the main loop copies a capture_t */
     void     (*irq_unlock)(void);
+    void     (*dim_load)(bool on);      /* the dash dimmer's test load (Q4, R105) across the feed */
 } inputs_hw_t;
 
 extern const inputs_hw_t inputs_hw_s32k;

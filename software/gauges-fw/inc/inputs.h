@@ -12,7 +12,8 @@
  *    reporting is used. An unused input stays quiet, but if a stray pair of edges ever makes it look like a sensor standing
  *    still, the faster reading wins, so it cannot pin a moving car to 0. PulsesPerMile applies to both.
  *  - The tach behaves the same way, but is only used when the display setting enables it.
- *  - A lamp has to hold a new state for 20 ms (the turn signals flash at about 1.5 Hz). */
+ *  - A lamp has to hold a new state for 20 ms (the turn signals flash at about 1.5 Hz).
+ *  - The dash dimmer's test load is on for one poll, about 10 ms, every 250 ms, only while the lights are on (inputmath.h). */
 #include <stdbool.h>
 #include "adc.h"
 #include "aggregate.h"
@@ -30,5 +31,6 @@ sample_t inputs_rpm_from_tach(void);             /* from FTM1_CH5 capture and Ta
 lamps_t  inputs_lamps(uint8_t invert_mask);      /* bit n set = lamp n is active-low */
 bool     inputs_dash_lights_on(void);
 uint8_t  inputs_dimmer_pct(void);                /* 0..100 */
+void     inputs_dim_load_off(void);              /* for main.c: a quarantined inputs task must not leave the test load on */
 bool     inputs_ignition_on(void);
 #endif

@@ -1,5 +1,5 @@
 Manufacturer Part Number,Manufacturer,Quantity,Designators,Package,Category,Description,Status
-BAV99-Q (confirm reel suffix at order time),Nexperia,19,"D10-D25, D34-D36",SOT-23,Semiconductors,"Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8); D34 uses one section (pin 1 anode, pin 3 cathode) as the LM74930's VS supply diode",ok
+BAV99-Q (confirm reel suffix at order time),Nexperia,20,"D10-D25, D34-D37",SOT-23,Semiconductors,"Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8); D34 uses one section (pin 1 anode, pin 3 cathode) as the LM74930's VS supply diode",ok
 SM24CANB-02HTG,Littelfuse,5,D28-D32,SOT-23,Semiconductors,"Dual bidirectional 24 V TVS array, SOT-23, pins 1 and 2 each to common pin 3 (datasheet Rev. 10/09/17: VRWM 24 V, VBR 26.7 V min, VC 34 V at 1 A, 30 pF, +-30 kV IEC 61000-4-2); AEC-Q101. Protects the car CAN bus (D28), the private CAN link (D31), the sender wires (D29, D30) and the Hall speed wire (D32) at their connectors",ok
 (no part - PCB footprint only),-,2,"JP1, JP2",SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm,Semiconductors,2-pad OPEN solder jumper (KiCad SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm): bridge JP1 and JP2 with solder to switch the car-CAN 120 ohm split termination (R4/R5) in when this board is an end of the car bus,ok
 CSL0902ET1C,ROHM,2,"D26, D27",CSL0902_1608,Semiconductors,"Green chip LED with lens, 1.6 x 0.8 x 1.24 mm, 527 nm, 900-1800 mcd at 20 mA (1200 typ), VF 2.6/3.4/3.8 V at 20 mA, 30 mA max, VR 5 V; the physical turn-signal arrows behind the faceplate (ROHM data sheet CSL0902ET1(C) Rev.007; orderable code as listed by Digi-Key, Farnell and element14, confirm the reel suffix at order time)",ok
@@ -7,6 +7,7 @@ SQJ460AEP-T1_GE3 (confirm the reel suffix on Vishay doc 79771 at order time),Vis
 FS32K144HAT0MLHT,NXP,1,U1,LQFP-64_10x10mm_P0.5mm,Semiconductors,"S32K144 Arm Cortex-M4F, 80 MHz (112 MHz HSRUN), 512 KB flash, CAN FD, LQFP-64 (suffix MLH = 64-LQFP; MLL would be the 100-pin part), -40..125 C, tape and reel; pin-mux verified against NXP's S32K1xx Reference Manual. Orderable part number as listed by Newark, Mouser and TrustedParts (checked 2026-10-04); confirm the suffix on the NXP part page when ordering",ok
 LM74930QRGERQ1,TI,1,U3,Texas_RGE0024H_VQFN-24-1EP_4x4mm_P0.5mm_EP2.7x2.7mm,Semiconductors,"Automotive ideal-diode surge stopper with OV clamp and circuit breaker, VQFN-24 RGE; TI lists it Active/Production (same part as display/)",ok
 LMR33630BRNXRQ1,TI,1,U2,TI_RNX0012C_VQFN-HR-12_2x3mm_P0.5mm,Semiconductors,"3A synchronous buck regulator, +5V rail",ok
+MMBT5551Q-7,Diodes Inc.,1,Q4,SOT-23,Semiconductors,"160 V 600 mA NPN, SOT23, 1 B, 2 E, 3 C (DS42560 Rev 1-2: hFE 30 min at 50 mA, VCE(sat) 0.2 V max at 50 mA / 5 mA). Switches the dash dimmer's test load (Q4)",ok
 PMV37ENEAR,Nexperia,1,Q2,SOT-23,Semiconductors,"60 V N-MOSFET, SOT23, 1 G, 2 S, 3 D (datasheet 21 May 2019): shared backlight low-side switch (orderable suffix R = reel)",ok
 "SMCJ33CA (multi-source; automotive grade e.g. Littelfuse SMCJ33CA-HRA, confirm at order time)",Littelfuse / onsemi / Vishay (industry-standard P/N),1,D1,D_SMC,Semiconductors,"SMC-package bidirectional TVS diode, 33V standoff, VBR 36.7V min, VC 53.3V at 28.2A: 12V-rail transient protection ahead of the LM74930",ok
 SZMMSZ3V6T1G,onsemi,1,D33,D_SOD-123,Semiconductors,"3.6 V 500 mW zener, SOD-123, clamps the +3V3 rail when a sender wire is shorted to battery with the car off (distributor listing: Zzt 90 ohm max, 5 uA at 1 V; AEC-Q101). The onsemi datasheet was not retrievable during the review: confirm leakage at 3.3 V and 85 C and the dynamic impedance at 30 mA before ordering",ok
@@ -35,7 +36,7 @@ DTM06-3S + WM-3S,TE Connectivity (DEUTSCH DTM),1,J9,Harness pigtail (not a board
 DTM06-6S + WM-6S,TE Connectivity (DEUTSCH DTM),1,J7,Harness pigtail (not a board placement),Connectors,"6-way plug and wedge on the car end of J7's 22 AWG pigtail (CAN0 H/L as a twisted pair, fuel, oil, coolant senders); no 5-way DTM exists, so one cavity takes a sealing plug (0413-204-2005, confirm)",ok
 "MKDS 1,5/ 3-5,08 (1715734)",Phoenix Contact,1,J1,"TerminalBlock_Phoenix_MKDS-1,5-3-5.08_1x03_P5.08mm_Horizontal",Connectors,"3-position 5.08mm screw terminal block, board side of the 12V input + ignition pigtail: 20 AWG GXL ferruled into the terminal (26-14 AWG), DTM06-3S plug on the car end (docs/harness.md)",ok
 TC2030-IDC-NL,Tag-Connect,1,J2,Tag-Connect_TC2030-IDC-NL_2x03_P1.27mm_Vertical,Connectors,"SWD programming/debug connector, 2x3 1.27mm, no-legs cable version",ok
-GCM188R71H104KA57D,Murata,24,"C6, C7, C11, C13-C15, C17-C20, C28-C31, C40, C41, C48, C49, C57, C62, C63, C66, C67, C70",C_0603_1608Metric,Passives,"Capacitor, 100 nF X7R 50 V, AEC-Q200",ok
+GCM188R71H104KA57D,Murata,23,"C6, C7, C11, C13-C15, C17-C20, C28-C31, C40, C41, C48, C49, C62, C63, C66, C67, C70",C_0603_1608Metric,Passives,"Capacitor, 100 nF X7R 50 V, AEC-Q200",ok
 GCM188R71H103KA37D,Murata,9,"C44, C50-C56, C64",C_0603_1608Metric,Passives,"Capacitor, 10 nF X7R 50 V, AEC-Q200",ok
 AC0603FR-07100KL,Yageo,8,"R51, R53, R86-R88, R92, R94, R98",R_0603_1608Metric,Passives,"Resistor 100k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0715KL,Yageo,8,"R45, R59, R62, R65, R68, R71, R74, R78",R_0603_1608Metric,Passives,"Resistor 15k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -45,18 +46,20 @@ AC0603FR-074K7L,Yageo,7,"R60, R63, R66, R69, R72, R75, R79",R_0603_1608Metric,Pa
 GCM188R71C105KA64D,Murata,5,"C3, C8, C12, C58, C65",C_0603_1608Metric,Passives,"Capacitor, 1 uF X7R 16 V, AEC-Q200",ok
 GCM188R71H472KA37D,Murata,5,"C16, C42, C61, C68, C69",C_0603_1608Metric,Passives,"Capacitor, 4.7 nF X7R 50 V, AEC-Q200",ok
 AC0603FR-07120RL,Yageo,4,R6-R9,R_0603_1608Metric,Passives,"Resistor 120R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-071KL,Yageo,4,"R55-R57, R106",R_0603_1608Metric,Passives,"Resistor 1k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0760RL,Yageo,4,"R4, R5, R41, R42",R_0603_1608Metric,Passives,"Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-076K8L,Yageo,4,"R81, R95-R97",R_0603_1608Metric,Passives,"Resistor 6k8 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-071KL,Yageo,3,R55-R57,R_0603_1608Metric,Passives,"Resistor 1k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-076K8L,Yageo,3,R95-R97,R_0603_1608Metric,Passives,"Resistor 6k8 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC1206FR-071KL,Yageo,3,R16-R18,R_1206_3216Metric,Passives,"Resistor 1k 1% 1206 thick film, 200 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 GCM32EC71H106KA03L,Murata,3,"C1, C59, C60",C_1210_3225Metric,Passives,"Capacitor, 10 uF X7S 50 V, AEC-Q200",ok
 AC0603FR-07100RL,Yageo,2,"R10, R89",R_0603_1608Metric,Passives,"Resistor 100R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-072ML,Yageo,2,"R103, R104",R_0603_1608Metric,Passives,"Resistor 2M 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0733RL,Yageo,2,"R84, R85",R_0603_1608Metric,Passives,"Resistor 33R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-074K7L,Yageo,2,"R43, R81",R_0603_1608Metric,Passives,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC1206FR-0718KL,Yageo,2,"R76, R77",R_1206_3216Metric,Passives,"Resistor 18k 1% 1206 thick film, 200 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC1206FR-071K8L,Yageo,2,"R82, R83",R_1206_3216Metric,Passives,"Resistor 1k8 1% 1206 thick film, 200 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC1206FR-0747KL,Yageo,2,"R99, R100",R_1206_3216Metric,Passives,"Resistor 47k 1% 1206 thick film, 200 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 GCM1885C1H180JA16D,Murata,2,"C4, C5",C_0603_1608Metric,Passives,"Capacitor, 18 pF C0G 50 V, AEC-Q200",ok
+GCM188R71H224KA64D,Murata,2,"C46, C57",C_0603_1608Metric,Passives,"Capacitor, 220 nF X7R 50 V, AEC-Q200",ok
 GCM32ER71C226ME19L,Murata,2,"C2, C45",C_1210_3225Metric,Passives,"Capacitor, 22 uF X7R 16 V, AEC-Q200",ok
 ABM8AIG-8.000MHZ-12-2Z-T3,Abracon,1,Y1,Crystal_SMD_3225-4Pin_3.2x2.5mm,Passives,"8 MHz 12 pF crystal 3.2 x 2.5 mm, +/-20 ppm, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0711K5L,Yageo,1,R54,R_0603_1608Metric,Passives,"Resistor 11k5 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -65,14 +68,14 @@ AC0603FR-0727KL,Yageo,1,R47,R_0603_1608Metric,Passives,"Resistor 27k 1% 0603 thi
 AC0603FR-072K05L,Yageo,1,R52,R_0603_1608Metric,Passives,"Resistor 2k05 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-072K49L,Yageo,1,R3,R_0603_1608Metric,Passives,"Resistor 2k49 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-073K24L,Yageo,1,R91,R_0603_1608Metric,Passives,"Resistor 3k24 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0747KL,Yageo,1,R107,R_0603_1608Metric,Passives,"Resistor 47k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749K9L,Yageo,1,R19,R_0603_1608Metric,Passives,"Resistor 49k9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749R9L,Yageo,1,R48,R_0603_1608Metric,Passives,"Resistor 49R9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-074K7L,Yageo,1,R43,R_0603_1608Metric,Passives,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0756KL,Yageo,1,R46,R_0603_1608Metric,Passives,"Resistor 56k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07680KL,Yageo,1,R102,R_0603_1608Metric,Passives,"Resistor 680k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0780K6L,Yageo,1,R50,R_0603_1608Metric,Passives,"Resistor 80k6 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC2512FK-07330RL,Yageo,1,R105,R_2512_6332Metric,Passives,"Resistor 330R 1% 2512 thick film, 1 W, AEC-Q200",ok
 BLM18PG221SH1D,Murata,1,L2,L_0603_1608Metric,Passives,"220 ohm @100 MHz ferrite bead, 1.4 A, AEC-Q200",ok
 GCM188R71H102KA37D,Murata,1,C43,C_0603_1608Metric,Passives,"Capacitor, 1 nF X7R 50 V, AEC-Q200",ok
-GCM188R71H224KA64D,Murata,1,C46,C_0603_1608Metric,Passives,"Capacitor, 220 nF X7R 50 V, AEC-Q200",ok
 GCM21BR71H105KA03L,Murata,1,C47,C_0805_2012Metric,Passives,"Capacitor, 1 uF X7R 50 V, AEC-Q200",ok
 KRL3216E-M-R005-F-T5,Susumu,1,R49,R_1206_3216Metric_Kelvin,Passives,"5 mohm 1% 1206 current sense, AEC-Q200 (seen on a distributor listing; confirm series suffix against Susumu's datasheet at order time) [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart

@@ -155,14 +155,14 @@ def gauges_netlist_parts():
 
 def resistor_power_gauges(nl):
     v = lambda r: value_of(nl.comps[r]["value"])
-    print("\nD. Resistor power, normal and fault (rating: 0603 0.1 W, 1206 0.25 W at 70 C; derate linearly to 0 at 155 C -> x0.62 at 85 C)")
+    print("\nD. Resistor power, normal and fault (rating: 0603 0.1 W, 1206 0.25 W, 2512 1 W at 70 C; derate linearly to 0 at 155 C -> x0.62 at 85 C)")
     rows = []
 
     def add(ref, scen, vdrop, note=""):
         r = v(ref)
         p = vdrop ** 2 / r
         pk = passive_catalog.pkg_key(nl.comps[ref]["footprint"])
-        rated = {"0603": 0.1, "1206": 0.25, "0805": 0.125}.get(pk, 0.1) * 0.62
+        rated = {"0603": 0.1, "1206": 0.25, "0805": 0.125, "2512": 1.0}.get(pk, 0.1) * 0.62
         rows.append([ref, scen, f"{vdrop:.1f} V", f"{p * 1e3:.0f} mW", f"{rated * 1e3:.0f} mW", "OVER" if p > rated else "ok", note])
     for ref in ("R16", "R17", "R18"):
         add(ref, "sender nominal, 10 ohm sender", 3.3 * 1000 / 1010)
@@ -184,6 +184,9 @@ def resistor_power_gauges(nl):
     add("R46", "ignition 14.4 V", 14.4 - 3.9)
     add("R76", "tach 18 V", (18 - 3.9) / 2)
     add("R99", "VR wire at 85 V RMS (120 V peak) with its other wire tied down", 85.0)
+    add("R105", "dimmer test load during a pulse, 14.4 V (4 % duty: 20 mW on average)", 14.4 - 1.8)
+    add("R105", "the same load stuck on through a fault, 14.4 V", 14.4 - 1.8)
+    add("R105", "stuck on at 16 V", 16.0 - 1.8)
     add("R19", "battery divider at VIN_PROT 29.9 V", 29.9 * v("R19") / (v("R19") + v("R20")))
     add("R51", "OV ladder at 29.9 V", 29.9 * v("R51") / (v("R51") + v("R52")))
     tab(rows, ["ref", "scenario", "across", "power", "rating@85C", "", "note"])

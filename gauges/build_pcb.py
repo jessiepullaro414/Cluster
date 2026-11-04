@@ -433,7 +433,9 @@ CORE_ZONES = [
     ("SPEED+IGN", ["J9", "D32", "R43", "R44", "R45", "C43", "D10",
                    "R46", "R47", "C44", "D11",
                    # review 2026-11-03: U12 switches VPULL, the 12 V rail for J9's sender supply and the pull-ups
-                   "U12", "R90", "R91", "R92", "C63", "C64"]),
+                   "U12", "R90", "R91", "R92", "C63", "C64",
+                   # 2026-11-04: the two-wire VR speed input, on the next channel of the timer the Hall and tach inputs use
+                   "J12", "U13", "R99", "R100", "R101", "R102", "R103", "R104", "C68", "C69", "C70", "D35", "D36"]),
     ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8", "D31"]),
     ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "R87", "R88", "J7", "D28", "D29", "D30",
               "JP1", "JP2"]),    # review 2026-11-03: solder jumpers that switch the car-CAN termination in

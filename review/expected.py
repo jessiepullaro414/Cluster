@@ -57,6 +57,7 @@ GAUGES["U1"] = dict(
         31: ("PTB3", [("net", "DIM_ADC"), ("fn", "ADC0_SE7")]),
         58: ("PTA10", [("net", "SPEED_IN"), ("fn", "FTM1_CH4")]),
         57: ("PTA11", [("net", "TACH_IN"), ("fn", "FTM1_CH5")]),
+        56: ("PTA12", [("net", "VR_SPEED_IN"), ("fn", "FTM1_CH6")]),
         59: ("PTE1", [("net", "IGN_SENSE"), ("fn", "PTE1")]),
         60: ("PTE0", [("net", "CAN1_STB"), ("fn", "PTE0")]),
         13: ("PTE3", [("net", "AUX_CS0"), ("fn", "PTE3")]),
@@ -271,7 +272,7 @@ GAUGES["Q2"] = dict(part="Nexperia PMV37ENEA", status="READ",
                     pins={1: ("G", [("net", "BL_GATE")]), 2: ("S", [("net", "GND")]),
                           3: ("D", [("net", "AUX_VLED_RTN")])})
 # BAV99-Q (SOT23): 1 = anode 1, 2 = cathode 2, 3 = common (Nexperia BAV99 series Rev 8, table 3)
-for _d in (["D10", "D11", "D12", "D13", "D14", "D15"] + [f"D{n}" for n in range(16, 24)]):
+for _d in (["D10", "D11", "D12", "D13", "D14", "D15", "D35", "D36"] + [f"D{n}" for n in range(16, 24)]):
     GAUGES[_d] = dict(part="Nexperia BAV99-Q clamp", status="READ",
                       ds="Nexperia BAV99 series Rev. 8: pin 1 anode D1, pin 2 cathode D2, pin 3 common",
                       pins={1: ("A1", [("net", "GND")]), 2: ("K2", [("net", "+3V3")]),
@@ -300,6 +301,19 @@ GAUGES["U11"] = dict(
         6: ("VOUT", [("net", "SENDER_EXC")]),
     },
     decap=[dict(pin="1", net="+3V3", min_nom=1e-6, max_mm=5.0, why="CIN >= 1 uF, 10x CL (9.2.3)")],
+)
+# U13 (2026-11-04): the VR speed input's comparator, TI TLV7031-Q1 (SNOSDA5D table 5-1)
+GAUGES["U13"] = dict(
+    part="TI TLV7031QDBVRQ1, SOT-23-5", status="READ",
+    ds="TI SNOSDA5D (Feb 2023) table 5-1, 6.1 (inputs to 7 V, -0.3 V or current-limited to 10 mA), 7.4.1 (no phase inversion past the rails)",
+    pins={
+        1: ("OUT", [("net", "VR_SPEED_IN"), ("r", "VR_P", 100e3, 2e6)]),   # positive feedback: R102
+        2: ("VEE", [("net", "GND")]),
+        3: ("IN+", [("net", "VR_P"), ("r", "VR_FP", 1e3, 100e3)]),          # R101: the feedback acts at once, and the clamp stays off this pin
+        4: ("IN-", [("net", "VR_N"), ("r", "VR_B", 10e3, 100e3)]),          # R100: limits the clamp current below VEE to 10 mA
+        5: ("VCC", [("net", "+3V3")]),
+    },
+    decap=[dict(pin="5", net="+3V3", min_nom=100e-9, max_mm=5.0, why="supply bypass; a 315 nA part with a push-pull output")],
 )
 # U12 (review 2026-11-03): TI TPS1H000-Q1, HVSSOP-8 DGN0008K (SLVSDO6E table 4-1)
 GAUGES["U12"] = dict(

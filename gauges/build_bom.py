@@ -88,6 +88,7 @@ MPN = {
     "SMCJ33CA":   ("SMCJ33CA (multi-source; automotive grade e.g. Littelfuse SMCJ33CA-HRA, confirm at order time)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
                     "SMC-package bidirectional TVS diode, 33V standoff, VBR 36.7V min, VC 53.3V at 28.2A: 12V-rail transient protection ahead of the LM74930", "AEC-Q101"),
     "TPS22918-Q1": ("TPS22918QDBVRQ1", "TI", "5.5V 2A load switch, SOT-23-6 (SLVSCZ8B): switches the sender excitation (U11) so the pull-ups are off with the car off and firmware can chop it to cancel each sender's ground offset; same part as brain/ U8/U15", "AEC-Q100 Grade 2"),
+    "TLV7031-Q1": ("TLV7031QDBVRQ1", "TI", "Rail-to-rail nanopower comparator, push-pull, SOT-23-5 (SNOSDA5D: 1.6-6.5 V, 315 nA, 3 us, input tolerant to 7 V, no phase inversion past the rails; listed Active). The two-wire VR speed input (U13)", "AEC-Q100 Grade 1"),
     "TPS1H000-Q1": ("TPS1H000AQDGNRQ1", "TI", "40V 1-ohm smart high-side switch, adjustable current limit, HVSSOP-8 PowerPAD (DGN0008K, SLVSDO6E): VPULL, the MCU-switched 12V rail for the lamp/tach pull-ups and the Hall sender supply on J9 pin 3 (U12)", "AEC-Q100 Grade 1"),
     "Solder jumper": ("(no part - PCB footprint only)", "-", "2-pad OPEN solder jumper (KiCad SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm): bridge JP1 and JP2 with solder to switch the car-CAN 120 ohm split termination (R4/R5) in when this board is an end of the car bus", "n/a"),
 
@@ -126,6 +127,7 @@ HARNESS_PIGTAILS = [
     ("DTM06-3S + WM-3S", "TE Connectivity (DEUTSCH DTM)", "3-way plug and wedge on the car end of J9's 22 AWG pigtail (Hall speed signal, GND, switched 12 V sender supply)", "J9"),
     ("DTM06-08SA + WM-8S", "TE Connectivity (DEUTSCH DTM)", "8-way plug and wedge on the car end of J10's 22 AWG pigtail (six lamps, GND, dimmer feed); check that WM-8S fits the DTM 8-way", "J10"),
     ("DTM06-2S + WM-2S", "TE Connectivity (DEUTSCH DTM)", "2-way plug and wedge on the car end of J11's 22 AWG pigtail (tach signal, GND)", "J11"),
+    ("DTM06-2S + WM-2S", "TE Connectivity (DEUTSCH DTM)", "2-way plug and wedge on the car end of J12's 22 AWG twisted-pair pigtail (the two wires of a VR speed sensor); only for a car with one", "J12"),
 ]
 
 # Real board-side connector part numbers that pair with the pigtails
@@ -138,6 +140,7 @@ BOARD_SIDE_CONNECTORS = {
     "J8": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, private CAN1 link to display/ J3 (CAN1_H / CAN1_L / GND): a short in-dash cable, 22 AWG twisted pair + ground, KK 254 housing 22-01-3037 at both ends, no DTM", "-"),
     "J10": ("22-27-2081", "Molex", "8-circuit KK 254 (2.54mm) vertical header: six 12 V-active indicator-lamp inputs (left turn, right turn, high beam, brake, alternator, oil), ground, and the dash-dimmer feed (instrument-lamp rheostat output); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J11": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, tach input (signal + ground), ECU/coil-driver tach output; coil-negative use on a points ignition is not validated", "-"),
+    "J12": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, two-wire VR speed sensor (4R70W, AOD-E, some T56): neither wire is grounded, 47 k in each, so it can share a sensor with a PCM", "-"),
     "J9": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, Hall speed sender: 1 signal, 2 ground, 3 switched 12 V supply for the sender (VPULL, 148 mA current limit, off with the car off)", "-"),
 }
 

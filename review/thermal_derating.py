@@ -183,6 +183,7 @@ def resistor_power_gauges(nl):
         break
     add("R46", "ignition 14.4 V", 14.4 - 3.9)
     add("R76", "tach 18 V", (18 - 3.9) / 2)
+    add("R99", "VR wire at 85 V RMS (120 V peak) with its other wire tied down", 85.0)
     add("R19", "battery divider at VIN_PROT 29.9 V", 29.9 * v("R19") / (v("R19") + v("R20")))
     add("R51", "OV ladder at 29.9 V", 29.9 * v("R51") / (v("R51") + v("R52")))
     tab(rows, ["ref", "scenario", "across", "power", "rating@85C", "", "note"])

@@ -40,7 +40,7 @@ Checked against JLCPCB's published multilayer capabilities (min trace/space 0.09
 6. brain/ and panel-tsd/: the screen-port ribbon (Hirose FH12 connectors, `docs/screen-ports.md`). Confirm Hirose's per-contact rating (the design assumes 0.5 A) and which side the FH12's contacts are on, then choose the FFC (same-side or opposite-side contacts) that joins contact n to contact n between the two boards, and check that with a meter before plugging a panel in.
 7. brain/: that the Verdin iMX95 drives the DSI and LVDS ports as two independent screens at once (the i.MX 95 can; question 9 in `docs/rfq-drafts.md` section 2). A single-screen car is not affected.
 
-gauges/ has no open hardware question. Two installation settings: bridge the solder jumpers JP1 and JP2 if the board is an end of the car CAN bus (they switch in the 120 ohm terminator), and fit the DNP 4.7 k pull-up (R60-R75) of any warning lamp that is switched to ground. J9 now powers the Hall sender itself from pin 3 (a 3-way DTM06-3S pigtail).
+gauges/ has no open hardware question. Two installation settings: bridge the solder jumpers JP1 and JP2 if the board is an end of the car CAN bus (they switch in the 120 ohm terminator), and fit the DNP 4.7 k pull-up (R60-R75) of any warning lamp that is switched to ground. J9 now powers the Hall sender itself from pin 3 (a 3-way DTM06-3S pigtail). J12 takes a two-wire VR speed sensor instead (2026-11-04); fit its pigtail only on a car with one.
 
 ## Parts
 

@@ -560,21 +560,24 @@ for t in board.GetTracks():
     if t.GetNetname() in TRUNK_NETS:
         trunk_entries.append(entry)
 
+# In rounds from the narrowest target up, so two neighbouring nets share the room between them. Going straight to the widest
+# target, chunk by chunk, gave it all to whichever came first: on 2026-11-04 SENSE_HI took 0.5 mm beside a COMMON pinched to
+# 0.2 mm on In3.Cu, which review/layout_checks.py rates at 37 K for its 0.40 A.
+for target in sorted(LADDER):
+    for entry in trunk_entries:
+        track, s, e, half, netcode, layer = entry
+        if entry[3] * 2 >= target - 1e-6:
+            continue
+        if can_widen(track, s, e, layer, netcode, target):
+            track.SetWidth(pcbnew.FromMM(target))
+            entry[3] = target / 2      # keep the obstacle list honest
+
 hist = {{}}
 total_len = {{}}
 for entry in trunk_entries:
     track, s, e, half, netcode, layer = entry
     seg_len = math.hypot(e[0] - s[0], e[1] - s[1])
-    chosen = half * 2
-    for target in LADDER:
-        if target <= chosen + 1e-6:
-            break
-        if can_widen(track, s, e, layer, netcode, target):
-            track.SetWidth(pcbnew.FromMM(target))
-            entry[3] = target / 2      # keep the obstacle list honest
-            chosen = target
-            break
-    key = round(chosen, 2)
+    key = round(entry[3] * 2, 2)
     hist[key] = hist.get(key, 0) + 1
     total_len[key] = total_len.get(key, 0.0) + seg_len
 
@@ -594,6 +597,18 @@ for w in sorted(hist, reverse=True):
 # "unrouted" count isn't always the real ground truth (see
 # real_unconnected_count()'s own comment).
 MAX_PIPELINE_ATTEMPTS = 10
+
+
+def layout_check_failures():
+    """review/layout_checks.py judges the copper: a route that leaves a power net pinched is a failed attempt, as an unconnected
+    one is. The router is free to put a neighbour beside a trunk, so on 2026-11-04 a clean route still left COMMON at 0.2 mm on
+    0.5 oz inner copper (37 K at its 0.40 A), which only this check noticed."""
+    script = os.path.join(HERE, "..", "review", "layout_checks.py")
+    result = subprocess.run([sys.executable, "-X", "utf8", script, "gauges"], capture_output=True, text=True,
+                            encoding="utf-8", errors="replace")
+    if result.returncode not in (0, 1) or "current capacity" not in result.stdout:
+        raise SystemExit(f"layout_checks.py did not run: {result.stderr[-400:]}")
+    return [line.strip() for line in result.stdout.splitlines() if "[FAIL]" in line]
 
 
 def regenerate_unrouted_board():
@@ -616,7 +631,16 @@ if __name__ == "__main__":
         if real_unconnected == 0:
             print(f"\nReal DRC confirms 0 unconnected items (pipeline attempt "
                   f"{pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS}).")
-            break
+            pinched = layout_check_failures()
+            if not pinched:
+                break
+            print("WARNING: review/layout_checks.py fails this route:", *pinched, sep="\n  ")
+            if pipeline_attempt < MAX_PIPELINE_ATTEMPTS:
+                print("Regenerating a fresh unrouted board and trying the whole pipeline again.")
+                regenerate_unrouted_board()
+            else:
+                print("Out of pipeline attempts: this board keeps the failure above.")
+            continue
         print(f"\nWARNING: FreeRouting/route_until_clean() reported success, but "
               f"kicad-cli's own real DRC found {real_unconnected} unconnected "
               f"item(s) (pipeline attempt {pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS}) - "

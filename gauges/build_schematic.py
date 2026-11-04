@@ -623,6 +623,9 @@ MCU_RIGHT = [P(6, "CAN0_RX", "input"), P(5, "CAN0_TX", "output"),
              P(60, "CAN1_STB", "output"),
              # Rev C (2026-10-04): tach input and the six indicator-lamp inputs.
              P(57, "TACH_IN", "input"),
+             # 2026-11-04: the comparator output of the two-wire VR speed input (PTA12, FTM1_CH6; section "VR SPEED INPUT").
+             # PTA12 is the next channel of the same timer, resets to high impedance, and is free now that CAN1 is on PTC6/PTC7.
+             P(56, "VR_SPEED_IN", "input"),
              P(35, "LAMP_TURN_L", "input"), P(36, "LAMP_TURN_R", "input"),
              P(37, "LAMP_HIGH_BEAM", "input"), P(38, "LAMP_BRAKE", "input"),
              P(43, "LAMP_ALT", "input"), P(44, "LAMP_OIL", "input"),
@@ -737,6 +740,21 @@ register_symbol(f"{LIB}:CONN_SPEED", "J", "Molex KK-254 22-27-2031 (Hall speed s
                 "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical",
                 {'L': [P(1, "SPEED_SIG", "passive"), P(2, "GND", "passive"), P(3, "SENSOR_12V", "passive")]},
                 hide_pin_names=True)
+# 2026-11-04: two-wire variable-reluctance speed sensor (4R70W, AOD-E, some T56). A separate 2-way connector, so a Hall car
+# needs no change and neither wire is shared with the sensor supply on J9.
+register_symbol(f"{LIB}:CONN_VR", "J", "Molex KK-254 22-27-2021 (two-wire VR speed sensor)",
+                "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
+                {'L': [P(1, "VR_A", "passive"), P(2, "VR_B", "passive")]},
+                hide_pin_names=True)
+# TI TLV7031-Q1 (SNOSDA5D, DBV SOT-23-5, table 5-1): 1 OUT (push-pull), 2 VEE, 3 IN+, 4 IN-, 5 VCC. AEC-Q100 Grade 1, 1.6-6.5 V,
+# 315 nA, 3 us, internal hysteresis 2-17 mV, offset +-8 mV max. Inputs tolerate 7 V with any VCC; below VEE - 0.3 V they must be
+# current-limited to 10 mA; no phase inversion when they pass either rail (7.4.1).
+register_symbol(f"{LIB}:TLV7031", "U", "TLV7031-Q1", "Package_TO_SOT_SMD:SOT-23-5",
+                {'L': [P(3, "IN+", "input"), P(4, "IN-", "input")],
+                 'R': [P(1, "OUT", "output")],
+                 'T': [P(5, "VCC", "power_in")],
+                 'B': [P(2, "VEE", "power_in")]},
+                datasheet="https://www.ti.com/lit/ds/symlink/tlv7031-q1.pdf")
 # Nexperia BAV99-Q (AEC-Q101): dual series diode, SOT-23. Pinning from the
 # Nexperia BAV99 series datasheet (Rev. 8) Table 3: pin 1 = anode of diode 1,
 # pin 2 = cathode of diode 2, pin 3 = cathode of diode 1 AND anode of diode
@@ -1121,6 +1139,53 @@ place(f"{LIB}:C_V", "C43", "1nF input filter (AEC-Q200)", 850, 400,
 place(f"{LIB}:D_BAV99", "D10", "BAV99-Q input clamp (AEC-Q101)", 890, 385,
       conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'),
             '3': ('label', 'SPEED_IN')})
+
+# ============================ VR SPEED INPUT (owner decision 2026-11-04, docs/electrical-review.md section 9.3) =========
+section_text("VR SPEED INPUT: TWO-WIRE VARIABLE-RELUCTANCE SENSOR (4R70W, AOD-E, SOME T56), J12 + U13", 700, 40)
+# A VR sensor is a coil: an AC voltage from a few hundred millivolts at walking pace to tens of volts (onsemi AND8149: "in excess
+# of 120 V peak" is possible), floating, and often shared with a PCM or a transmission controller. So: differential, high
+# impedance, no ground on either wire, and a battery-saving part, because this rail stays up with the car parked.
+#   R99/R100  47 k 1206 200 V: at 120 V peak, 2.5 mA at most into the clamps and under 0.2 W each. They are also what makes a short to
+#             battery, a tach wire plugged in here by mistake, and ESD harmless (same reasoning as the 33-56 k inputs, section 3).
+#   C68/C69   4.7 nF each to ground, on the far side of those: 220 us differential (720 Hz), 220 us common-mode. A sensor's voltage
+#             rises with its frequency, so the low-pass costs nothing where it matters. Fastest case: about 1.4 kHz.
+#   D35/D36   BAV99-Q to the rails.
+#   R101      10 k between the filter and IN+, so the hysteresis from R102 acts at once, not through C68 (a slow crossing would
+#             otherwise chatter for 200 us), and so IN+ never sees the clamp's -0.6 V.
+#   R102      680 k positive feedback: about +-105 mV at the sensor, in the same range as onsemi's dedicated NCV1124 (+-160 mV).
+#   R103/R104 2 M + 2 M bias IN- at mid-rail. Wire A gets its bias through the sensor. Unplugged, IN+ follows OUT and latches: no
+#             edges, so the firmware sees an absent sensor.
+# Why a comparator and not a VR interface IC: NCV1124 is ground-referenced (one wire tied to board ground) and MAX9924 is
+# differential and adaptive but needs 5 V at 2.6 mA, so a switched rail: more parts and more key-off current than this. U13 and
+# the bias together draw 1.1 uA from +3V3. The firmware's blanking (capture.c) is the second line against stray edges.
+# review/vr_input_sim.py is the check: thresholds at the tolerance corners, one edge per tooth up to 120 V peak.
+place(f"{LIB}:CONN_VR", "J12", "KK-254 22-27-2021, two-wire VR speed sensor (22 AWG twisted pair pigtail, DTM06-2S plug); neither wire is grounded", 700, 85,
+      conn={'1': ('label', 'VR_A'), '2': ('label', 'VR_B')})
+place(f"{LIB}:R_1206", "R99", "47k series, VR wire A, 200V (AEC-Q200)", 770, 70,
+      conn={'1': ('label', 'VR_A'), '2': ('label', 'VR_FP')})
+place(f"{LIB}:R_1206", "R100", "47k series, VR wire B, 200V (AEC-Q200)", 770, 115,
+      conn={'1': ('label', 'VR_B'), '2': ('label', 'VR_N')})
+place(f"{LIB}:C_V", "C68", "4.7nF VR filter, wire A (AEC-Q200)", 830, 85,
+      conn={'1': ('label', 'VR_FP'), '2': ('pwr', 'GND')})
+place(f"{LIB}:D_BAV99", "D35", "BAV99-Q input clamp, VR wire A (AEC-Q101)", 870, 70,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'VR_FP')})
+place(f"{LIB}:R_V", "R101", "10k from the VR filter to U13 IN+ (AEC-Q200)", 920, 85,
+      conn={'1': ('label', 'VR_FP'), '2': ('label', 'VR_P')})
+place(f"{LIB}:R_V", "R102", "680k hysteresis, U13 output to IN+ (AEC-Q200)", 960, 85,
+      conn={'1': ('label', 'VR_P'), '2': ('label', 'VR_SPEED_IN')})
+place(f"{LIB}:TLV7031", "U13", "TLV7031-Q1 VR speed comparator (AEC-Q100 G1)", 1030, 95,
+      conn={'3': ('label', 'VR_P', 5.08), '4': ('label', 'VR_N', 5.08), '1': ('label', 'VR_SPEED_IN', 5.08),
+            '5': ('pwr', '+3V3', 5.08), '2': ('pwr', 'GND', 5.08)})
+place(f"{LIB}:C_V", "C70", "100nF U13 supply (AEC-Q200)", 1090, 85,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C69", "4.7nF VR filter, wire B (AEC-Q200)", 830, 140,
+      conn={'1': ('label', 'VR_N'), '2': ('pwr', 'GND')})
+place(f"{LIB}:D_BAV99", "D36", "BAV99-Q input clamp, VR wire B (AEC-Q101)", 870, 125,
+      conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'VR_N')})
+place(f"{LIB}:R_V", "R103", "2M bias of U13 IN- to +3V3 (AEC-Q200)", 920, 140,
+      conn={'1': ('pwr', '+3V3'), '2': ('label', 'VR_N')})
+place(f"{LIB}:R_V", "R104", "2M bias of U13 IN- to GND (AEC-Q200)", 960, 140,
+      conn={'1': ('label', 'VR_N'), '2': ('pwr', 'GND')})
 
 section_text("REV B: IGNITION SENSE (STOP-mode wake)", 700, 450)
 # IGN arrives on J1 pin 3 straight from the harness with no front-end

@@ -125,6 +125,20 @@ int main(void)
         CHECK(mock_errors(&g_mock) == 0);
     }
 
+    /* ---- key-off: display off and Sleep In, and a reset brings the screen back (review 2026-11-03) ---- */
+    {
+        const panel_hal_t *hal = mock_hal(&g_mock);
+        mock_init(&g_mock);
+        gc9a01_reset(hal);
+        gc9a01_init(hal, 1);
+        hal->delay_ms(hal->ctx, GC9A01_SLEEP_OUT_WAIT_MS);
+        gc9a01_display(hal, 1, true);
+        CHECK(g_mock.display_on[1] && !g_mock.sleeping[1]);
+        gc9a01_sleep(hal, 1);
+        CHECK(!g_mock.display_on[1] && g_mock.sleeping[1]);
+        CHECK(mock_count(&g_mock, 1, 0x28) >= 1 && mock_count(&g_mock, 1, 0x10) == 1);
+    }
+
     /* ---- four screens, scheduler, and the whole chain against the ground truth ---- */
     {
         mock_init(&g_mock);

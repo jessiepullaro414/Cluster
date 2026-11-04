@@ -10,13 +10,18 @@
  *               (so the reading falls as soon as the next pulse is late, instead of sticking until a timeout)
  *   CAP_STOPPED a sender that has been seen but whose pulses are slower than 2 Hz: standing still
  *   CAP_FAULT   pulses faster than 2 kHz: noise, not a sender
- * Edges closer than CAP_MIN_EDGE_US are ignored as glitches. */
+ * Edges closer than CAP_MIN_EDGE_US are ignored as glitches. While pulses are arriving (the last period below CAP_SLOW_US),
+ * an edge sooner than CAP_BLANK_NUM/CAP_BLANK_DEN of the last period is ignored too (review 2026-11-03): a points coil's
+ * primary rings for a millisecond or more after each spark, which puts extra edges hundreds of microseconds apart on the tach
+ * wire, and a real engine or wheel cannot double its pulse rate from one pulse to the next. */
 #include <stdbool.h>
 #include <stdint.h>
 
 #define CAP_MIN_EDGE_US   100u          /* 10 kHz: nothing real is this fast */
 #define CAP_FAST_US       500u          /* faster than this (2 kHz) is a fault, matching im_pulse_rate_ok() */
 #define CAP_SLOW_US       500000u       /* slower than this (2 Hz) counts as stopped */
+#define CAP_BLANK_NUM     1u            /* adaptive blanking: half the last period */
+#define CAP_BLANK_DEN     2u
 
 typedef struct {
     uint32_t last_us;                   /* time of the last accepted edge */

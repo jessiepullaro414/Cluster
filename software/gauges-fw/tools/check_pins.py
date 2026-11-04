@@ -42,7 +42,8 @@ needed = ["PIN_AUX_CS0", "PIN_AUX_CS1", "PIN_AUX_CS2", "PIN_AUX_CS3", "PIN_AUX_D
           "PIN_AUX_DC2", "PIN_AUX_DC3", "PIN_AUX_RST", "PIN_BL_EN", "PIN_LPSPI2_SCK", "PIN_LPSPI2_SOUT",
           "PIN_LAMP_TURN_L", "PIN_LAMP_TURN_R", "PIN_LAMP_HIGH_BEAM", "PIN_LAMP_BRAKE", "PIN_LAMP_ALT", "PIN_LAMP_OIL",
           "PIN_IGN_SENSE", "PIN_SPEED_IN", "PIN_TACH_IN",
-          "PIN_CAN0_RX", "PIN_CAN0_TX", "PIN_CAN0_EN", "PIN_CAN0_STB_N", "PIN_CAN1_RX", "PIN_CAN1_TX", "PIN_CAN1_STB"]
+          "PIN_CAN0_RX", "PIN_CAN0_TX", "PIN_CAN0_EN", "PIN_CAN0_STB_N", "PIN_CAN1_RX", "PIN_CAN1_TX", "PIN_CAN1_STB",
+          "PIN_SENDER_EXC_EN", "PIN_SENDER_BIAS", "PIN_VPULL_EN"]
 for n in needed:
     if n not in got:
         print(f"{n}: missing from the HAL table")

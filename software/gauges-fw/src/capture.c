@@ -9,7 +9,12 @@ void capture_edge(capture_t *c, uint32_t t_us)
 {
     if (c->edges > 0u) {
         uint32_t dt = t_us - c->last_us;
-        if (dt < CAP_MIN_EDGE_US) {                  /* contact bounce, ignition noise */
+        uint32_t blank = CAP_MIN_EDGE_US;
+        if (c->edges >= 2u && c->period_us <= CAP_SLOW_US) {     /* running: blank part of the last period (coil ringing) */
+            uint32_t b = c->period_us / CAP_BLANK_DEN * CAP_BLANK_NUM;
+            if (b > blank) blank = b;
+        }
+        if (dt < blank) {                            /* contact bounce, ignition noise, the ringing after a spark */
             if (c->glitches < 65535u) c->glitches++;
             return;
         }

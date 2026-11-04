@@ -1,6 +1,7 @@
 #include "gc9a01.h"
 
 /* ---- commands (datasheet 6.1 unless noted) ---- */
+#define CMD_SLPIN   0x10u
 #define CMD_SLPOUT  0x11u
 #define CMD_INVON   0x21u
 #define CMD_DISPOFF 0x28u
@@ -102,6 +103,12 @@ void gc9a01_init(const panel_hal_t *hal, uint8_t screen)
     gc9a01_command(hal, screen, CMD_SLPOUT, 0, 0);
     /* The display stays OFF until the first frame has been drawn. The caller waits
      * GC9A01_SLEEP_OUT_WAIT_MS once for all screens before any further command to them. */
+}
+
+void gc9a01_sleep(const panel_hal_t *hal, uint8_t screen)
+{
+    gc9a01_command(hal, screen, CMD_DISPOFF, 0, 0);
+    gc9a01_command(hal, screen, CMD_SLPIN, 0, 0);
 }
 
 void gc9a01_display(const panel_hal_t *hal, uint8_t screen, bool on)

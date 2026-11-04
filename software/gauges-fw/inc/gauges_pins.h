@@ -30,6 +30,10 @@
 #define PIN_ADC_TEMP       48  /* PTA2, ADC1_SE0 */
 #define PIN_ADC_BATT       47  /* PTA3, ADC1_SE1 */
 #define PIN_DIM_ADC        31  /* PTB3, ADC0_SE7, dash dimmer feed */
+/* review 2026-11-03: sender excitation (U11 ON), the senders' ADC bias, the switched 12 V pull-up / Hall supply (U12 IN) */
+#define PIN_SENDER_EXC_EN  46  /* PTD2, U11 ON: the sender pull-ups on; low (R94) while the MCU resets */
+#define PIN_SENDER_BIAS    53  /* PTE6, 6.8 k bias on the three sender ADC pins; high while awake, low in VLPS */
+#define PIN_VPULL_EN       54  /* PTE2, U12 IN (through 10 k): VPULL on; low in VLPS */
 
 /* six 12 V-active indicator lamps (active-low if the DNP pull-up is fitted) */
 #define PIN_LAMP_TURN_L    35  /* PTC9 */

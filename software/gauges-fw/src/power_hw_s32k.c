@@ -15,6 +15,7 @@
  *    STB HIGH = low-power standby.
  * After the wake the chip is reset by software: every peripheral (clocks, FlexCAN, LPSPI, ADC, FTM, the screens)
  * starts exactly as from power-up, which is simpler and safer than restoring each one by hand. */
+#include "gc9a01.h"
 #include "panel_hal.h"
 #include "power.h"
 #include "s32k144_irq.h"
@@ -49,9 +50,18 @@ static void enter_sleep(void)
 {
     const panel_hal_t *hal = panel_hal_board();
     if (hal && hal->backlight)
-        hal->backlight(hal->ctx, false);                  /* the screens keep their last picture, dark */
+        hal->backlight(hal->ctx, false);
+    /* review 2026-11-03: Sleep In as well. With only the backlight off each controller kept its DC/DC converter, oscillator and
+     * panel scanning running on the always-on 3V3 rail with the car parked. The wake is a full reset, which re-inits them. */
+    if (hal)
+        for (uint8_t s = 0; s < 4u; s++)
+            gc9a01_sleep(hal, s);
     GPIO_PCOR(PORTB) = (1u << 5) | (1u << 4);             /* TJA1043T EN (PTB5) and STB_N (PTB4) low: Standby */
     GPIO_PSOR(PORTE) = 1u << 0;                           /* TCAN1044V STB (PTE0) high: standby */
+    /* review 2026-11-03: the sender excitation (PTD2), the senders' ADC bias (PTE6) and the 12 V pull-up rail (PTE2) off, so
+     * nothing but the always-on parts draws from the battery with the car parked (about 9 mA through the senders before) */
+    GPIO_PCOR(PORTD) = 1u << 2;
+    GPIO_PCOR(PORTE) = (1u << 6) | (1u << 2);
 
     __asm volatile ("cpsid i" ::: "memory");
     SYST_CSR = 0u;                                        /* no tick pending to abort the entry */

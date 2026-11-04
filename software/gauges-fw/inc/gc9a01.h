@@ -47,6 +47,11 @@ void gc9a01_init(const panel_hal_t *hal, uint8_t screen);
 
 void gc9a01_display(const panel_hal_t *hal, uint8_t screen, bool on);
 
+/* Display off and Enter Sleep Mode (datasheet 6.2.3): the DC/DC converter, the oscillator and the panel scanning stop, the
+ * minimum-power state short of removing VCI. Leaving it takes Sleep Out or the shared hardware reset, and at least 120 ms must
+ * have passed since Sleep Out before it is sent. */
+void gc9a01_sleep(const panel_hal_t *hal, uint8_t screen);
+
 /* Write a w x h block of RGB565 pixels (host byte order, row-major, stride = w)
  * with its top-left at (x, y). The window must lie inside 240 x 240. */
 void gc9a01_blit(const panel_hal_t *hal, uint8_t screen, int x, int y, int w, int h, const uint16_t *pix);

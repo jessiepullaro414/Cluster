@@ -171,9 +171,9 @@ int main(void)
     power_hw_s32k_init();
     power_init(&power_hw_s32k);
     adc_hw_init();                                  /* calibrates: the 3V3 rail has had the SRAM fill and clock start to settle */
-    senders_init(&adc_s32k);
+    inputs_hw_init();                               /* first: it sets up the sender excitation and bias pins senders_init() drives */
+    senders_init(&adc_s32k, &sender_hw_s32k);
     sender_curves_load();
-    inputs_hw_init();
     inputs_init(&inputs_hw_s32k, &adc_s32k);
     can_link_init(&can_hw_s32k);
     aux_display_init(panel_hal_board(), screens_theme_from_setting(can_link_settings().gauge_theme), can_link_settings().units_mph);

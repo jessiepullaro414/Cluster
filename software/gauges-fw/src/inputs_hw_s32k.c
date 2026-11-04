@@ -5,6 +5,7 @@
 #include "inputs_hw.h"
 #include "s32k144_irq.h"
 #include "s32k144_regs.h"
+#include "senders.h"
 
 typedef struct { uint8_t port, pin; } pin_t;
 
@@ -20,6 +21,10 @@ static const pin_t LAMP_PINS[LAMP_COUNT] = {
 static const pin_t IGN_PIN = { PORTE, 1 };      /* PIN_IGN_SENSE */
 static const pin_t SPEED_PIN = { PORTA, 10 };   /* PIN_SPEED_IN */
 static const pin_t TACH_PIN = { PORTA, 11 };    /* PIN_TACH_IN */
+/* review 2026-11-03: outputs */
+static const pin_t SENDER_EXC_PIN = { PORTD, 2 };   /* PIN_SENDER_EXC_EN */
+static const pin_t SENDER_BIAS_PIN = { PORTE, 6 };  /* PIN_SENDER_BIAS */
+static const pin_t VPULL_PIN = { PORTE, 2 };        /* PIN_VPULL_EN */
 
 #define FTM1_SPEED_CH 4u        /* FTM1_CH4 on PTA10, PORT mux alt 2 (IO signal table) */
 #define FTM1_TACH_CH  5u        /* FTM1_CH5 on PTA11, PORT mux alt 2 */
@@ -40,8 +45,29 @@ static void ftm_pin(pin_t p)
     PORT_PCR(p.port, p.pin) = PORT_MUX(2);
 }
 
+static void gpio_output(pin_t p, bool high)
+{
+    PCC_PORT(p.port) = PCC_CGC;
+    if (high) GPIO_PSOR(p.port) = 1u << p.pin; else GPIO_PCOR(p.port) = 1u << p.pin;   /* level first, then drive it */
+    PORT_PCR(p.port, p.pin) = PORT_MUX(1);
+    GPIO_PDDR(p.port) |= 1u << p.pin;
+}
+
+static void sender_excite(bool on)
+{
+    if (on) GPIO_PSOR(SENDER_EXC_PIN.port) = 1u << SENDER_EXC_PIN.pin;
+    else GPIO_PCOR(SENDER_EXC_PIN.port) = 1u << SENDER_EXC_PIN.pin;
+}
+
+const sender_hw_t sender_hw_s32k = { sender_excite };
+
 void inputs_hw_init(void)
 {
+    /* review 2026-11-03: the 12 V pull-up rail (lamp/tach pull-ups, Hall sender supply) and the senders' ADC bias are on while
+     * the MCU is awake; senders.c chops the excitation. power_hw_s32k.c turns all three off before VLPS. */
+    gpio_output(VPULL_PIN, true);
+    gpio_output(SENDER_BIAS_PIN, true);
+    gpio_output(SENDER_EXC_PIN, true);
     for (unsigned i = 0; i < LAMP_COUNT; i++) gpio_input(LAMP_PINS[i]);
     gpio_input(IGN_PIN);
     ftm_pin(SPEED_PIN);

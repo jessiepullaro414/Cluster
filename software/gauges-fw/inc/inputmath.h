@@ -27,9 +27,14 @@ bool im_lamp_update(lamp_debounce_t *d, bool raw_active, uint8_t elapsed_ms);
 /* Dash dimmer: the instrument-lamp feed passes a 22k / 6.8k divider (0.236)
  * into a 12-bit ADC with a 3.3 V reference. Below IM_DIM_LIGHTS_ON_MV on the
  * pin the headlight switch is treated as off. The 4 V / 12 V feed range is a
- * first guess to measure on the real rheostat. */
+ * first guess to measure on the real rheostat.
+ * Review 2026-11-03: the threshold was 1500 mV on the pin, a 6.4 V feed, above
+ * the 4 V bottom of the dimming range: turning the knob down past about half
+ * read as "lights off" and put the screens back to daytime brightness at night.
+ * 470 mV is a 2.0 V feed, below any lit setting and well above the ~0 V of a
+ * feed that is switched off. */
 #define IM_DIM_DIVIDER      (6.8f / (22.0f + 6.8f))
-#define IM_DIM_LIGHTS_ON_MV 1500u
+#define IM_DIM_LIGHTS_ON_MV 470u
 #define IM_DIM_FEED_MIN_V   4.0f
 #define IM_DIM_FEED_FULL_V  12.0f
 float   im_adc_to_mv(uint16_t adc12, uint16_t vref_mv);

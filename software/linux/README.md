@@ -15,7 +15,7 @@ also Toradex-supported, where Android Automotive on it is a port.
 
 | Piece | What | State |
 |---|---|---|
-| `clusterd/` | the glue daemon: private CAN link to LIVI telemetry, settings and heartbeat to gauges/, dial to keys, suspend, parked power-off | **logic real and host-tested** (391 checks); Linux I/O builds for this PC (no ARM64 cross compiler here, so `make arm64` has not been run on this code); end-to-end benches pass against a stand-in LIVI (`aa-bench/bench_clusterd.sh`, 11 checks) and a played sleep (`aa-bench/bench_park.py`, 52 checks); not run on a Verdin |
+| `clusterd/` | the glue daemon: private CAN link to LIVI telemetry, settings and heartbeat to gauges/, dial to keys, suspend, parked power-off | **logic real and host-tested** (391 checks); Linux I/O builds for this PC (no ARM64 cross compiler here, so `make arm64` has not been run on this code); end-to-end benches pass against a stand-in LIVI (`aa-bench/bench_clusterd.sh`, 11 checks) and a played sleep (`aa-bench/bench_park.py`, 56 checks); not run on a Verdin |
 | `clusterd/web/centre.html` | the centre screen LIVI shows as its custom page: **our speedometer** in the owner's theme (a port of the Android app's ClusterView, all four themes, day/night palette, lamps) and the Settings list | all four themes checked inside LIVI on replayed drive data (`aa-bench/shots/centre-*-in-livi.png`); draws clusterd's state only |
 | `livi/livi-round-ui.patch` | LIVI setting `customHideNav`: the custom page fills the window with no navigation rail (for the round panel); upstreamable, off by default | built into the bench LIVI and checked (`aa-bench/shots/cluster-bench-livi-and-small-gauges.png`) |
 | `livi/livi_config.py` | LIVI's config for the round panel: projection size, map-shape safe/view areas, dial keys, custom page, MFi bus | selftest passes; not yet loaded by a real LIVI |
@@ -94,8 +94,16 @@ bring-up). After a wake it asks only whether the key is on, not what woke it:
 - **The pin is optional in code, not in the car.** Without `--ign`, silence after a wake reads as key off, so a dead
   link at key on would put the screen back to sleep. Leave `--ign` out on a Toradex development carrier with no gauges/
   attached: nothing there holds CTRL_WAKE1_MICO# low, so the pin reads Off and clusterd would suspend 5 s after boot.
-- **If the alarm cannot be armed** clusterd logs it, at start and at each suspend, and suspends anyway: the old
-  behaviour. A sysfs error should not leave the owner with a cold boot at every key on, but it does mean no power-off.
+- **If the alarm cannot be armed** clusterd does not sleep. It counts as a failed suspend: logged at start and at each
+  try, tried three times 5 s apart, then `systemctl poweroff`. Every key on is then a cold boot until the RTC is fixed,
+  and that slow start is how the fault shows itself; sleeping without a timer is the flat battery this section is here
+  to prevent. Key on during the tries carries on as normal. With the timer off (0) nothing is armed, so this cannot
+  happen. **Decided 2026-11-04: do what car makers do.** No source found covers this exact fault, a wake timer that
+  cannot be set, but their rule is the same: when sleep cannot be guaranteed, take the lowest-power state and accept a
+  slow start. Android Automotive retries a failed suspend for at most 3 minutes and then shuts down
+  (`CarPowerManagementService.suspendWithRetries`, "Too many failures trying to suspend. Shut down."), and its power
+  controller "isn't required to support the timed turn-on feature". NXP's system basis chips for car ECUs drop to
+  fail-safe mode, their lowest-power state, after a failed restart (UJA1069, UJA1065).
 
 Limits accepted for now:
 

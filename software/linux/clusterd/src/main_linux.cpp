@@ -403,7 +403,7 @@ int main(int argc, char** argv) {
     if (cfg.parked_poweroff_s) {
         // Say so at start, not the first time the key goes off: otherwise the first sign is a flat battery.
         if (access(cfg.rtc_wakealarm.c_str(), W_OK) != 0)
-            std::fprintf(stderr, "clusterd: cannot write %s: no parked power-off until that is fixed\n", cfg.rtc_wakealarm.c_str());
+            std::fprintf(stderr, "clusterd: cannot write %s: it will power off at key off instead of suspending until that is fixed\n", cfg.rtc_wakealarm.c_str());
         if (ign_fd < 0 && sim_ign.empty())
             std::printf("clusterd: no ignition pin (--ign): after a wake the key is judged from the gauges link alone\n");
     }
@@ -609,16 +609,20 @@ int main(int argc, char** argv) {
             std::printf("clusterd: key on, carrying on\n");
             if (cfg.parked_poweroff_s) rtc_alarm(cfg.rtc_wakealarm, 0);
         } else if (action == ParkAction::Suspend) {
-            std::printf("clusterd: ignition off, suspending (%s), %s\n", cfg.suspend_cmd.c_str(),
-                        park.alarm_s() ? ("RTC alarm in " + std::to_string(park.alarm_s()) + " s").c_str() : "no RTC alarm");
-            // Armed before the command, which may not return until after the resume. If it cannot be armed, suspend
-            // anyway: that is the old behaviour, and a sysfs error should not mean a cold boot at every key on.
-            if (park.alarm_s() && !rtc_alarm(cfg.rtc_wakealarm, park.alarm_s()))
-                std::fprintf(stderr, "clusterd: could not arm the RTC alarm (%s): no parked power-off after this sleep\n", cfg.rtc_wakealarm.c_str());
-            if (std::system(cfg.suspend_cmd.c_str()) != 0) {
-                std::fprintf(stderr, "clusterd: suspend command failed\n");
-                if (cfg.parked_poweroff_s) rtc_alarm(cfg.rtc_wakealarm, 0);
+            // Armed before the command, which may not return until after the resume. A timer that cannot be set counts as a
+            // failed sleep: it never sleeps without one, and after kMaxFailedSleeps tries it powers off. A cold boot at the next
+            // key on is the price, and it is how the fault shows itself; car makers make the same trade (README, "The parked car").
+            if (park.alarm_s() && !rtc_alarm(cfg.rtc_wakealarm, park.alarm_s())) {
+                std::fprintf(stderr, "clusterd: could not arm the RTC alarm (%s), not suspending\n", cfg.rtc_wakealarm.c_str());
                 park.command_failed(now);
+            } else {
+                std::printf("clusterd: ignition off, suspending (%s), %s\n", cfg.suspend_cmd.c_str(),
+                            park.alarm_s() ? ("RTC alarm in " + std::to_string(park.alarm_s()) + " s").c_str() : "no RTC alarm");
+                if (std::system(cfg.suspend_cmd.c_str()) != 0) {
+                    std::fprintf(stderr, "clusterd: suspend command failed\n");
+                    if (cfg.parked_poweroff_s) rtc_alarm(cfg.rtc_wakealarm, 0);
+                    park.command_failed(now);
+                }
             }
         } else if (action == ParkAction::PowerOff) {
             std::printf("clusterd: parked with the key off, powering off (%s)\n", cfg.poweroff_cmd.c_str());

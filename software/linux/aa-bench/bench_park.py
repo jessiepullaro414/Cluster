@@ -328,17 +328,36 @@ def pc_bench(port):
 
 
 def rtc_unwritable(port):
+    """A timer that cannot be set counts as a failed sleep: it never sleeps without one, and ends in a power-off."""
+    c = Car(port, conf="rtc_wakealarm = /nonexistent/wakealarm\n")
+    c.check("cannot write /nonexistent/wakealarm" in c.logged(), "the problem is logged at start, not after a flat battery")
+    c.driving()
+    c.pin("0")
+    c.frames(1.5, False, True, 1)
+    c.check("could not arm the RTC alarm" in c.logged(), "and again at key off")
+    took = c.wait_command(1, 3 * GRACE_S + SLOP_S)
+    c.check(took is not None and c.commands() == ["poweroff never written"],
+            f"it never suspends without the timer, and powers off after three tries: {c.commands()}")
+    return c
+
+
+def rtc_unwritable_key_on(port):
+    """The same fault with the key coming back during the tries: the screen carries on, and nothing powers off."""
     c = Car(port, conf="rtc_wakealarm = /nonexistent/wakealarm\n")
     c.driving()
-    c.key_off()
-    log = c.logged()
-    c.check("cannot write /nonexistent/wakealarm" in log, "the problem is logged at start, not after a flat battery")
-    c.check("could not arm the RTC alarm" in log, "and again at the suspend, which still happens")
+    c.pin("0")
+    c.frames(1.5, False, True, 1)
+    c.check("could not arm the RTC alarm" in c.logged(), "key off: the timer cannot be set")
+    c.pin("1")
+    c.frames(1, True)
+    c.check("key on, carrying on" in c.logged(), "key on: it carries on")
+    time.sleep(GRACE_S + SLOP_S)
+    c.check(c.commands() == [], f"no suspend and no power-off: {c.commands()}")
     return c
 
 
 SCENARIOS = [alarm_wake_key_off, key_on_wake, key_on_during_alarm_wake, quiet_link_pin_on, no_pin_link_decides,
-             stray_wake, disabled, boots_with_key_off, suspend_fails, pc_bench, rtc_unwritable]
+             stray_wake, disabled, boots_with_key_off, suspend_fails, pc_bench, rtc_unwritable, rtc_unwritable_key_on]
 
 
 def run(scenario, port):

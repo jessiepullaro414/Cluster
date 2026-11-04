@@ -1,22 +1,22 @@
 Manufacturer Part Number,Manufacturer,Qty brain (per board),Qty panel-tsd (per board),Qty gauges (per board),Description,Status
 (momentary push switch - part not chosen yet),(not yet specified),1,0,0,The dial's click: a normally-open momentary switch wired to J11 pins 3 and 4 (the PSC-360 has no push action). Any panel-mount automotive switch works; contact current is microamps,NEEDS PART SELECTION
-(no part - PCB footprint only),-,0,2,0,3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel's +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py,ok
+(no part - PCB footprint only),-,0,2,2,3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel's +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py,ok
 (not populated - no coprocessor chosen),Apple MFi programme (TBD),1,0,0,"RESERVED, DO NOT POPULATE: 1x6 0.1 in header for an MFi daughterboard (1 I2C_1 SDA, 2 I2C_1 SCL, 3 reset GPIO, 4 GND, 5 MFI_5V switched by U15 from Verdin GPIO_3, 6 +1V8 I/O reference). Apple's MFi authentication coprocessor, which CarPlay needs (iAP2), is only available through Apple's MFi programme, so its regulator, level shifting and the coprocessor itself go on the daughterboard; no Apple part number, supply voltage or reset polarity is specified here. Populate with a Samtec TSW-106-07-G-S once the daughterboard exists. TBD",NEEDS PART SELECTION
 0297002,Littelfuse,0,0,1,2A MINI blade fuse element (main 12V input) - same real element ecu-pcb's own BOM already cites,ok
 0297005.WXNV,Littelfuse,1,0,0,"5A MINI blade fuse element, 32V, 1kA interrupt rating at 32V, -40..+125C (one per board; plugs into the F1 holder)",ok
 1058,Keystone Electronics,1,0,0,"20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments",ok
-22-27-2021,Molex,0,0,2,"2-circuit KK 254 (2.54mm) vertical header, tach input (signal + ground), ECU/coil-driver tach output; coil-negative use on a points ignition is not validated",ok
-22-27-2031,Molex,1,0,1,"3-circuit KK 254 (2.54mm) vertical header, board side of the private CAN link to gauges/ J8 (CANH / CANL / GND), 4A / 250V per contact. The display is not on the car bus. Mating (docs/harness.md): Molex KK 254 housing 22-01-3037 with 08-50-0114 crimps (22-30 AWG) at both ends, a short in-dash twisted-pair cable, no DTM connector",ok
+22-27-2021,Molex,0,0,1,"2-circuit KK 254 (2.54mm) vertical header, tach input (signal + ground), ECU/coil-driver tach output; coil-negative use on a points ignition is not validated",ok
+22-27-2031,Molex,1,0,2,"3-circuit KK 254 (2.54mm) vertical header, board side of the private CAN link to gauges/ J8 (CANH / CANL / GND), 4A / 250V per contact. The display is not on the car bus. Mating (docs/harness.md): Molex KK 254 housing 22-01-3037 with 08-50-0114 crimps (22-30 AWG) at both ends, a short in-dash twisted-pair cable, no DTM connector",ok
 22-27-2041,Molex,1,0,0,"4-circuit KK 254 (2.54mm) vertical header for the rotary dial: sensor 5V (switched), sensor signal, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts",ok
 22-27-2051,Molex,0,0,1,"5-position KK 254 (2.54mm) header, board side of the CAN0+sender pigtail: 22 AWG GXL in a 22-01-3057 housing with 08-50-0113/0114 crimps (22-30 AWG), DTM06-6S plug on the car end",ok
 22-27-2081,Molex,0,0,1,"8-circuit KK 254 (2.54mm) vertical header: six 12 V-active indicator-lamp inputs (left turn, right turn, high beam, brake, alternator, oil), ground, and the dash-dimmer feed (instrument-lamp rheostat output); mating housing and crimps are separate Molex KK 254 parts",ok
 2309409-2,TE Connectivity,1,0,0,"260-position DDR4 SODIMM socket, 5.2mm stack - the socket Toradex recommends in datasheet section 6.5.1 (docs.toradex.com/200007-verdin_imx95_datasheet.pdf), matching this board's SODIMM-260_DDR4_H4.0-5.2 footprint. The Verdin SoM that plugs into it is its own line under Companion parts (review 2026-10-03: the two were one line)",ok
 3568,Keystone Electronics,1,0,1,"Mini blade fuse holder, PCB mount - same real holder gauges/ uses. REVIEW FIX 2026-10-03: replaces the Bourns MF-RG500 PTC (16V max, -40..+85C, not rated for jump start or load dump). The 5A fuse element is the next line",ok
 ABM8AIG-8.000MHZ-12-2Z-T3,Abracon,0,0,1,"8 MHz 12 pF crystal 3.2 x 2.5 mm, +/-20 ppm, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-07100KL,Yageo,22,3,5,"Resistor 100k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-07100RL,Yageo,5,1,1,"Resistor 100R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-07100KL,Yageo,24,3,8,"Resistor 100k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-07100RL,Yageo,6,1,2,"Resistor 100R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0710K2L,Yageo,1,0,0,"Resistor 10k2 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-0710KL,Yageo,12,0,5,"Resistor 10k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0710KL,Yageo,9,0,6,"Resistor 10k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0711K5L,Yageo,1,0,1,"Resistor 11k5 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07120RL,Yageo,0,0,4,"Resistor 120R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07124KL,Yageo,1,0,0,"Resistor 124k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -33,20 +33,21 @@ AC0603FR-072K2L,Yageo,7,0,0,"Resistor 2k2 1% 0603 thick film, AEC-Q200 [PATTERN:
 AC0603FR-072K49L,Yageo,0,0,1,"Resistor 2k49 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-072KL,Yageo,0,1,0,"Resistor 2k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07316KL,Yageo,1,0,0,"Resistor 316k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-0733KL,Yageo,1,0,7,"Resistor 33k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-0733KL,Yageo,2,0,7,"Resistor 33k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0733RL,Yageo,0,0,2,"Resistor 33R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-073K24L,Yageo,0,0,1,"Resistor 3k24 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0747KL,Yageo,1,0,0,"Resistor 47k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-07499KL,Yageo,0,1,0,"Resistor 499k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749K9L,Yageo,0,0,1,"Resistor 49k9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0749R9L,Yageo,1,0,1,"Resistor 49R9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-074K7L,Yageo,0,0,8,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart] [DNP: not fitted by default; the pads stay on the board for the option named in the schematic value (CAN0 end-node termination, ground-switched lamp pull-up, open-collector tach pull-up)]",DNP: do not populate
+AC0603FR-074K7L,Yageo,0,0,8,"Resistor 4k7 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart] [DNP: not fitted by default; the pads stay on the board for the option named in the schematic value (ground-switched lamp pull-up, open-collector tach pull-up)]",DNP: do not populate
 AC0603FR-07511KL,Yageo,0,1,0,"Resistor 511k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0756KL,Yageo,1,0,1,"Resistor 56k 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0760K4L,Yageo,1,0,0,"Resistor 60k4 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0760RL,Yageo,2,0,4,"Resistor 60R 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0761K9L,Yageo,3,0,0,"Resistor 61k9 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-076K04L,Yageo,1,0,0,"Resistor 6k04 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
-AC0603FR-076K8L,Yageo,0,0,1,"Resistor 6k8 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+AC0603FR-076K8L,Yageo,0,0,4,"Resistor 6k8 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603FR-0780K6L,Yageo,0,0,1,"Resistor 80k6 1% 0603 thick film, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC0603JR-070RL,Yageo,1,0,0,"0 ohm jumper 0603, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 AC1206FR-0718KL,Yageo,0,0,2,"Resistor 18k 1% 1206 thick film, 200 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -54,12 +55,12 @@ AC1206FR-071K8L,Yageo,0,0,2,"Resistor 1k8 1% 1206 thick film, 200 V, AEC-Q200 [P
 AC1206FR-071KL,Yageo,0,0,3,"Resistor 1k 1% 1206 thick film, 200 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 B3B-XH-A(LF)(SN),JST,1,0,0,"3-circuit XH 2.50 mm vertical header, 2-wire electret microphone: bias+signal, return, shield. Mating: XHP-3 housing with SXH-001T-P0.6 crimps. PATTERN: confirm the ordering suffix in the cart",ok
 B5B-XH-A(LF)(SN),JST,1,0,0,"5-circuit XH 2.50 mm vertical header, balanced stereo line-out: L+, L-, R+, R-, GND. Mating: XHP-5 housing with SXH-001T-P0.6 crimps. PATTERN: ordering suffix (LF)(SN) is JST's lead-free tin variant, confirm in the cart. Deliberately a different family from the KK 254 headers so audio cannot be mated to the CAN or dial headers",ok
-BAV99-Q (confirm reel suffix at order time),Nexperia,3,0,16,"Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)",ok
+BAV99-Q (confirm reel suffix at order time),Nexperia,6,0,17,"Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8); D9, D10 and D11 use one section each (pin 1 anode, pin 3 cathode) as the LM74930 VS diode and the ignition / module OR diodes of the power latch",ok
 BLM18PG221SH1D,Murata,0,0,1,"220 ohm @100 MHz ferrite bead, 1.4 A, AEC-Q200",ok
 CSL0902ET1C,ROHM,0,0,2,"Green chip LED with lens, 1.6 x 0.8 x 1.24 mm, 527 nm, 900-1800 mcd at 20 mA (1200 typ), VF 2.6/3.4/3.8 V at 20 mA, 30 mA max, VR 5 V; the physical turn-signal arrows behind the faceplate (ROHM data sheet CSL0902ET1(C) Rev.007; orderable code as listed by Digi-Key, Farnell and element14, confirm the reel suffix at order time)",ok
 DTM06-08SA + WM-8S,TE Connectivity (DEUTSCH DTM),0,0,1,"8-way plug and wedge on the car end of J10's 22 AWG pigtail (six lamps, GND, dimmer feed); check that WM-8S fits the DTM 8-way",ok
-DTM06-2S + WM-2S,TE Connectivity (DEUTSCH DTM),0,0,2,"2-way plug and wedge on the car end of J9's 22 AWG pigtail (Hall speed signal, GND)",ok
-DTM06-3S + WM-3S,TE Connectivity (DEUTSCH DTM),0,0,1,"3-way plug and wedge on the car end of J1's 20 AWG GXL power pigtail (12V, GND, ignition); the pigtail is ferruled into J1's screw terminal. Contacts 0462-201-20141 (size 20)",ok
+DTM06-2S + WM-2S,TE Connectivity (DEUTSCH DTM),0,0,1,"2-way plug and wedge on the car end of J11's 22 AWG pigtail (tach signal, GND)",ok
+DTM06-3S + WM-3S,TE Connectivity (DEUTSCH DTM),0,0,2,"3-way plug and wedge on the car end of J1's 20 AWG GXL power pigtail (12V, GND, ignition); the pigtail is ferruled into J1's screw terminal. Contacts 0462-201-20141 (size 20)",ok
 DTM06-6S + WM-6S,TE Connectivity (DEUTSCH DTM),0,0,1,"6-way plug and wedge on the car end of J7's 22 AWG pigtail (CAN0 H/L as a twisted pair, fuel, oil, coolant senders); no 5-way DTM exists, so one cavity takes a sealing plug (0413-204-2005, confirm)",ok
 EEH-ZA1V101P,Panasonic,2,0,0,"Capacitor, 100 uF 35 V hybrid polymer, 8 x 10.2 mm, AEC-Q200",ok
 F32Q-1A7H1-11018,Amphenol FCI,0,0,4,"18-position 0.5mm FPC connector, right-angle ZIF, bottom contact, one per GC9A01 module [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
@@ -75,16 +76,15 @@ GCM1885C1H120JA16D,Murata,0,1,0,"Capacitor, 12 pF C0G 50 V, AEC-Q200",ok
 GCM1885C1H150JA16D,Murata,0,1,0,"Capacitor, 15 pF C0G 50 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
 GCM1885C1H180JA16D,Murata,0,0,2,"Capacitor, 18 pF C0G 50 V, AEC-Q200",ok
 GCM1885C1H220JA16D,Murata,1,0,0,"Capacitor, 22 pF C0G 50 V (Murata marks it NRND; still orderable, swap if unavailable), AEC-Q200",ok
-GCM188R71C105KA64D,Murata,9,0,4,"Capacitor, 1 uF X7R 16 V, AEC-Q200",ok
+GCM188R71C105KA64D,Murata,9,0,5,"Capacitor, 1 uF X7R 16 V, AEC-Q200",ok
 GCM188R71H102KA37D,Murata,0,0,1,"Capacitor, 1 nF X7R 50 V, AEC-Q200",ok
-GCM188R71H103KA37D,Murata,1,1,7,"Capacitor, 10 nF X7R 50 V, AEC-Q200",ok
-GCM188R71H104KA57D,Murata,19,3,19,"Capacitor, 100 nF X7R 50 V, AEC-Q200",ok
-GCM188R71H222KA37D,Murata,0,0,1,"Capacitor, 2.2 nF X7R 50 V, AEC-Q200 [PATTERN: confirm this exact part number in the distributor cart]",PATTERN: confirm in cart
+GCM188R71H103KA37D,Murata,3,1,9,"Capacitor, 10 nF X7R 50 V, AEC-Q200",ok
+GCM188R71H104KA57D,Murata,19,3,23,"Capacitor, 100 nF X7R 50 V, AEC-Q200",ok
 GCM188R71H224KA64D,Murata,0,2,1,"Capacitor, 220 nF X7R 50 V, AEC-Q200",ok
-GCM188R71H472KA37D,Murata,1,1,2,"Capacitor, 4.7 nF X7R 50 V, AEC-Q200",ok
+GCM188R71H472KA37D,Murata,1,1,3,"Capacitor, 4.7 nF X7R 50 V, AEC-Q200",ok
 GCM21BR71A106KE22L,Murata,12,2,0,"Capacitor, 10 uF X7R 10 V, AEC-Q200",ok
 GCM21BR71C475KA73L,Murata,4,2,0,"Capacitor, 4.7 uF X7R 16 V, AEC-Q200",ok
-GCM21BR71H105KA03L,Murata,0,0,1,"Capacitor, 1 uF X7R 50 V, AEC-Q200",ok
+GCM21BR71H105KA03L,Murata,1,0,1,"Capacitor, 1 uF X7R 50 V, AEC-Q200",ok
 GCM31CR71A226KE02L,Murata,3,0,0,"Capacitor, 22 uF X7R 10 V, AEC-Q200",ok
 GCM32EC71H106KA03L,Murata,0,0,3,"Capacitor, 10 uF X7S 50 V, AEC-Q200",ok
 GCM32ER71C226ME19L,Murata,0,2,2,"Capacitor, 22 uF X7R 16 V, AEC-Q200",ok
@@ -95,13 +95,13 @@ LM74930QRGERQ1,TI,1,0,1,"Automotive ideal-diode surge stopper w/ circuit breaker
 LMR33630BRNXRQ1,TI,0,0,1,"3A synchronous buck regulator, +5V rail",ok
 "MKDS 1,5/ 3-5,08 (1715734)",Phoenix Contact,1,0,1,"3-position 5.08mm pluggable-style screw terminal block, board side of the car harness power input (VBAT / GND / IGN); 17.5A / 400V nominal - same MKDS 5.08 family gauges/'s J1 uses. Harness end (decided 2026-10-17, docs/harness.md): a 20 AWG GXL pigtail ferruled into this terminal, with a sealed Deutsch DTM06-3S plug (TE) and WM-3S wedge on the car end. Accepts 26-14 AWG",ok
 PMEG6010ELRX,Nexperia,0,3,0,"Boost rectifier Schottky, 60V/1A, SOD-123W",ok
-PMV37ENEA,Nexperia,0,0,1,"N-MOSFET, 12V-rail reverse-protection gate switch / shared backlight low-side switch",ok
+PMV37ENEAR,Nexperia,0,0,1,"60 V N-MOSFET, SOT23, 1 G, 2 S, 3 D (datasheet 21 May 2019): shared backlight low-side switch (orderable suffix R = reel)",ok
 PMV55ENEAR,Nexperia,1,0,0,"60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair (orderable suffix R = reel; 12NC 934068714215)",ok
 PSC360G2-F1A-C0000-ERA360-05K,Amphenol Piher,1,0,0,"Contactless Hall-effect end-of-shaft rotary position sensor, endless 360-degree rotation with no dead band, 12-bit, 5V +/-10% supply, ratiometric ANALOG output (not PWM/CAN/SPI), 50 million cycles, -40..+125C, fly leads (brown 5V, blue ground, black signal). Use the panel-mount PSC-360U version (3/8""-32 thread, 6.35mm shaft) for a dash hole. Configure: single output, analog, 5V supply, electrical angle 360 degrees, -40..125C. NOTE its 'switch output' is an angle threshold, not a click. This stocked part number (Newark/DigiKey list it) is the flange-mount G2 version: single analog output, 360-degree range, 5V, -40..125C - good for the prototype. A panel-mount PSC-360U ordering code is not confirmed; ask Piher. Piher's web page may describe push-button versions: the datasheet only shows an angle-threshold switch output, so ask Piher before relying on one",NEEDS PART SELECTION
 RFA401280B-AYW-DNF1,Raystar Optronics,0,0,4,"1.28in 240x240 round GC9A01 TFT module, SPI, with PCAP touch (touch unused), 18-pin 0.5mm FPC tail, active area 32.4mm. ORDER DIRECT FROM RAYSTAR (salescontact@raystar-optronics.com): the product page lists no price or stock. Ask for the FPC contact fingers on the side that suits the bottom-contact Amphenol connector",ok
 SM24CANB-02HTG,Littelfuse,0,0,5,"Dual bidirectional 24 V TVS array, SOT-23, pins 1 and 2 each to common pin 3 (datasheet Rev. 10/09/17: VRWM 24 V, VBR 26.7 V min, VC 34 V at 1 A, 30 pF, +-30 kV IEC 61000-4-2); AEC-Q101. Protects the car CAN bus (D28), the private CAN link (D31), the sender wires (D29, D30) and the Hall speed wire (D32) at their connectors",ok
 SMAJ5.0A (multi-source; PATTERN - choose an AEC-Q101 listed variant at order time),Littelfuse / Vishay / Bourns,1,0,0,"400 W SMA 5 V TVS, 6.4 V min breakdown, on USB VBUS: a hot-plugged cable can ring above the TPS2557-Q1's 7 V absolute maximum. The AEC-Q101 qualification of a specific vendor's SMAJ5.0A was not checked",ok
-SMCJ33A (multi-source),Littelfuse / onsemi / Vishay (industry-standard P/N),1,0,1,"SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/'s own D1 already uses",ok
+"SMCJ33CA (multi-source; automotive grade e.g. Littelfuse SMCJ33CA-HRA, confirm at order time)",Littelfuse / onsemi / Vishay (industry-standard P/N),1,0,1,"SMC-package bidirectional TVS diode, 33V standoff, VBR 36.7V min, VC 53.3V at 28.2A: 12V-rail transient protection ahead of the LM74930",ok
 SQJ460AEP-T1_GE3 (confirm the reel suffix on Vishay doc 79771 at order time),Vishay,2,0,2,"60V N-ch MOSFET, VGS +-20V, 8.7mR max at 10V, IDM 180A, PowerPAK SO-8L - back-to-back ideal-diode/pass FET pair for the LM74930-Q1 (replaces PMV55ENEA: NRND, 12.6A pulse rating vs ~27A in ISO 7637-2 pulse 2a, 262 C/W; review X-01, X-02, D-05)",ok
 SZMMSZ3V6T1G,onsemi,0,0,1,"3.6 V 500 mW zener, SOD-123, clamps the +3V3 rail when a sender wire is shorted to battery with the car off (distributor listing: Zzt 90 ohm max, 5 uA at 1 V; AEC-Q101). The onsemi datasheet was not retrievable during the review: confirm leakage at 3.3 V and 85 C and the dynamic impedance at 30 mA before ordering",ok
 TAC5112WQRTVRQ1,TI,1,0,0,"Automotive low-power stereo audio codec (2-ch ADC, 2-ch DAC), 1.8 V I/O, AVDD 1.8/3.3 V, I2S/TDM, I2C, WQFN-32 RTV 5x5 mm (datasheet SLASFC2A, Active Production, 3000-piece reel; the Q1 datasheet is a separate document from the TAC5112 non-automotive one)",ok
@@ -112,6 +112,8 @@ TLV73333PQDBVRQ1,TI,0,0,1,"300mA LDO, +3.3V rail",ok
 TLV76701QWDRBRQ1,TI,2,0,0,"Automotive 16V/1A adjustable LDO, two on this board: U3 = +1V8 Verdin I/O rail, U10 = +3V3 audio codec AVDD (divider 316k/100k), VSON-8 DRB with wettable flanks (datasheet SBVS381A); 01 = adjustable, QW = wettable-flank automotive",ok
 TPD4E02B04QDQARQ1,TI,1,0,0,"Automotive 4-channel BIDIRECTIONAL ESD array, VRWM +-3.6 V, 0.25 pF, IEC 61000-4-2 +/-12 kV, USON-10 DQA 2.5x1.0 mm (datasheet SLVSDZ2A, Active Production). On the four line-out legs, which swing below ground on the connector side of the DC-blocking capacitors (review D-11)",ok
 TPD4E05U06QDQARQ1,TI,2,0,0,"Automotive 4-channel ESD array, 0.5 pF, 5.5 V, IEC 61000-4-2 +/-12 kV, USON-10 DQA 2.5x1.0 mm (datasheet SLVSCO7C, Active Production). Used on the USB D+/D-/CC lines, the four line-out legs and the microphone pair",ok
+TPS1H000AQDGNRQ1,TI,0,0,1,"40V 1-ohm smart high-side switch, adjustable current limit, HVSSOP-8 PowerPAD (DGN0008K, SLVSDO6E): VPULL, the MCU-switched 12V rail for the lamp/tach pull-ups and the Hall sender supply on J9 pin 3 (U12)",ok
+TPS22918QDBVRQ1,TI,0,0,1,"5.5V 2A load switch, SOT-23-6 (SLVSCZ8B): switches the sender excitation (U11) so the pull-ups are off with the car off and firmware can chop it to cancel each sender's ground offset; same part as brain/ U8/U15",ok
 TPS22918TDBVRQ1,TI,2,0,0,"Automotive 1-5.5V 2A load switch, SOT-23-6, switches the rotary dial sensor's 5V off in sleep (ON driven by the Verdin's CTRL_SLEEP_MOCI#; datasheet SLVSCZ8B); TI lists it Active",ok
 TPS2557QDRBRQ1,TI,3,0,0,"Automotive adjustable current-limited power switch, active-HIGH enable, USB host VBUS, S-PVSON-8 DRB (datasheet SLVSC97B, Active Production; the active-low sibling is TPS2556-Q1, do NOT substitute)",ok
 TPS61165TDBVRQ1,TI,0,1,0,"Automotive boost white-LED driver, panel backlight 15V/180mA from +5V with PWM dimming, SOT-23-6 DBV (datasheet SLVSB73B); TI lists the family Active. Orderable suffix taken from a TI E2E thread and a datasheet listing - confirm on TI's store",ok

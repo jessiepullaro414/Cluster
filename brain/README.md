@@ -7,6 +7,14 @@ sleep control, the private CAN link to the gauges board, the audio codec and
 its connectors, the USB-C host port, the MFi daughterboard header, the dial
 input and the bench headers.
 
+Power (review 2026-11-03, `docs/electrical-review.md` section 9): the
+ignition switches the board on through the LM74930's EN pin, and the
+module's CTRL_PWR_EN_MOCI holds it on while the module is on or suspended.
+So the key starts the module from any state (it boots whenever VCC
+appears), and once software powers the module off with the key off, the
+board draws only the LM74930's 2.5 uA shutdown current. How long to stay
+suspended before powering off is a software setting.
+
 It started as a copy of `display/` (now `archive/display-1966/`, the 1966
 Mustang's one-panel carrier). The panel connector, the panel's bias supply,
 its polarity jumpers and its backlight driver moved to the panel's own board

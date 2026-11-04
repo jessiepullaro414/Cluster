@@ -18,12 +18,24 @@
 |---|---|---|---|---|
 | **J1** battery, ground, ignition | Phoenix MKDS 1,5/3-5,08, 3-position screw terminal | wire ferruled into the terminal; **DTM06-3S** + WM-3S | 20 AWG GXL | 1 VIN, 2 GND, 3 IGN |
 | **J7** car CAN + three senders | Molex KK 254 22-27-2051, 5-circuit | **DTM06-6S** + WM-6S (**no 5-way DTM exists**: DTM comes in 2, 3, 4, 6, 8 and 12 ways, so one cavity takes a sealing plug) | 22 AWG GXL; CAN H and L as a twisted pair | 1 CAN0 H, 2 CAN0 L, 3 fuel sender, 4 oil sender, 5 coolant sender |
-| **J9** Hall speed | Molex KK 254 22-27-2021, 2-circuit | **DTM06-2S** + WM-2S | 22 AWG GXL | 1 signal, 2 GND (the sender is powered by the car harness, not by this board) |
+| **J9** Hall speed | Molex KK 254 22-27-2031, 3-circuit | **DTM06-3S** + WM-3S | 22 AWG GXL | 1 signal, 2 GND, 3 switched 12 V for the sender (VPULL: on only while the board is awake, 148 mA current limit; review 2026-11-03) |
 | **J10** lamps and dimmer | Molex KK 254 22-27-2081, 8-circuit | **DTM06-08SA** + WM-8S | 22 AWG GXL | 1 left turn, 2 right turn, 3 high beam, 4 brake, 5 alternator, 6 oil, 7 GND, 8 dimmer feed |
 | **J11** tach | Molex KK 254 22-27-2021, 2-circuit | **DTM06-2S** + WM-2S | 22 AWG GXL | 1 tach signal, 2 GND |
 | **J8** private CAN link | Molex KK 254 22-27-2031, 3-circuit | the same KK cable as display/ J3 | 22 AWG twisted pair + ground | 1 CAN1 H, 2 CAN1 L, 3 GND |
 
 The senders (J7 pins 3 to 5) are single-wire: their return is the sender's own body, so the car chassis must be a good ground at each sender. The lamp and Hall wires are 12 V signals of a few milliamps; the power wires are fused at the battery end.
+
+## Installing in a car with the stock wiring (review 2026-11-03)
+
+- **Grounds.** Take both boards' ground wires (gauges J1 pin 2, brain J2 pin 2) to one stud under the dash, and run a dedicated ground wire (12 AWG or heavier) from that stud to the engine block, as aftermarket gauge makers ask. The senders return through the engine block (oil, coolant) and the tank and body (fuel); the body-to-engine strap carries every body load's return current, so the two grounds commonly sit tens to hundreds of millivolts apart. The gauges firmware measures each sender with its excitation on and off and cancels that offset (`software/gauges-fw/src/senders.c`), down to about -480 mV; beyond that a sender shows no reading. A good ground keeps it well inside that range.
+- **The stock ALT (ammeter) gauge.** The 1966 gauge is a shunt ammeter: the charging current stays in the harness and two small wires carry the shunt's voltage to the gauge. Both sit at battery voltage. The cluster shows battery volts instead, so cap and insulate both wires (do not join them to anything); the charging circuit itself is not affected.
+- **The old instrument voltage regulator** was part of the stock cluster. The senders connect straight to J7; nothing replaces the regulator.
+- **Constant battery feed.** The stock cluster has only ignition-switched feeds. J1 pin 1 (gauges) and J2 pin 1 (brain) need a new fused battery wire (fuse at the battery end, docs above); pin 3 of each takes the ignition feed.
+- **Dash lights (J10 pin 8).** The headlight switch dims the instrument lamps through a rheostat in their feed. A rheostat only drops voltage while current flows, and the cluster's input draws almost none, so with no bulbs left on that circuit (the stock cluster's own bulbs are gone; radio, heater-control and clock lamps may remain) the feed reads close to battery voltage at every knob position: night mode still switches with the lights, the knob no longer dims. Either leave at least one bulb (or about 30-50 ohm, 5 W) on the instrument-lamp circuit, or set the brightness from the dial.
+- **Warning lamps (J10 pins 1-6).** Inputs are 12 V-active. A lamp that is switched to ground (an oil-pressure or brake-warning switch) needs its DNP 4.7 k pull-up fitted (R60-R75, to VPULL, which is off with the car off). On a car whose alternator regulator is excited through its warning lamp (a Ford 3G conversion, or a 1967-on car with a charge lamp), the lamp's current is what turns the regulator on: keep a 500 ohm, 1 W resistor in that circuit from the ignition feed when the bulb is removed, or the alternator will not charge.
+- **Car CAN bus termination.** The board carries a 120 ohm split terminator (R4/R5) that is switched in by bridging the solder jumpers JP1 and JP2. Bridge both when the cluster is one end of the bus (a two-node ECU + cluster bus usually is); leave them open on a longer bus that already has its two terminators.
+- **Speed sender.** J9 powers a three-wire Hall sender (12 V supply, ground, signal) from pin 3. A two-wire variable-reluctance sensor (4R70W, AOD-E and some T56 transmissions) is not supported directly: use a VR-to-square-wave converter.
+- **Tach.** J11 takes an ECU or ignition-box tach output (12 V square wave) or a points/electronic coil's negative terminal. The input filter and firmware blanking reject the coil's ringing after each spark; check the reading against a timing light's tach on the first car.
 
 ## Why
 
@@ -41,14 +53,14 @@ The senders (J7 pins 3 to 5) are single-wire: their return is the sender's own b
 
 | For | Part | Qty |
 |---|---|---|
-| Each DTM plug | TE DEUTSCH plug housing: DTM06-3S (display J2, gauges J1), DTM06-6S (gauges J7), DTM06-2S (gauges J9, J11), DTM06-08SA (gauges J10) | 1 + 1 + 2 + 1 for gauges, 1 for display |
+| Each DTM plug | TE DEUTSCH plug housing: DTM06-3S (display J2, gauges J1, gauges J9), DTM06-6S (gauges J7), DTM06-2S (gauges J11), DTM06-08SA (gauges J10) | 2 + 1 + 1 + 1 for gauges, 1 for display |
 | | wedge lock for each plug: WM-3S, WM-6S, WM-2S, WM-8S (listed as WM-8S for the 8-way DTM plug; W8S is the DT-series part, so check the fit) | one per housing |
-| | DEUTSCH size-20 solid socket contact 0462-201-20141 | 3 + 3 (display J2, gauges J1) + 5 (J7) + 2 + 2 + 8 = 23, plus spares |
+| | DEUTSCH size-20 solid socket contact 0462-201-20141 | 3 + 3 (display J2, gauges J1) + 5 (J7) + 3 (J9) + 2 (J11) + 8 = 24, plus spares |
 | | DTM size-20 sealing plug for the unused cavity of the DTM06-6S (0413-204-2005 is the usual number; confirm) | 1, plus a few for spare cavities |
 | | mating DTM04-nP receptacle + WM-nP wedge, only if the car-side lead is built too | |
 | Power pigtails | 20 AWG GXL wire in 3 colours; ferrules for 0.5 mm^2 (Phoenix AI 0,5 series) | about 0.5 m each; 3 per pigtail |
-| KK 254 ends | housings 22-01-3027 (2), -3037 (3), -3057 (5), -3087 (8) (the 22-01-30x7 pattern is Molex's friction-ramp crimp housing; confirm each number) | J9, J11: 2 each; J3, J8: 1 each; J7: 1 x 5; J10: 1 x 8 |
-| | crimp terminal 08-50-0113 or 08-50-0114 (22-30 AWG; one distributor lists 0114 obsolete: check stock) | 20 at the gauges end (J7 5, J9 2, J10 8, J11 2, J8 3) and 3 at the display end of the J3/J8 cable, plus spares |
+| KK 254 ends | housings 22-01-3027 (2), -3037 (3), -3057 (5), -3087 (8) (the 22-01-30x7 pattern is Molex's friction-ramp crimp housing; confirm each number) | 2-way for J11; 3-way for J9, J3 and J8 (one each); 5-way for J7; 8-way for J10 |
+| | crimp terminal 08-50-0113 or 08-50-0114 (22-30 AWG; one distributor lists 0114 obsolete: check stock) | 21 at the gauges end (J7 5, J9 3, J10 8, J11 2, J8 3) and 3 at the display end of the J3/J8 cable, plus spares |
 | Signal wire | 22 AWG GXL, several colours; 22 AWG twisted pair for CAN | by the metre |
 | Tools | a crimper for DEUTSCH size 20 (TE HDT-48-00) and a KK 254 crimper for the Molex terminals | |
 

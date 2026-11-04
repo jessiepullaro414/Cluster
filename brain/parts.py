@@ -504,6 +504,8 @@ FOOTPRINTS = {
     # resistor in 1206, and the 8 x 10.2 mm hybrid polymer can.
     "L_5030": "Inductor_SMD:L_Coilcraft_XAL5030-XXX",
     "R_1206": "Resistor_SMD:R_1206_3216Metric",
+    # review 2026-11-03: the sense resistor with its Kelvin taps as net-tied pads (tools/make_kelvin_footprint.py)
+    "R_KELVIN": "Kelvin_R:R_1206_3216Metric_Kelvin",
     "CP_HYBRID": "Capacitor_SMD:CP_Elec_8x10",
     "C_1206": "Capacitor_SMD:C_1206_3216Metric",
     "C_1210": "Capacitor_SMD:C_1210_3225Metric",

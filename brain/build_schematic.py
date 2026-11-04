@@ -451,7 +451,8 @@ def pin_xy(unit, pin, sym_x, sym_y):
 # and each needs a PWR_FLAG the same way GND and +5V do.
 # (Brain board: the panel bias supply and its PANEL_BIAS_VIN rail moved to
 # the panel board.)
-POWER_NETS = {"GND", "+5V", "+12V_PROT", "+1V8", "+3V3", "VBAT_F"}
+# LM_VS (review 2026-11-03): the LM74930's VS supply, fed from VBAT_F through the diode D9, another passive.
+POWER_NETS = {"GND", "+5V", "+12V_PROT", "+1V8", "+3V3", "VBAT_F", "LM_VS"}
 
 # net -> a real (x, y) on that net, for anchoring PWR_FLAGs. This project's
 # KiCad notes record that a flag merged only by name, with nothing
@@ -681,7 +682,8 @@ def build_power_tree(x0, y0, usable_h):
     c1206 = build_generic_symbol(f"{LIB}:C_1206", "C", "C", PASSIVE_PINS)
     cpol = build_generic_symbol(f"{LIB}:CP_HYBRID", "C", "C", PASSIVE_PINS)
     l5030 = build_generic_symbol(f"{LIB}:L_5030", "L", "L", PASSIVE_PINS)
-    rsense = build_generic_symbol(f"{LIB}:R_1206", "R", "R", PASSIVE_PINS)
+    rsense = build_generic_symbol(f"{LIB}:R_KELVIN", "R", "R",
+                                  [(1, "1", "passive"), (2, "2", "passive"), (3, "S1", "passive"), (4, "S2", "passive")])
     conn3 = build_generic_symbol(f"{LIB}:CONN3", "J", "Power in",
                                  [(1, "VBAT", "passive"), (2, "GND", "passive"),
                                   (3, "IGN", "passive")])
@@ -742,15 +744,26 @@ def build_power_tree(x0, y0, usable_h):
     # identical real role (12V-rail input surge clamp ahead of an ideal-
     # diode/back-to-back-FET front end) - same net topology, same real
     # justification, industry-standard multi-source part number.
-    flow(tvs, "D1", "SMCJ33A", {"1": "VBAT_F", "2": "GND"})
+    # Review 2026-11-03 (docs/electrical-review.md section 9, F-02): bidirectional. The unidirectional SMCJ33A
+    # conducted forward on a reversed battery (about 100 A until F1 opened), held VBAT_F at -1 to -4 V and put
+    # those volts on the LM74930's VS/CS pins (rated -1 V); now the LM74930 blocks a reversed battery itself.
+    flow(tvs, "D1", "SMCJ33CA bidirectional", {"1": "VBAT_F", "2": "GND"})
     flow(cpol, "C1", "100u 35V hybrid polymer hold-up (Panasonic EEH-ZA1V101P)",
          {"1": "+12V_PROT", "2": "GND"})
 
-    # RSENSE sits in the input path; CS+ taps it through RSET per the
-    # datasheet's "connect a 50-ohm resistor across CS+".
+    # REVIEW 2026-11-03 (section 9, F-01): RSENSE moved to the OUTPUT side, TI's common-source topology
+    # (SNOSDF6 Figure 8-1): VBAT_F -> Q2 (HGATE) -> COMMON -> Q1 (DGATE) -> SENSE_HI -> R1 -> +12V_PROT. C,
+    # ISCP and RSET sit on SENSE_HI (the top of R1), CS- on +12V_PROT. Until now R1 sat on the input while
+    # ISCP and C were on the output: ISCP was 12 V below CS- at every power-up (absolute maximum +-0.3 V), the
+    # short-circuit comparator (ISCP vs CS-) could never trip on a forward overload, and an input dip below the
+    # held-up output would have tripped it falsely. CS+ taps R1 through RSET per the datasheet's "connect a
+    # 50-ohm resistor across CS+".
+    # F-04: the Kelvin taps are their own nets, joined to the terminals by a net tie inside R1's footprint
+    # (tools/make_kelvin_footprint.py); TI 8.5.1 asks for a Kelvin connection, and with 2 mohm of sense
+    # resistor a route that shares copper with the power path trips the breaker early.
     flow(rsense, "R1", "2m 2% sense (Susumu KRL3216E-C-R002-G-T5)",
-         {"1": "VBAT_F", "2": "SENSE_OUT"})
-    flow(r, "R2", "49.9R 1% RSET", {"1": "VBAT_F", "2": "CS_PLUS"})
+         {"1": "SENSE_HI", "2": "+12V_PROT", "S1": "SENSE_TAP", "S2": "CS_MINUS"})
+    flow(r, "R2", "49.9R 1% RSET", {"1": "SENSE_TAP", "2": "CS_PLUS"})
 
     # --- back-to-back FETs ----------------------------------------------
     # Real part (2026-09-28): Nexperia PMV55ENEA - selected against
@@ -778,31 +791,67 @@ def build_power_tree(x0, y0, usable_h):
     # Forward drop 2.6 A x 8.7 mohm = 23 mV, under the datasheet's 50 mV
     # starting point for reverse-current detection (8.2.2.10).
     flow(nfet_pwr, "Q2", "SQJ460AEP (AEC-Q101, 60V/20V VGS) pass",
-         {"D": "SENSE_OUT", "G": "HGATE", "S1": "COMMON", "S2": "COMMON", "S3": "COMMON"})
+         {"D": "VBAT_F", "G": "HGATE", "S1": "COMMON", "S2": "COMMON", "S3": "COMMON"})
     flow(nfet_pwr, "Q1", "SQJ460AEP (AEC-Q101, 60V/20V VGS) diode",
-         {"S1": "COMMON", "S2": "COMMON", "S3": "COMMON", "G": "DGATE", "D": "+12V_PROT"})
+         {"S1": "COMMON", "S2": "COMMON", "S3": "COMMON", "G": "DGATE", "D": "SENSE_HI"})
 
     # --- LM74930-Q1 ------------------------------------------------------
     flow(u_fe, "U1", "LM74930-Q1", {
         "DGATE": "DGATE", "A": "COMMON", "SW": "SW_SENSE",
-        "UVLO": "UVLO_DIV", "OV": "OV_DIV", "EN": "VBAT_F",
-        "MODE": "VBAT_F", "NC1": None, "TMR": "TMR",
+        # EN: the ignition power latch below (BRAIN_EN). MODE and VS: LM_VS, behind the diode D9, so neither
+        # goes negative with a reversed battery (C, VS, CS+, CS-, ISCP are rated -1 V; only A takes -65 V).
+        "UVLO": "UVLO_DIV", "OV": "OV_DIV", "EN": "BRAIN_EN",
+        "MODE": "LM_VS", "NC1": None, "TMR": "TMR",
         "IMON": "IMON", "ILIM": "ILIM", "FLT": "PWR_FLT",
         "GND": "GND", "HGATE": "HGATE", "OUT": "COMMON",
         # OVCLAMP tied to OV selects clamp-with-circuit-breaker rather
         # than plain disconnect. This one net is the whole reason the
         # module rides through a load dump instead of rebooting.
         "OVCLAMP": "OV_DIV", "NC2": None,
-        "ISCP": "+12V_PROT", "CS-": "SENSE_OUT", "CS+": "CS_PLUS",
-        "NC3": None, "VS": "VBAT_F", "CAP": "CAP_CP", "C": "+12V_PROT",
+        "ISCP": "SENSE_TAP", "CS-": "CS_MINUS", "CS+": "CS_PLUS",
+        "NC3": None, "VS": "LM_VS", "CAP": "CAP_CP", "C": "SENSE_HI",
         # Exposed pad deliberately floating - the datasheet forbids
         # grounding it, so this NoConnect is load-bearing.
         "EP": None,
     })
 
+    # VS supply diode (one BAV99-Q section, pin 1 anode, pin 3 cathode), and CVS raised to the 1 uF TI's 8.2.2.1
+    # requires ("a minimum of 1-uF CVS capacitance is required"; the 100 nF here was the gauges board's G-17).
+    bav99_fe = build_generic_symbol(f"{LIB}:D_BAV99", "D", "BAV99-Q clamp",
+                                    [(1, "A1", "passive"), (2, "K2", "passive"), (3, "CA", "passive")])
+    c0805_fe = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
+    flow(bav99_fe, "D9", "BAV99-Q LM74930 VS supply diode (AEC-Q101)", {"A1": "VBAT_F", "K2": None, "CA": "LM_VS"})
+    flow(c0805_fe, "C2", "1u CVS 50V", {"1": "LM_VS", "2": "GND"})
+    # HGATE inrush limit, TI 7.3.2.1 ("The CdVdT capacitor is required for slowing down the HGATE voltage ramp
+    # during power up") and Figure 8-1 (RG 100 ohm, CdVdT 10 nF with 100 uF out). Inrush = 55 uA x COUT /
+    # CdVdT: about 110 uF here (C1 + the buck's input caps) gives 0.6 A (0.8 A at the 75 uA maximum), under
+    # the 4.96 A breaker; +12V_PROT ramps in about 2 ms. Without it the inrush was set by Q2's own gate charge
+    # and could reach tens of amps, above the 10 A short-circuit threshold, at every power-up.
+    flow(r, "R87", "100R RG", {"1": "HGATE", "2": "HGATE_DVDT"})
+    flow(c, "C85", "10n CdVdT 50V", {"1": "HGATE_DVDT", "2": "GND"})
+    # TI 8.2.2.3: at least 100 nF at the input (C2 used to be on VBAT_F).
+    flow(c, "C86", "100n CIN 50V", {"1": "VBAT_F", "2": "GND"})
+
+    # --- ignition power latch (review 2026-11-03, section 9, B-01) --------
+    # EN = ignition OR CTRL_PWR_EN_MOCI. Before this EN was tied to the battery, so the 5 V buck ran whenever
+    # the battery was connected: the module could only suspend (tens of mA, unmeasured, forever with the car
+    # parked) and, once powered off by software, nothing but the bench button J9 or disconnecting the battery
+    # could start it again (the Verdin starts by itself only when VCC is applied). Now ignition switches the
+    # board on (the module boots when VCC appears), the module holds it on through CTRL_PWR_EN_MOCI, which
+    # stays high while it is on or suspended, and when software powers the module off with the ignition off
+    # the board drops to the LM74930's 2.5 uA shutdown current. Software decides how long to stay suspended.
+    # EN thresholds (SNOSDF6 6.5): rising 0.8-1.05 V, falling 0.41-0.7 V, rated 0-65 V, < 200 nA. Ignition
+    # side: 100 k / 33 k gives 3.0 V at 12 V, 1.5 V at 6 V and 25 V for a 100 V spike; minus the diode, on above
+    # about 6 V. Module side: 1.8 V minus the diode, about 1.2-1.3 V. 10 nF filters ignition glitches.
+    flow(r, "R88", "100k ignition EN top", {"1": "IGN_SENSE", "2": "IGN_EN_DIV"})
+    flow(r, "R89", "33k ignition EN bottom", {"1": "IGN_EN_DIV", "2": "GND"})
+    flow(c, "C87", "10n ignition EN filter", {"1": "IGN_EN_DIV", "2": "GND"})
+    flow(bav99_fe, "D10", "BAV99-Q ignition EN diode (AEC-Q101)", {"A1": "IGN_EN_DIV", "K2": None, "CA": "BRAIN_EN"})
+    flow(bav99_fe, "D11", "BAV99-Q PWR_EN_MOCI hold diode (AEC-Q101)", {"A1": "PWR_EN_MOCI", "K2": None, "CA": "BRAIN_EN"})
+    flow(r, "R90", "100k EN pull-down", {"1": "BRAIN_EN", "2": "GND"})
+
     for ref, val, nets in [
-        ("C2", "100n CVS", {"1": "VBAT_F", "2": "GND"}),
-        ("C3", "100n CCAP", {"1": "CAP_CP", "2": "VBAT_F"}),
+        ("C3", "100n CCAP", {"1": "CAP_CP", "2": "LM_VS"}),
         ("C4", "100n CTMR", {"1": "TMR", "2": "GND"}),
         ("R3", "60.4k RILIM", {"1": "ILIM", "2": "GND"}),
         ("R4", "10k RIMON", {"1": "IMON", "2": "GND"}),
@@ -1090,13 +1139,16 @@ def build_control(x0, y0, usable_h):
         "VBUS": "USB_VBUS", "D_N": "USB_DN", "D_P": "USB_DP", "ID": "USB_ID",
         "GND": "GND",
     })
-    # These are active-low inputs to the module and are asserted by
-    # shorting to ground, so each needs a pull-up to idle high. RECOVERY
-    # already has a 10k pull-up on the module, but a local one costs
-    # nothing and makes the intent readable on the drawing.
-    for ref, net in (("R44", "PWR_BTN"), ("R45", "RECOVERY"),
-                     ("R46", "RESET_MICO")):
-        flow(r, ref, "10k pullup", {"1": net, "2": "+1V8"})
+    # REVIEW 2026-11-03 (section 9, B-03): PWR_BTN, RECOVERY and RESET_MICO
+    # have NO pull-ups on the carrier. They are open-drain module inputs with
+    # their own pull-ups on the module's 1.8 V RTC rail (Verdin Carrier Board
+    # Design Guide table 41: 100 k, 10 k, 100 k; 2.20.3 on recovery: "No
+    # external pull-up resistor is allowed on the carrier board"). The 10 k
+    # resistors that were here went to +1V8, which U3 only turns on after the
+    # module raises CTRL_PWR_EN_MOCI. Until then they held all three low:
+    # reset asserted, which keeps a cold-reset module from raising
+    # CTRL_PWR_EN_MOCI at all, so the board could deadlock at first power-on.
+    # J8 and J9 still short them to ground for bench use.
     flow(r, "R47", "10k pullup", {"1": "RESET_MOCI", "2": "+1V8"})
     flow(r, "R48", "10k JTAG Vref", {"1": "JTAG_VREF", "2": "+1V8"})
 

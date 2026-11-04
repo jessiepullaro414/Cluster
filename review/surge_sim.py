@@ -40,14 +40,20 @@ from scipy.optimize import brentq
 TVS = {   # SMCJ33A (1500 W class): VBR 36.7..40.6 V, VC <= 53.3 V at IPP 28.2 A (10/1000 us), distributor-listed
     "SMCJ33A": dict(vbr_min=36.7, vbr_typ=38.6, vc=53.3, ipp=28.2, ppk=1500.0, vf0=0.8, rf=0.04),
     "SMBJ33A": dict(vbr_min=36.7, vbr_typ=38.6, vc=53.3, ipp=11.3, ppk=600.0, vf0=0.8, rf=0.1),
+    # review 2026-11-03: the bidirectional part both boards now use; the same breakdown either way, no forward diode
+    "SMCJ33CA": dict(vbr_min=36.7, vbr_typ=38.6, vc=53.3, ipp=28.2, ppk=1500.0, vf0=0.8, rf=0.04, bidir=True),
 }
 
 
 def tvs_current(v, t):
     """Current into the TVS (positive = from the protected node to GND)."""
+    rd = (t["vc"] - t["vbr_typ"]) / t["ipp"]
     if v > t["vbr_min"]:
-        rd = (t["vc"] - t["vbr_typ"]) / t["ipp"]
         return (v - t["vbr_min"]) / rd
+    if t.get("bidir"):
+        if v < -t["vbr_min"]:
+            return (v + t["vbr_min"]) / rd     # reverse breakdown, negative current
+        return 0.0
     if v < -t["vf0"]:
         return (v + t["vf0"]) / t["rf"]        # forward conduction, negative current
     return 0.0
@@ -63,7 +69,7 @@ def tvs_ppk(t, tp):
 BOARDS = {
     "gauges": dict(
         # c_in: C1 10 uF + C59 + C60 (10 uF 50 V X7S 1210 each) derated to ~3.5 uF each near the 30 V clamp, plus 0.22 uF
-        label="gauges/ (with C59, C60)", tvs="SMCJ33A", r_fuse=0.08, r_path=0.005 + 0.06 + 0.06, c_in=10.5e-6,
+        label="gauges/ (SMCJ33CA, review 2026-11-03)", tvs="SMCJ33CA", r_fuse=0.08, r_path=0.005 + 0.06 + 0.06, c_in=10.5e-6,
         # R49 5 mohm + Q3 + Q1 (PMV55ENEA RDSon 60 mohm max at VGS 10 V)
         p_load=1.8, clamp=(27.8, 29.9, 31.0), ctmr=100e-9, fuse="2 A MINI (Littelfuse 297)", fuse_a=2.0,
         vlim=dict(U3_VS_CS=70.0, Q_VDS=60.0, buck_abs=38.0, buck_op=36.0, C1_rating=50.0, TJA1043_VBAT=40.0),
@@ -74,7 +80,7 @@ BOARDS = {
         vlim=dict(U3_VS_CS=70.0, Q_VDS=60.0, buck_abs=38.0, buck_op=36.0, C1_rating=50.0, TJA1043_VBAT=40.0),
     ),
     "display": dict(
-        label="display/", tvs="SMCJ33A", r_fuse=0.03, r_path=0.002 + 0.06 + 0.06, c_in=100e-6 + 2 * 3.0e-6,
+        label="brain/ (display/'s front end; SMCJ33CA, review 2026-11-03)", tvs="SMCJ33CA", r_fuse=0.03, r_path=0.002 + 0.06 + 0.06, c_in=100e-6 + 2 * 3.0e-6,
         p_load=12.0, clamp=(27.8, 29.9, 31.0), ctmr=100e-9, fuse="5 A MINI (Littelfuse 0297005)", fuse_a=5.0,
         vlim=dict(U1_VS_CS=70.0, Q_VDS=60.0, buck_abs=42.0, buck_op=36.0, C1_rating=35.0),
     ),
@@ -127,7 +133,7 @@ def run(board, pulse, clamp_v):
         def f(vf):
             ip = max(0.0, (vf - vp) / r_q)
             return (vs(t) - vf) / r_up - tvs_current(vf, tvs) - ip
-        return brentq(f, -10.0, 200.0, xtol=1e-7)
+        return brentq(f, -160.0, 200.0, xtol=1e-7)   # wide enough for a negative pulse into a bidirectional TVS
 
     t = 0.0
     vp = 13.0
@@ -209,12 +215,13 @@ def steady(board, pulse):
     def f(vf):
         ip = max(0.0, (vf - vp) / b["r_path"]) if us > 0 else 0.0
         return (us - vf) / r_up - tvs_current(vf, tvs) - ip
-    vf = brentq(f, -30, 60)
+    vf = brentq(f, -60, 60)
     itvs = tvs_current(vf, tvs)
     ifuse = (us - vf) / r_up
     return dict(pulse=name, vf_peak=max(vf, 0), vf_min=min(vf, 0), vp_peak=vp, itvs_peak=max(itvs, 0), itvs_fwd=max(-itvs, 0),
                 e_tvs=0.0, p_tvs_peak=max(itvs, 0) * max(vf, 0), ifuse_peak=abs(ifuse), fuse_i2t=ifuse ** 2 * td,
-                q3_p_peak=0.0, q3_p_avg=0.0, clamp_cycles=0, t_clamp=0.0, q1_vds_rev=(b["clamp"][1] if us < 0 else 0) + (abs(vf) if us < 0 else 0), tp=td)
+                # reverse: the output is held at most at a charged battery's 14.4 V while the input is negative
+                q3_p_peak=0.0, q3_p_avg=0.0, clamp_cycles=0, t_clamp=0.0, q1_vds_rev=(14.4 + abs(vf)) if us < 0 else 0.0, tp=td)
 
 
 def judge(board, r):
@@ -231,6 +238,10 @@ def judge(board, r):
         out.append(("FAIL", f"VIN_PROT {r['vp_peak']:.1f} V > buck abs max {lim['buck_abs']:.0f} V"))
     elif r["vp_peak"] > lim["buck_op"]:
         out.append(("WARN", f"VIN_PROT {r['vp_peak']:.1f} V above the buck's {lim['buck_op']:.0f} V operating maximum"))
+    if r["vf_min"] < -65.0:
+        out.append(("FAIL", f"VIN_FUSED {r['vf_min']:.1f} V < the LM74930 A pin's -65 V"))
+    if r["vf_min"] < -1.0 and TVS[b["tvs"]].get("bidir") is None:
+        out.append(("WARN", f"VIN_FUSED {r['vf_min']:.1f} V: below the -1 V rating of any LM74930 pin on the input (fine once VS and the sense pins sit behind the FETs)"))
     if r["q1_vds_rev"] > lim["Q_VDS"]:
         out.append(("FAIL", f"Q1 reverse VDS {r['q1_vds_rev']:.0f} V > {lim['Q_VDS']:.0f} V"))
     t = TVS[b["tvs"]]

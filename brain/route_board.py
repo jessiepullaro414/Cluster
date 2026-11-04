@@ -149,7 +149,7 @@ def run_kicad_python(label, script):
 # NullPointerException ("to_trace_entries" is null) seconds into the first
 # pass and then spins without end. The single pass at 0.8 mm alone also left
 # three other connections unrouted (USB2_DN among them).
-BATTERY_PATH_NETS = ["VBAT_IN", "VBAT_F", "SENSE_OUT", "COMMON", "+12V_PROT"]
+BATTERY_PATH_NETS = ["VBAT_IN", "VBAT_F", "COMMON", "SENSE_HI", "+12V_PROT"]   # SENSE_HI: review 2026-11-03
 # Brain board (2026-10-20): each screen port's switched 5 V carries up to the
 # TPS2557-Q1's 1.98 A limit, so it gets the same treatment (outer layers, 0.3 mm,
 # large vias, an F.Cu pour along its path); at 0.2 mm layout_checks.py rated it

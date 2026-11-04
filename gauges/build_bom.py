@@ -82,9 +82,14 @@ MPN = {
                              "18-position 0.5mm FPC connector, right-angle ZIF, bottom contact, one per GC9A01 "
                              "module [PATTERN: confirm this exact part number in the distributor cart]", "-"),
 
-    "PMV37ENEA":  ("PMV37ENEA", "Nexperia", "N-MOSFET, 12V-rail reverse-protection gate switch / shared backlight low-side switch", "AEC-Q101"),
-    "SMCJ33A":    ("SMCJ33A (multi-source)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
-                    "SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number", "AEC-Q101"),
+    "PMV37ENEA":  ("PMV37ENEAR", "Nexperia", "60 V N-MOSFET, SOT23, 1 G, 2 S, 3 D (datasheet 21 May 2019): shared backlight low-side switch (orderable suffix R = reel)", "AEC-Q101"),
+    # Review 2026-11-03: bidirectional, so a reversed battery is blocked by the LM74930 instead of blowing the fuse through
+    # the TVS's forward diode (docs/electrical-review.md section 9, F-02).
+    "SMCJ33CA":   ("SMCJ33CA (multi-source; automotive grade e.g. Littelfuse SMCJ33CA-HRA, confirm at order time)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
+                    "SMC-package bidirectional TVS diode, 33V standoff, VBR 36.7V min, VC 53.3V at 28.2A: 12V-rail transient protection ahead of the LM74930", "AEC-Q101"),
+    "TPS22918-Q1": ("TPS22918QDBVRQ1", "TI", "5.5V 2A load switch, SOT-23-6 (SLVSCZ8B): switches the sender excitation (U11) so the pull-ups are off with the car off and firmware can chop it to cancel each sender's ground offset; same part as brain/ U8/U15", "AEC-Q100 Grade 2"),
+    "TPS1H000-Q1": ("TPS1H000AQDGNRQ1", "TI", "40V 1-ohm smart high-side switch, adjustable current limit, HVSSOP-8 PowerPAD (DGN0008K, SLVSDO6E): VPULL, the MCU-switched 12V rail for the lamp/tach pull-ups and the Hall sender supply on J9 pin 3 (U12)", "AEC-Q100 Grade 1"),
+    "Solder jumper": ("(no part - PCB footprint only)", "-", "2-pad OPEN solder jumper (KiCad SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm): bridge JP1 and JP2 with solder to switch the car-CAN 120 ohm split termination (R4/R5) in when this board is an end of the car bus", "n/a"),
 
     # F1's REAL placed schematic footprint is the HOLDER, not the fuse
     # element (a blade fuse plugs into it, never its own KiCad
@@ -103,7 +108,7 @@ MPN = {
     "CSL0902ET1C": ("CSL0902ET1C", "ROHM", "Green chip LED with lens, 1.6 x 0.8 x 1.24 mm, 527 nm, 900-1800 mcd at 20 mA (1200 typ), VF 2.6/3.4/3.8 V at 20 mA, 30 mA max, VR 5 V; the physical turn-signal arrows behind the faceplate (ROHM data sheet CSL0902ET1(C) Rev.007; orderable code as listed by Digi-Key, Farnell and element14, confirm the reel suffix at order time)", "AEC-Q102"),
     "SM24CANB-02HTG": ("SM24CANB-02HTG", "Littelfuse", "Dual bidirectional 24 V TVS array, SOT-23, pins 1 and 2 each to common pin 3 (datasheet Rev. 10/09/17: VRWM 24 V, VBR 26.7 V min, VC 34 V at 1 A, 30 pF, +-30 kV IEC 61000-4-2); AEC-Q101. Protects the car CAN bus (D28), the private CAN link (D31), the sender wires (D29, D30) and the Hall speed wire (D32) at their connectors", "AEC-Q101"),
     "SZMMSZ3V6T1G": ("SZMMSZ3V6T1G", "onsemi", "3.6 V 500 mW zener, SOD-123, clamps the +3V3 rail when a sender wire is shorted to battery with the car off (distributor listing: Zzt 90 ohm max, 5 uA at 1 V; AEC-Q101). The onsemi datasheet was not retrievable during the review: confirm leakage at 3.3 V and 85 C and the dynamic impedance at 30 mA before ordering", "AEC-Q101"),
-    "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8)", "AEC-Q101"),
+    "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, used as a rail-to-rail input clamp on the speed and ignition inputs (pin 3 signal, pin 1 GND, pin 2 +3V3; datasheet Rev. 8); D34 uses one section (pin 1 anode, pin 3 cathode) as the LM74930's VS supply diode", "AEC-Q101"),
 }
 
 # Real harness pigtail connectors (the cable-side mate for J1/J7's own
@@ -118,7 +123,7 @@ MPN = {
 HARNESS_PIGTAILS = [
     ("DTM06-3S + WM-3S", "TE Connectivity (DEUTSCH DTM)", "3-way plug and wedge on the car end of J1's 20 AWG GXL power pigtail (12V, GND, ignition); the pigtail is ferruled into J1's screw terminal. Contacts 0462-201-20141 (size 20)", "J1"),
     ("DTM06-6S + WM-6S", "TE Connectivity (DEUTSCH DTM)", "6-way plug and wedge on the car end of J7's 22 AWG pigtail (CAN0 H/L as a twisted pair, fuel, oil, coolant senders); no 5-way DTM exists, so one cavity takes a sealing plug (0413-204-2005, confirm)", "J7"),
-    ("DTM06-2S + WM-2S", "TE Connectivity (DEUTSCH DTM)", "2-way plug and wedge on the car end of J9's 22 AWG pigtail (Hall speed signal, GND)", "J9"),
+    ("DTM06-3S + WM-3S", "TE Connectivity (DEUTSCH DTM)", "3-way plug and wedge on the car end of J9's 22 AWG pigtail (Hall speed signal, GND, switched 12 V sender supply)", "J9"),
     ("DTM06-08SA + WM-8S", "TE Connectivity (DEUTSCH DTM)", "8-way plug and wedge on the car end of J10's 22 AWG pigtail (six lamps, GND, dimmer feed); check that WM-8S fits the DTM 8-way", "J10"),
     ("DTM06-2S + WM-2S", "TE Connectivity (DEUTSCH DTM)", "2-way plug and wedge on the car end of J11's 22 AWG pigtail (tach signal, GND)", "J11"),
 ]
@@ -133,7 +138,7 @@ BOARD_SIDE_CONNECTORS = {
     "J8": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, private CAN1 link to display/ J3 (CAN1_H / CAN1_L / GND): a short in-dash cable, 22 AWG twisted pair + ground, KK 254 housing 22-01-3037 at both ends, no DTM", "-"),
     "J10": ("22-27-2081", "Molex", "8-circuit KK 254 (2.54mm) vertical header: six 12 V-active indicator-lamp inputs (left turn, right turn, high beam, brake, alternator, oil), ground, and the dash-dimmer feed (instrument-lamp rheostat output); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J11": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, tach input (signal + ground), ECU/coil-driver tach output; coil-negative use on a points ignition is not validated", "-"),
-    "J9": ("22-27-2021", "Molex", "2-circuit KK 254 (2.54mm) vertical header, Hall speed sender input (signal + ground); the sender is powered from the car harness, not from this board", "-"),
+    "J9": ("22-27-2031", "Molex", "3-circuit KK 254 (2.54mm) vertical header, Hall speed sender: 1 signal, 2 ground, 3 switched 12 V supply for the sender (VPULL, 148 mA current limit, off with the car off)", "-"),
 }
 
 PASSIVE_PREFIXES = ("R", "C", "L", "FB", "Y")
@@ -396,8 +401,8 @@ def build():
             desc += " [PATTERN: confirm this exact part number in the distributor cart]"
         if dnp:
             desc += (" [DNP: not fitted by default; the pads stay on the board for the option "
-                     "named in the schematic value (CAN0 end-node termination, ground-switched "
-                     "lamp pull-up, open-collector tach pull-up)]")
+                     "named in the schematic value (ground-switched lamp pull-up, open-collector "
+                     "tach pull-up)]")
         lines.append(("Passives", mpn, mfr, desc, package, len(refs),
                       collapse_refs(refs), "AEC-Q200"))
 

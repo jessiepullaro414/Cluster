@@ -2,4 +2,6 @@
 	(version 7)
 	(lib (name "TI_RNX0012C_VQFN-HR") (type "KiCad") (uri "${KIPRJMOD}/footprints/TI_RNX0012C_VQFN-HR.pretty") (options "") (descr "TI VQFN-HR-12 (RNX0012C) for LMR33630-Q1, built from TI's own package drawing 4225021/C - copied from manifold-pcb/thermo-pcb, same real part reused verbatim here"))
 	(lib (name "ROHM_CSL0902") (type "KiCad") (uri "${KIPRJMOD}/footprints/ROHM_CSL0902.pretty") (options "") (descr "ROHM CSL0902ET1C green LED, land pattern from the ROHM data sheet Rev.007"))
+	(lib (name "TI_DGN0008K") (type "KiCad") (uri "${KIPRJMOD}/footprints/TI_DGN0008K.pretty") (options "") (descr "TI HVSSOP-8 PowerPAD DGN0008K for the TPS1H000-Q1, pads narrowed to TI's 0.45 mm land pattern so the 0.65 mm pitch keeps the board's 0.2 mm clearance"))
+	(lib (name "Kelvin_R") (type "KiCad") (uri "${KIPRJMOD}/footprints/Kelvin_R.pretty") (options "") (descr "1206 sense resistor with Kelvin taps as net-tied pads 3 and 4, made by tools/make_kelvin_footprint.py"))
 )

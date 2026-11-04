@@ -100,7 +100,7 @@ MPN = {
     "XEL5030-102ME": ("XEL5030-102MEC", "Coilcraft", "1uH shielded molded power inductor for the LM61460-Q1 5V buck at 2.1MHz: Isat 16.9A vs the 11.5A max high-side current limit, DCR 7mR typ, 5.5x5.3x3.1mm, AEC-Q200; the part the LM61460-Q1 datasheet's Table 10-5 used for 5V/2.1MHz (Coilcraft Document 1412-2; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "XAL4030-472ME": ("XAL4030-472MEC", "Coilcraft", "4.7uH shielded molded power inductor, Isat 4.6A, DCR 40mR typ, 4x4x3mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
     "XAL4040-103ME": ("XAL4040-103MEC", "Coilcraft", "10uH shielded molded power inductor, Isat 3.0A, DCR 84mR typ, 4x4x4mm (datasheet Document 806-1; trailing C = 7in reel ordering code)", "AEC-Q200"),
-    "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8)", "AEC-Q101"),
+    "BAV99-Q":      ("BAV99-Q (confirm reel suffix at order time)", "Nexperia", "Dual series high-speed switching diode, SOT-23, clamps the ignition-wake gate node to GND and +5V (pin 3 signal, pin 1 GND, pin 2 +5V; datasheet Rev. 8); D9, D10 and D11 use one section each (pin 1 anode, pin 3 cathode) as the LM74930 VS diode and the ignition / module OR diodes of the power latch", "AEC-Q101"),
     "SJ3":          ("(no part - PCB footprint only)", "-", "3-pad OPEN solder jumper (KiCad SolderJumper-3_P1.3mm_Open_RoundedPad1.0x1.5mm); bridged with a solder blob after verifying the panel's +/-6.5V pin polarity - see JP1/JP2 in build_schematic.py", "n/a"),
     "PMEG6010ELRX": ("PMEG6010ELRX", "Nexperia", "Boost rectifier Schottky, 60V/1A, SOD-123W", "AEC-Q101"),
     # Audio and USB host (2026-10-16). Orderable names are the "Active
@@ -118,8 +118,10 @@ MPN = {
     # citation and the honest flag on current margin vs. F1's 5A rating.
     "SQJ460AEP":    ("SQJ460AEP-T1_GE3 (confirm the reel suffix on Vishay doc 79771 at order time)", "Vishay", "60V N-ch MOSFET, VGS +-20V, 8.7mR max at 10V, IDM 180A, PowerPAK SO-8L - back-to-back ideal-diode/pass FET pair for the LM74930-Q1 (replaces PMV55ENEA: NRND, 12.6A pulse rating vs ~27A in ISO 7637-2 pulse 2a, 262 C/W; review X-01, X-02, D-05)", "AEC-Q101"),
     "PMV55ENEA":    ("PMV55ENEAR", "Nexperia", "60V N-ch MOSFET, VGS +-20V, 3.1A, SOT-23 - back-to-back ideal-diode/pass FET pair (orderable suffix R = reel; 12NC 934068714215)", "AEC-Q101"),
-    "SMCJ33A":      ("SMCJ33A (multi-source)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
-                      "SMC-package TVS diode, 33V standoff, 12V-rail transient protection - not pinned to one vendor, real industry-standard part number, same real part gauges/'s own D1 already uses", "AEC-Q101"),
+    # Review 2026-11-03: bidirectional, so a reversed battery is blocked by the LM74930 instead of forward-conducting
+    # through the TVS (docs/electrical-review.md section 9, F-02).
+    "SMCJ33CA":     ("SMCJ33CA (multi-source; automotive grade e.g. Littelfuse SMCJ33CA-HRA, confirm at order time)", "Littelfuse / onsemi / Vishay (industry-standard P/N)",
+                     "SMC-package bidirectional TVS diode, 33V standoff, VBR 36.7V min, VC 53.3V at 28.2A: 12V-rail transient protection ahead of the LM74930", "AEC-Q101"),
 }
 
 # Real, exactly-identified connectors matched by REFERENCE (their

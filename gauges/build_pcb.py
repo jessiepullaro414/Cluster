@@ -421,7 +421,9 @@ LOCAL_CLUSTERS = {
 CORE_ZONES = [
     ("POWER", ["J1", "F1", "Q1", "U2", "U3", "U4", "D1", "C1", "C2",
                "C3", "C11", "C12", "L1", "R2", "R3", "C45", "C46", "Q3", "R48", "R49",
-               "R50", "R51", "R52", "R53", "R54", "C47", "C48", "C49", "C58", "C59", "C60"]),
+               "R50", "R51", "R52", "R53", "R54", "C47", "C48", "C49", "C58", "C59", "C60",
+               # review 2026-11-03: LM74930 VS diode, HGATE dV/dt network, input capacitor
+               "D34", "R89", "C61", "C62"]),
     ("MCU", ["U1", "Y1", "C4", "C5", "C6", "C7", "C8", "L2", "R1", "J2", "R84", "R85"]),
     # Rev C (2026-10-04): six 12 V-active indicator-lamp inputs and the tach input.
     ("LAMPS+TACH", ["J10", "J11"] + [f"R{n}" for n in range(58, 82)] +
@@ -429,15 +431,20 @@ CORE_ZONES = [
     # Rev B (2026-09-30): private CAN1 link to display/, Hall speed input,
     # ignition sense - see build_schematic.py's rev B comments.
     ("SPEED+IGN", ["J9", "D32", "R43", "R44", "R45", "C43", "D10",
-                   "R46", "R47", "C44", "D11"]),
+                   "R46", "R47", "C44", "D11",
+                   # review 2026-11-03: U12 switches VPULL, the 12 V rail for J9's sender supply and the pull-ups
+                   "U12", "R90", "R91", "R92", "C63", "C64"]),
     ("CAN1 LINK", ["U10", "C40", "C41", "C42", "R40", "R41", "R42", "J8", "D31"]),
-    ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "R87", "R88", "J7", "D28", "D29", "D30"]),
+    ("CAN0", ["U5", "C13", "C14", "C15", "C16", "R4", "R5", "R87", "R88", "J7", "D28", "D29", "D30",
+              "JP1", "JP2"]),    # review 2026-11-03: solder jumpers that switch the car-CAN termination in
     ("AUX BL SWITCH", ["Q2", "R10", "R11", "R86"]),
     # D33 (+3V3 clamp) sits with the sender pull-ups whose fault current it absorbs; in the LDO cell it repacked the
     # power zone so tightly that the LM74930 corner no longer routed (review 2026-10-17).
     ("SENSORS", ["D33", "R19", "R20", "C31", "D15",   # battery-voltage divider: next to the ADC, not out at the battery gauge
                  "R16", "R17", "R18", "C28", "C29", "C30", "R55", "R56", "R57",
-                 "D12", "D13", "D14"]),
+                 "D12", "D13", "D14",
+                 # review 2026-11-03: switched sender excitation (U11) and the ADC bias network
+                 "U11", "C65", "C66", "R94", "R95", "R96", "R97", "C67", "R98"]),
 ]
 
 # Left-to-right order of the core zones. The analog sender path runs
@@ -529,19 +536,24 @@ for disp_ref, cluster_refs in LOCAL_CLUSTERS.items():
 # now packed first (as their INPUT cell, cells.py), along the top edge of the POWER zone, and the rest
 # of the zone below them.
 PIN_TOP = {"POWER": ["@INPUT"]}
+# Review 2026-11-03: the LM74930's new VS diode, dV/dt network and input capacitor made the FRONT cell 5.5 mm taller and the
+# POWER zone (the tallest, so the board) grew from 65.6 to 71.1 mm; a wider POWER zone keeps the outline the dash assembly
+# (mech/build_assembly.py) was checked with. The other zones keep 46 mm.
+ZONE_MAX_W = {"POWER": 50.0}
 zone_packed = []
 for name, refs in CORE_ZONES:
+    zone_w = ZONE_MAX_W.get(name, 46.0)
     pack_refs = [r for r in refs if r not in CELL_OF] + sorted({CELL_OF[r] for r in refs if r in CELL_OF})
     top_refs = PIN_TOP.get(name, [])
     if top_refs:
-        t_placed, t_rot, t_w, t_h = best_skyline_pack(top_refs, max_width=46.0, margin=MARGIN)
-        z_placed, z_rot, z_w, z_h = best_skyline_pack([r for r in pack_refs if r not in top_refs], max_width=46.0,
-                                                      margin=MARGIN, initial_skyline=[(0.0, 46.0, t_h + MARGIN)])
+        t_placed, t_rot, t_w, t_h = best_skyline_pack(top_refs, max_width=zone_w, margin=MARGIN)
+        z_placed, z_rot, z_w, z_h = best_skyline_pack([r for r in pack_refs if r not in top_refs], max_width=zone_w,
+                                                      margin=MARGIN, initial_skyline=[(0.0, zone_w, t_h + MARGIN)])
         z_placed.update(t_placed)
         z_rot |= t_rot
         z_w = max(z_w, t_w)
     else:
-        z_placed, z_rot, z_w, z_h = best_skyline_pack(pack_refs, max_width=46.0, margin=MARGIN)
+        z_placed, z_rot, z_w, z_h = best_skyline_pack(pack_refs, max_width=zone_w, margin=MARGIN)
     for vname in [r for r in pack_refs if r in VIRTUAL]:
         vx, vy = z_placed.pop(vname)
         cell_placed = _cell_res[vname[1:]][0]
@@ -1079,7 +1091,7 @@ TRUNK_WIDTH_LADDER = [0.6, 0.5, 0.4, 0.3]
 # REVIEW FIX 2026-10-17: the fused battery side (VIN_FUSED, the LM74930 common-source node COMMON) and the +5V trunk were
 # routed at 0.2 mm; on a 0.5 oz inner layer 0.2 mm carries about 0.23 A for a 10 K rise against a 0.30 A (UVLO edge) to
 # 0.45 A budget (review/layout_checks.py), so they are widened like VIN_PROT wherever there is room.
-TRUNK_NETS = ["VIN_PROT", "VIN_FUSED", "COMMON", "+5V"]
+TRUNK_NETS = ["VIN_PROT", "VIN_FUSED", "COMMON", "SENSE_HI", "+5V"]
 
 board.to_file(PCB)
 print("Wrote", PCB)
@@ -1143,8 +1155,10 @@ for t, count in sorted(by_type.items()):
 # silk_over_copper/silk_overlap on the 5 real screen-outline circles:
 # expected (see that section's own comment for the real reasoning - the
 # circles are deliberately bigger than their own connector, by design).
+# solder_mask_bridge: the open solder jumpers JP1/JP2 (car-CAN termination, review 2026-11-03) are one mask opening over
+# two pads by design, as on panel-tsd/; fab/build_fab.py accepts them by name.
 EXPECTED_TYPES = {"unconnected_items", "lib_footprint_mismatch",
-                   "silk_edge_clearance", "silk_over_copper", "silk_overlap"}
+                   "silk_edge_clearance", "silk_over_copper", "silk_overlap", "solder_mask_bridge"}
 unexpected = {t: c for t, c in by_type.items() if t not in EXPECTED_TYPES}
 if unexpected:
     print("NOTE: unexpected DRC findings present, see", drc_path, "for details:", unexpected)

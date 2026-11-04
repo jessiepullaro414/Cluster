@@ -484,8 +484,37 @@ register_symbol(f"{LIB}:MOSFET_N55", "Q", "PMV55ENEA (60V, VGS +-20V, AEC-Q101)"
 register_symbol(f"{LIB}:MOSFET_PWR", "Q", "SQJ460AEP (60V, VGS +-20V, AEC-Q101)", "Package_SO:PowerPAK_SO-8L_Single",
                 {'L': [P(1, "S", "passive"), P(2, "S", "passive"), P(3, "S", "passive")],
                  'R': [P(5, "D", "passive")], 'B': [P(4, "G", "input")]})
+# --- REVIEW 2026-11-03 (docs/electrical-review.md section 9) ---------------------------------------------------------------
+# TI TPS22918-Q1 load switch (SLVSCZ8B, DBV SOT-23-6; the same part and pin table as brain/ U8/U15): switches the sender
+# excitation so the three 1 k pull-ups are off with the car off, and so firmware can chop it to measure each sender's own
+# ground offset. VIN 1-5.5 V, ON VIH 1.0 V, a body diode from VOUT to VIN (datasheet 9.2.3), so a sender wire shorted to
+# battery still lands on +3V3 and D33 as before.
+register_symbol(f"{LIB}:TPS22918", "U", "TPS22918-Q1", "Package_TO_SOT_SMD:SOT-23-6",
+                {'L': [P(1, "VIN", "power_in"), P(3, "ON", "input")],
+                 'R': [P(6, "VOUT", "power_out"), P(5, "QOD", "passive")],
+                 'B': [P(2, "GND", "power_in"), P(4, "CT", "passive")]},
+                datasheet="https://www.ti.com/lit/ds/symlink/tps22918-q1.pdf")
+# TI TPS1H000-Q1 smart high-side switch (SLVSDO6E, DGN HVSSOP-8 with the 1.57 x 1.89 mm thermal pad of DGN0008K): 1 IN,
+# 2 DIAG_EN, 3 FAULT, 4 CL, 5 DELAY, 6 GND, 7 OUT, 8 VS, thermal pad to GND or floating. 40 V, 1 ohm, adjustable current limit,
+# standby below 0.5 uA. Switches VPULL, the 12 V pull-up and Hall-sender supply rail, with the MCU (off in VLPS).
+register_symbol(f"{LIB}:TPS1H000", "U", "TPS1H000-Q1", "TI_DGN0008K:TI_DGN0008K_HVSSOP-8-1EP_3x3mm_P0.65mm_EP1.57x1.89mm",
+                {'L': [P(8, "VS", "power_in"), P(1, "IN", "input"), P(2, "DIAG_EN", "input")],
+                 'R': [P(7, "OUT", "power_out"), P(3, "FAULT", "open_collector"), P(5, "DELAY", "passive")],
+                 'B': [P(6, "GND", "power_in"), P(4, "CL", "passive"), P(9, "EP", "passive")]},
+                datasheet="https://www.ti.com/lit/ds/symlink/tps1h000-q1.pdf")
+# Two-pad solder jumper, open as delivered: bridge both of JP1/JP2 to terminate the car CAN bus at this board.
+register_symbol(f"{LIB}:SJ", "JP", "solder jumper, open", "Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm",
+                {'L': [P(1, "A", "passive")], 'R': [P(2, "B", "passive")]},
+                hide_pin_names=True)
 register_symbol(f"{LIB}:R_1206", "R", "5m", "Resistor_SMD:R_1206_3216Metric",
                 {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")]},
+                hide_pin_names=True)
+# Review 2026-11-03 (section 9, F-04): the sense resistor's land pattern carries its Kelvin taps as pads 3 and 4, net-tied to
+# the terminals inside the footprint (tools/make_kelvin_footprint.py), so the autorouter cannot put power-path copper in series
+# with the resistor: TI SNOSDF6 8.5.1 asks for a Kelvin connection, and the first route tripped the 1.49 A breaker near 0.45 A.
+register_symbol(f"{LIB}:R_KELVIN", "R", "5m", "Kelvin_R:R_1206_3216Metric_Kelvin",
+                {'T': [P(1, "~", "passive")], 'B': [P(2, "~", "passive")],
+                 'L': [P(3, "S1", "passive")], 'R': [P(4, "S2", "passive")]},
                 hide_pin_names=True)
 register_symbol(f"{LIB}:IC_Buck", "U", "LMR33630-Q1", "TI_RNX0012C_VQFN-HR:TI_RNX0012C_VQFN-HR-12_2x3mm_P0.5mm",
                 {'L': [P(2, "VIN", "power_in"), P(10, "VIN", "power_in"),
@@ -601,7 +630,12 @@ MCU_RIGHT = [P(6, "CAN0_RX", "input"), P(5, "CAN0_TX", "output"),
              P(31, "DIM_ADC", "input")]
 MCU_BOTTOM_EXTRA = [P(30, "LPSPI2_CS", "output"), P(42, "AUX_RST", "output"),
                     P(39, "BL_EN", "output"),
-                    P(18, "CAN0_EN", "output"), P(19, "CAN0_STB_N", "output")]
+                    P(18, "CAN0_EN", "output"), P(19, "CAN0_STB_N", "output"),
+                    # Review 2026-11-03: sender excitation chopping and its ADC bias, and the switched 12 V pull-up rail.
+                    # PTD2 / PTE6 / PTE2 reset to their ADC function (high impedance); each line has a pull-down or the
+                    # switch's own. PTD3 was passed over: it carries NMI_b.
+                    P(46, "SENDER_EXC_EN", "output"), P(53, "SENDER_BIAS", "output"),
+                    P(54, "VPULL_EN", "output")]
 register_symbol(f"{LIB}:MCU_STM32", "U", "NXP S32K144 automotive (AEC-Q100)",
                 "Package_QFP:LQFP-64_10x10mm_P0.5mm",
                 {'L': MCU_LEFT,
@@ -697,9 +731,11 @@ register_symbol(f"{LIB}:CONN_TACH", "J", "Molex KK-254 22-27-2021 (tach input)",
                 "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
                 {'L': [P(1, "TACH_SIG", "passive"), P(2, "GND", "passive")]},
                 hide_pin_names=True)
-register_symbol(f"{LIB}:CONN_SPEED", "J", "Molex KK-254 22-27-2021 (Hall speed sender input)",
-                "Connector_Molex:Molex_KK-254_AE-6410-02A_1x02_P2.54mm_Vertical",
-                {'L': [P(1, "SPEED_SIG", "passive"), P(2, "GND", "passive")]},
+# Review 2026-11-03: three positions, the third a current-limited, MCU-switched 12 V supply for the Hall sender (VPULL), so the
+# sender is powered only while the board is awake and does not need its own tap on the car's ignition circuit.
+register_symbol(f"{LIB}:CONN_SPEED", "J", "Molex KK-254 22-27-2031 (Hall speed sender: signal, ground, 12 V supply)",
+                "Connector_Molex:Molex_KK-254_AE-6410-03A_1x03_P2.54mm_Vertical",
+                {'L': [P(1, "SPEED_SIG", "passive"), P(2, "GND", "passive"), P(3, "SENSOR_12V", "passive")]},
                 hide_pin_names=True)
 # Nexperia BAV99-Q (AEC-Q101): dual series diode, SOT-23. Pinning from the
 # Nexperia BAV99 series datasheet (Rev. 8) Table 3: pin 1 = anode of diode 1,
@@ -818,7 +854,10 @@ place(f"{LIB}:CONN_PWR", "J1", "Phoenix MKDS 1,5/3-5,08: 12V, GND, ignition (20 
             '3': ('label', 'IGN_RAW', 12.7)})
 place(f"{LIB}:Fuse", "F1", "Mini blade holder, 2A Littelfuse 297 fuse (SAE J2077/ISO 8820-3)", 50, RAIL,
       conn={'1': ('pwr', 'VIN'), '2': ('label', 'VIN_FUSED')})
-place(f"{LIB}:TVS_V", "D1", "SMCJ33A automotive (AEC-Q101) on the fused input, ahead of the LM74930", 113, 70,
+# Review 2026-11-03: bidirectional (SMCJ33CA). The unidirectional SMCJ33A conducted forward on a reversed battery (73 A until the
+# fuse opened) and held the input at -1.2 to -3.7 V, so the LM74930's reverse blocking was never used; with the sense resistor
+# now on the output side, a reversed battery is simply blocked and nothing needs replacing.
+place(f"{LIB}:TVS_V", "D1", "SMCJ33CA bidirectional automotive TVS (AEC-Q101) on the fused input, ahead of the LM74930", 113, 70,
       conn={'1': ('label', 'VIN_FUSED'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_1210", "C1", "10uF 50V X7R CIN (AEC-Q200)", 150, 70,
       conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
@@ -870,32 +909,58 @@ wire_pins("U2", 12, "L1", 1, label="SW")
 
 # --- LM74930-Q1 front end (placed in its own band, nets joined by label) ---
 section_text("INPUT PROTECTION: LM74930-Q1 IDEAL DIODE + OV CLAMP + CURRENT LIMIT (review fix 2026-10-03)", 650, 520)
+# REVIEW 2026-11-03 (section 9, F-01 to F-03): rewired to TI's own common-source topology (SNOSDF6 Figure 8-1). Until now
+# the 5 mohm sense resistor sat on the INPUT (VIN_FUSED -> R49 -> the HGATE FET) while ISCP and C were tied to the OUTPUT.
+# The datasheet rates ISCP and CS+ to CS- at +-0.3 V absolute maximum and C/VS/CS+/CS-/ISCP at -1 V to GND, and its
+# short-circuit comparator compares ISCP with CS-: with that wiring ISCP sat 12 V below CS- at every power-up, at every
+# OV-clamp cycle and on any output short, the short-circuit comparator could never trip on a forward overload, and a
+# reversed battery (or an ISO 7637-2 pulse 1) pulled CS+/CS-/ISCP/VS below -1 V. Now: VIN_FUSED -> Q3 (HGATE) -> COMMON
+# -> Q1 (DGATE) -> SENSE_HI -> R49 -> VIN_PROT. C, ISCP and RSET's far end sit on SENSE_HI, the top of the sense resistor
+# ("When ISCP is connected to C, device sets an internal fix threshold of 20 mV"), CS- on VIN_PROT. VS (and EN, MODE, tied to
+# it for always-on operation) comes through a series diode, D34, so it never goes negative; the IC's own reverse rating is on
+# its A pin (-65 V), which is where a reversed battery now lands.
 place(f"{LIB}:LM74930", "U3", "LM74930-Q1 (AEC-Q100 G1)", 760, 600,
       conn={'1': ('label', 'DGATE'), '2': ('label', 'COMMON'), '3': ('label', 'SW_SENSE'),
-            '4': ('label', 'UVLO_DIV'), '5': ('label', 'OV_DIV'), '6': ('label', 'VIN_FUSED'),
-            '7': ('label', 'VIN_FUSED'), '8': ('nc',), '9': ('label', 'TMR'),
+            '4': ('label', 'UVLO_DIV'), '5': ('label', 'OV_DIV'), '6': ('label', 'LM_VS'),
+            '7': ('label', 'LM_VS'), '8': ('nc',), '9': ('label', 'TMR'),
             '10': ('nc',), '11': ('label', 'ILIM'), '12': ('nc',),
             '13': ('pwr', 'GND'), '14': ('label', 'HGATE'), '15': ('label', 'COMMON'),
-            '16': ('label', 'OV_DIV'), '17': ('nc',), '18': ('label', 'VIN_PROT'),
-            '19': ('label', 'SENSE_OUT'), '20': ('label', 'CS_PLUS'), '21': ('nc',),
-            '22': ('label', 'VIN_FUSED'), '23': ('label', 'CAP_CP'), '24': ('label', 'VIN_PROT'),
+            '16': ('label', 'OV_DIV'), '17': ('nc',), '18': ('label', 'SENSE_TAP'),
+            '19': ('label', 'CS_MINUS'), '20': ('label', 'CS_PLUS'), '21': ('nc',),
+            '22': ('label', 'LM_VS'), '23': ('label', 'CAP_CP'), '24': ('label', 'SENSE_HI'),
             '25': ('nc',)})
 # Q3 = high-side load-switch FET, Q1 = ideal-diode FET, common source (TI
-# reference topology, same as display/ Q2/Q1). SQJ460AEP: pins 1-3 =
-# source, pin 4 = gate, pad 5 (the tab) = drain (Vishay datasheet page 1).
+# reference topology). SQJ460AEP: pins 1-3 = source, pin 4 = gate, pad 5
+# (the tab) = drain (Vishay datasheet page 1).
 place(f"{LIB}:MOSFET_PWR", "Q3", "SQJ460AEP pass (HGATE)", 860, 600,
-      conn={'5': ('label', 'SENSE_OUT'), '1': ('label', 'COMMON'), '2': ('label', 'COMMON'),
+      conn={'5': ('label', 'VIN_FUSED'), '1': ('label', 'COMMON'), '2': ('label', 'COMMON'),
             '3': ('label', 'COMMON'), '4': ('label', 'HGATE', 5.08)})
 place(f"{LIB}:MOSFET_PWR", "Q1", "SQJ460AEP ideal diode (DGATE)", 900, 600,
       conn={'1': ('label', 'COMMON'), '2': ('label', 'COMMON'), '3': ('label', 'COMMON'),
-            '5': ('label', 'VIN_PROT'), '4': ('label', 'DGATE', 5.08)})
+            '5': ('label', 'SENSE_HI'), '4': ('label', 'DGATE', 5.08)})
 # RSENSE: 5 mohm, so the default 20 mV short-circuit threshold is 4 A (above
 # the 2 A fuse), and RILIM (Eq. 15) = 12 x RSET / (ILIM x RSENSE) = 12 x 49.9 /
 # (1.5 A x 5 mohm) = 80 kohm -> 80.6 kohm for a 1.5 A circuit breaker.
-place(f"{LIB}:R_1206", "R49", "5m 1% sense (Susumu KRL3216E-M-R005-F-T5)", 940, 570,
-      conn={'1': ('label', 'VIN_FUSED'), '2': ('label', 'SENSE_OUT')})
+place(f"{LIB}:R_KELVIN", "R49", "5m 1% sense (Susumu KRL3216E-M-R005-F-T5)", 940, 570,
+      conn={'1': ('label', 'SENSE_HI'), '2': ('label', 'VIN_PROT'),
+            '3': ('label', 'SENSE_TAP', 5.08), '4': ('label', 'CS_MINUS', 5.08)})
 place(f"{LIB}:R_V", "R48", "49.9R 1% RSET", 960, 600,
-      conn={'1': ('label', 'VIN_FUSED'), '2': ('label', 'CS_PLUS')})
+      conn={'1': ('label', 'SENSE_TAP'), '2': ('label', 'CS_PLUS')})
+# VS supply diode (one section of a BAV99-Q: pin 1 anode, pin 3 cathode, pin 2 unused). 100 V, 215 mA; VS draws under 1 mA
+# with the charge pump idle and 1.3-2.7 mA while it tops up CAP.
+place(f"{LIB}:D_BAV99", "D34", "BAV99-Q LM74930 VS supply diode, blocks a reversed battery (AEC-Q101)", 940, 690,
+      conn={'1': ('label', 'VIN_FUSED'), '2': ('nc',), '3': ('label', 'LM_VS')})
+# HGATE inrush limiting (SNOSDF6 7.3.2.1: "The CdVdT capacitor is required for slowing down the HGATE voltage ramp during
+# power up"; Figure 8-1 uses RG 100 ohm + 10 nF). Inrush = 55 uA x COUT / CdVdT: about 30 uF here, 4.7 nF gives 0.35 A
+# (0.48 A at the 75 uA maximum drive), under the 1.49 A breaker; the output ramps to 12 V in about 1 ms. Without it the
+# FET's own gate charge set the ramp and the inrush into the bulk capacitors could reach several amps.
+place(f"{LIB}:R_V", "R89", "100R RG, HGATE to the dV/dt capacitor (AEC-Q200)", 980, 690,
+      conn={'1': ('label', 'HGATE'), '2': ('label', 'HGATE_DVDT')})
+place(f"{LIB}:C_V", "C61", "4.7nF 50V CdVdT, HGATE inrush limit (AEC-Q200)", 1010, 690,
+      conn={'1': ('label', 'HGATE_DVDT'), '2': ('pwr', 'GND')})
+# TI asks for at least 100 nF at the input (8.2.2.3); the old CVS on VIN_FUSED was that capacitor.
+place(f"{LIB}:C_V", "C62", "100nF 50V CIN at the fused input (AEC-Q200)", 1040, 690,
+      conn={'1': ('label', 'VIN_FUSED'), '2': ('pwr', 'GND')})
 place(f"{LIB}:R_V", "R50", "80.6k 1% RILIM (1.5A breaker)", 990, 600,
       conn={'1': ('label', 'ILIM'), '2': ('pwr', 'GND')})
 place(f"{LIB}:R_V", "R51", "100k OV top", 1020, 600,
@@ -907,9 +972,9 @@ place(f"{LIB}:R_V", "R53", "100k UV top", 1080, 600,
 place(f"{LIB}:R_V", "R54", "11.5k UV bot (cut-off 5.5V)", 1110, 600,
       conn={'1': ('label', 'UVLO_DIV'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_0805", "C47", "1uF CVS (50V)", 940, 650,   # G-17: TI 8.2.2.1 "a minimum of 1 uF CVS"
-      conn={'1': ('label', 'VIN_FUSED'), '2': ('pwr', 'GND')})
-place(f"{LIB}:C_V", "C48", "100nF CCAP (50V)", 970, 650,
-      conn={'1': ('label', 'CAP_CP'), '2': ('label', 'VIN_FUSED')})
+      conn={'1': ('label', 'LM_VS'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C48", "100nF CCAP (50V)", 970, 650,   # CAP to VS (pin table)
+      conn={'1': ('label', 'CAP_CP'), '2': ('label', 'LM_VS')})
 place(f"{LIB}:C_V", "C49", "100nF CTMR", 1000, 650,
       conn={'1': ('label', 'TMR'), '2': ('pwr', 'GND')})
 
@@ -975,12 +1040,19 @@ place(f"{LIB}:C_V", "C14", "100nF VIO decouple (AEC-Q200)", 345, 220,
       conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
 place(f"{LIB}:C_V", "C15", "100nF VBAT decouple (AEC-Q200)", 320, 220,
       conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
-place(f"{LIB}:R_V", "R4", "60R split termination (AEC-Q200) - DNP unless bus end-node",
+# Review 2026-11-03: fitted, switched in by two solder jumpers. A cluster wired to one ECU is usually one end of a two-node
+# bus and needs its 120 ohm; on a longer bus it must not have it. Bridging JP1 and JP2 is an installation step, not soldering
+# 0603 resistors onto a finished board.
+place(f"{LIB}:R_V", "R4", "60R split termination (AEC-Q200), switched in by JP1",
       550, 230,
-      conn={'1': ('label', 'CAN0_H'), '2': ('label', 'CAN0_SPLIT')})
-place(f"{LIB}:R_V", "R5", "60R split termination (AEC-Q200) - DNP unless bus end-node",
+      conn={'1': ('label', 'CAN0_TERM_H'), '2': ('label', 'CAN0_SPLIT')})
+place(f"{LIB}:R_V", "R5", "60R split termination (AEC-Q200), switched in by JP2",
       550, 260,
-      conn={'1': ('label', 'CAN0_SPLIT'), '2': ('label', 'CAN0_L')})
+      conn={'1': ('label', 'CAN0_SPLIT'), '2': ('label', 'CAN0_TERM_L')})
+place(f"{LIB}:SJ", "JP1", "Solder jumper: bridge with JP2 to terminate the car CAN bus here", 520, 200,
+      conn={'1': ('label', 'CAN0_H'), '2': ('label', 'CAN0_TERM_H')})
+place(f"{LIB}:SJ", "JP2", "Solder jumper: bridge with JP1 to terminate the car CAN bus here", 520, 290,
+      conn={'1': ('label', 'CAN0_TERM_L'), '2': ('label', 'CAN0_L')})
 place(f"{LIB}:C_V", "C16", "4.7nF SPLIT stabilization (AEC-Q200)", 580, 245,
       conn={'1': ('label', 'CAN0_SPLIT'), '2': ('pwr', 'GND')})
 # CAN0_TX/CAN0_RX/CAN0_EN/CAN0_STB_N connect to U1 purely by matching net
@@ -1034,10 +1106,12 @@ section_text("REV B: HALL SPEED INPUT (AutoMeter-type 12 V pulse sender)", 700, 
 # comfortably above the S32K144's ~2.3 V input-high level at 3.3 V; a BAV99
 # clamp holds the pin to the rails against spikes. 1 nF gives about 10 us
 # of filtering, far below the ~1 ms periods at 533 Hz (120 mph).
-place(f"{LIB}:CONN_SPEED", "J9", "KK-254 22-27-2021, Hall speed sender (signal + ground; 22 AWG pigtail, DTM06-2S plug)", 700, 380,
-      conn={'1': ('label', 'SPEED_RAW'), '2': ('pwr', 'GND', 7.62)})
-place(f"{LIB}:R_V", "R43", "4.7k pull-up to VIN_PROT for open-collector senders (AEC-Q200)", 760, 360,
-      conn={'1': ('label', 'VIN_PROT'), '2': ('label', 'SPEED_RAW')})
+# Review 2026-11-03: the pull-up and the sender's supply come from VPULL (U12, below), switched by the MCU, instead of the
+# always-on VIN_PROT: with ignition off the old pull-up drew 0.27 mA through R44/R45 and back-fed an unpowered sender.
+place(f"{LIB}:CONN_SPEED", "J9", "KK-254 22-27-2031, Hall speed sender (signal, ground, switched 12 V supply; 22 AWG pigtail, DTM06-3S plug)", 700, 380,
+      conn={'1': ('label', 'SPEED_RAW'), '2': ('pwr', 'GND', 7.62), '3': ('label', 'VPULL')})
+place(f"{LIB}:R_V", "R43", "4.7k pull-up to VPULL for open-collector senders (AEC-Q200)", 760, 360,
+      conn={'1': ('label', 'VPULL'), '2': ('label', 'SPEED_RAW')})
 place(f"{LIB}:R_V", "R44", "33k series (AEC-Q200)", 790, 380,
       conn={'1': ('label', 'SPEED_RAW'), '2': ('label', 'SPEED_IN')})
 place(f"{LIB}:R_V", "R45", "15k divider bottom (AEC-Q200)", 820, 400,
@@ -1074,8 +1148,13 @@ section_text("REV C: INDICATOR LAMPS (6 x 12 V-ACTIVE) AND TACH INPUT", 1000, 33
 # down defines it). A BAV99-Q clamp holds the pin to the rails and 10 nF gives
 # ~0.5 ms of filtering (turn-signal flashing is ~1.5 Hz; firmware debounces).
 # GROUND-SWITCHED lamps (a sender or switch that pulls the wire low when
-# active): fit the DNP 4.7k pull-up from the lamp pin to VIN_PROT; the input
+# active): fit the DNP 4.7k pull-up from the lamp pin to VPULL; the input
 # then idles high and reads low when active (firmware inverts that channel).
+# Review 2026-11-03: VPULL, not the always-on VIN_PROT. An oil-pressure switch
+# is closed whenever the engine is stopped, so a battery-fed pull-up drew 3 mA
+# per channel with the car parked; on an alternator warning-lamp circuit it
+# would have fed the regulator's I terminal with the key off (a Ford 3G then
+# energises its field from the battery).
 LAMPS = [("LAMP_TURN_L", "Left turn"), ("LAMP_TURN_R", "Right turn"),
          ("LAMP_HIGH_BEAM", "High beam"), ("LAMP_BRAKE", "Brake / parking brake"),
          ("LAMP_ALT", "Alternator / charge"), ("LAMP_OIL", "Oil pressure")]
@@ -1090,8 +1169,8 @@ for i, (net, what) in enumerate(LAMPS):
           conn={'1': ('label', net + "_RAW"), '2': ('label', net)})
     place(f"{LIB}:R_V", f"R{59 + 3 * i}", f"15k divider bottom, {what} (AEC-Q200)", x, 395,
           conn={'1': ('label', net), '2': ('pwr', 'GND')})
-    place(f"{LIB}:R_V", f"R{60 + 3 * i}", f"4.7k pull-up to VIN_PROT, DNP: fit only if the {what} lamp is ground-switched (AEC-Q200)", x, 430,
-          conn={'1': ('label', 'VIN_PROT'), '2': ('label', net + "_RAW")})
+    place(f"{LIB}:R_V", f"R{60 + 3 * i}", f"4.7k pull-up to VPULL, DNP: fit only if the {what} lamp is ground-switched (AEC-Q200)", x, 430,
+          conn={'1': ('label', 'VPULL'), '2': ('label', net + "_RAW")})
     place(f"{LIB}:C_V", f"C{50 + i}", f"10nF input filter, {what} (AEC-Q200)", x + 20, 395,
           conn={'1': ('label', net), '2': ('pwr', 'GND')})
     place(f"{LIB}:D_BAV99", f"D{16 + i}", f"BAV99-Q input clamp, {what} (AEC-Q101)", x + 25, 365,
@@ -1147,9 +1226,13 @@ place(f"{LIB}:R_1206", "R77", "18k series, tach, 200V (AEC-Q200)", 1100, 500,
       conn={'1': ('label', 'TACH_MID'), '2': ('label', 'TACH_IN')})
 place(f"{LIB}:R_V", "R78", "15k divider bottom, tach (AEC-Q200)", 1140, 520,
       conn={'1': ('label', 'TACH_IN'), '2': ('pwr', 'GND')})
-place(f"{LIB}:R_V", "R79", "4.7k pull-up to VIN_PROT, DNP: fit only for an open-collector tach output (AEC-Q200)", 1060, 540,
-      conn={'1': ('label', 'VIN_PROT'), '2': ('label', 'TACH_RAW')})
-place(f"{LIB}:C_V", "C56", "2.2nF input filter, tach (AEC-Q200)", 1170, 520,
+place(f"{LIB}:R_V", "R79", "4.7k pull-up to VPULL, DNP: fit only for an open-collector tach output (AEC-Q200)", 1060, 540,
+      conn={'1': ('label', 'VPULL'), '2': ('label', 'TACH_RAW')})
+# Review 2026-11-03: 10 nF (was 2.2 nF). With the 10.6 k source impedance the corner drops from about 6.8 kHz to 1.5 kHz:
+# a points coil's primary rings at roughly 3-4 kHz after the spark and the old filter passed it, giving extra edges per
+# spark; an 8-cylinder engine at 9000 rpm is 600 Hz, still a clean edge at a 106 us time constant. Firmware also blanks
+# edges that come sooner than half the last period (software/gauges-fw capture.c).
+place(f"{LIB}:C_V", "C56", "10nF input filter, tach (AEC-Q200)", 1170, 520,
       conn={'1': ('label', 'TACH_IN'), '2': ('pwr', 'GND')})
 place(f"{LIB}:D_BAV99", "D22", "BAV99-Q input clamp, tach (AEC-Q101)", 1200, 505,
       conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'TACH_IN')})
@@ -1246,18 +1329,30 @@ section_text("SENSOR ADC FRONT END: FUEL / OIL / TEMP / BATTERY (PLAN STEP 5)", 
 # by the series resistor. Resolution is lower than before but still
 # 3-4 counts per ohm at the low end; the ADC reference is the same 3V3 rail so
 # the reading stays ratiometric.
-place(f"{LIB}:R_1206", "R16", "1k fuel pull-up to +3V3, 1206: a wire shorted to 14.4 V puts 123 mW in it (11mW at a 10R sender) (AEC-Q200)",
+# REVIEW 2026-11-03 (section 9, G-30/G-31): the three pull-ups now hang off SENDER_EXC, switched by U11, and each ADC pin
+# gets a 6.8 k bias resistor to SENDER_BIAS (an MCU output). Two reasons:
+# 1. Key-off drain. Tied to +3V3 the pull-ups ran about 3 mA each through the senders to ground all the time the car was
+#    parked: about 9 mA on the 3.3 V rail, roughly 5 mA from the battery, three times everything else on the board.
+# 2. Ground offset. The senders return through the engine block (oil, coolant) and the tank and body (fuel); this board's
+#    ground is wherever its J1 ground wire lands. The body-to-engine strap carries the body loads' return current, so the two
+#    grounds commonly sit 10-500 mV apart. A 10 ohm sender with 3.3 mA through it is only 33 mV, so with the old single-ended
+#    reading a full tank, a hot engine or high oil pressure read as a shorted sender. Firmware now reads each channel twice,
+#    excitation on and off: the difference is the sender's own I x R and its ground offset cancels (both phases see it). The
+#    bias shifts each ADC pin up by 0.42 V so an offset down to about -0.48 V stays readable in the off phase. With U11 off
+#    its output floats (QOD and CT open), so in the off phase the three pull-ups only join the three sender nodes, which the
+#    firmware measures and accounts for.
+place(f"{LIB}:R_1206", "R16", "1k fuel pull-up to SENDER_EXC, 1206: a wire shorted to 14.4 V puts 123 mW in it (11mW at a 10R sender) (AEC-Q200)",
       30, 590,
-      conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_FUEL')})
+      conn={'1': ('label', 'SENDER_EXC'), '2': ('label', 'SENDER_FUEL')})
 place(f"{LIB}:R_V", "R55", "1k fuel ADC series (AEC-Q200)", 30, 620,
       conn={'1': ('label', 'SENDER_FUEL'), '2': ('label', 'ADC_FUEL')})
 place(f"{LIB}:D_BAV99", "D12", "BAV99-Q fuel input clamp (AEC-Q101)", 70, 625,
       conn={'1': ('pwr', 'GND'), '2': ('pwr', '+3V3'), '3': ('label', 'ADC_FUEL')})
 place(f"{LIB}:C_V", "C28", "100nF ADC_FUEL smoothing (AEC-Q200)", 60, 590,
       conn={'1': ('label', 'ADC_FUEL'), '2': ('pwr', 'GND')})
-place(f"{LIB}:R_1206", "R17", "1k oil pull-up to +3V3, 1206 (AEC-Q200)",
+place(f"{LIB}:R_1206", "R17", "1k oil pull-up to SENDER_EXC, 1206 (AEC-Q200)",
       110, 590,
-      conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_OIL')})
+      conn={'1': ('label', 'SENDER_EXC'), '2': ('label', 'SENDER_OIL')})
 place(f"{LIB}:R_V", "R56", "1k oil ADC series (AEC-Q200)", 110, 620,
       conn={'1': ('label', 'SENDER_OIL'), '2': ('label', 'ADC_OIL')})
 place(f"{LIB}:D_BAV99", "D13", "BAV99-Q oil input clamp (AEC-Q101)", 150, 625,
@@ -1270,9 +1365,9 @@ place(f"{LIB}:C_V", "C29", "100nF ADC_OIL smoothing (AEC-Q200)", 140, 590,
 # hot) up to Vout=2.48V at 300R (70F, cold) - a real, wide, usable swing
 # across the sender's genuine full range, not reused from the fuel/oil
 # value just because it's convenient.
-place(f"{LIB}:R_1206", "R18", "1k coolant temp pull-up to +3V3, 1206 (AEC-Q200)",
+place(f"{LIB}:R_1206", "R18", "1k coolant temp pull-up to SENDER_EXC, 1206 (AEC-Q200)",
       190, 590,
-      conn={'1': ('pwr', '+3V3'), '2': ('label', 'SENDER_TEMP')})
+      conn={'1': ('label', 'SENDER_EXC'), '2': ('label', 'SENDER_TEMP')})
 place(f"{LIB}:R_V", "R57", "1k temp ADC series (AEC-Q200)", 190, 620,
       conn={'1': ('label', 'SENDER_TEMP'), '2': ('label', 'ADC_TEMP')})
 place(f"{LIB}:D_BAV99", "D14", "BAV99-Q temp input clamp (AEC-Q101)", 230, 625,
@@ -1374,6 +1469,50 @@ place(f"{LIB}:C_1210", "C59", "10uF 50V X7S extra bulk at VIN_PROT (AEC-Q200)", 
 place(f"{LIB}:C_1210", "C60", "10uF 50V X7S extra bulk at VIN_PROT (AEC-Q200)", 560, 740,
       conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
 
+# ============================ REVIEW 2026-11-03 (docs/electrical-review.md section 9) ===============================
+section_text("REVIEW 2026-11-03: SWITCHED SENDER EXCITATION + ADC BIAS (U11), SWITCHED 12 V PULL-UP / SENSOR RAIL (U12)", 30, 765)
+# U11: sender excitation, see the comment at R16. ON from SENDER_EXC_EN (PTD2), held off by R94 while the MCU resets.
+place(f"{LIB}:TPS22918", "U11", "TPS22918-Q1 sender excitation switch (AEC-Q100 G2)", 80, 790,
+      conn={'1': ('pwr', '+3V3', 5.08), '3': ('label', 'SENDER_EXC_EN', 5.08),
+            '6': ('label', 'SENDER_EXC', 5.08), '5': ('nc',),
+            '2': ('pwr', 'GND', 5.08), '4': ('nc',)})
+place(f"{LIB}:C_V", "C65", "1uF X7R U11 input (AEC-Q200)", 40, 815,
+      conn={'1': ('pwr', '+3V3'), '2': ('pwr', 'GND')})
+# 100 nF, a tenth of CIN (TI recommends CIN:CL of 10:1 so VOUT cannot stay above VIN when the supply is removed).
+place(f"{LIB}:C_V", "C66", "100nF SENDER_EXC (AEC-Q200)", 140, 815,
+      conn={'1': ('label', 'SENDER_EXC'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R94", "100k SENDER_EXC_EN pull-down, excitation off while the MCU resets (AEC-Q200)", 180, 815,
+      conn={'1': ('label', 'SENDER_EXC_EN'), '2': ('pwr', 'GND')})
+# ADC bias: 6.8 k from each sender ADC pin to SENDER_BIAS (PTE6 driven high while awake, low in VLPS so it draws nothing
+# with the car off). ADC pin = 0.872 x sender node + 0.128 x 3.3 V, so a node down to -0.48 V stays above 0 V. The bias
+# voltage itself cancels in the on-minus-off difference, so a GPIO output is accurate enough to drive it.
+for _i, (_adc, _what) in enumerate((("ADC_FUEL", "fuel"), ("ADC_OIL", "oil"), ("ADC_TEMP", "coolant"))):
+    place(f"{LIB}:R_V", f"R{95 + _i}", f"6.8k ADC bias, {_what} sender (AEC-Q200)", 230 + 40 * _i, 790,
+          conn={'1': ('label', 'SENDER_BIAS'), '2': ('label', _adc)})
+place(f"{LIB}:C_V", "C67", "100nF SENDER_BIAS (AEC-Q200)", 360, 815,
+      conn={'1': ('label', 'SENDER_BIAS'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R98", "100k SENDER_BIAS pull-down while the MCU resets (AEC-Q200)", 400, 815,
+      conn={'1': ('label', 'SENDER_BIAS'), '2': ('pwr', 'GND')})
+# U12: VPULL, the 12 V rail for the lamp/tach pull-ups and the Hall sender's supply (J9 pin 3). IN from VPULL_EN (PTE2)
+# through 10 k (TI's R(SER)); IN has its own 150-400 k pull-down, so the rail is off while the MCU resets. DIAG_EN to GND
+# (diagnostics off: 0.5 uA standby, FAULT unused). Current limit R(CL) = 0.8 V x 600 / 0.148 A = 3.24 k (+-15 % above
+# 150 mA): the Hall sender (about 20 mA) plus up to eight 4.7 k pull-ups into grounded wires (24 mA) is about 50 mA.
+# DELAY pulled up through 100 k to VS selects auto-retry, so a shorted sensor wire hiccups instead of heating the part.
+place(f"{LIB}:TPS1H000", "U12", "TPS1H000-Q1 switched 12 V for pull-ups and the Hall sender (AEC-Q100 G1)", 560, 790,
+      conn={'8': ('label', 'VIN_PROT', 5.08), '1': ('label', 'VPULL_IN', 5.08), '2': ('pwr', 'GND', 5.08),
+            '7': ('label', 'VPULL', 5.08), '3': ('nc',), '5': ('label', 'VPULL_DLY', 5.08),
+            '6': ('pwr', 'GND', 5.08), '4': ('label', 'VPULL_CL', 5.08), '9': ('pwr', 'GND', 7.62)})
+place(f"{LIB}:R_V", "R90", "10k VPULL_EN series (TI R(SER)) (AEC-Q200)", 480, 815,
+      conn={'1': ('label', 'VPULL_EN'), '2': ('label', 'VPULL_IN')})
+place(f"{LIB}:R_V", "R91", "3.24k 1% R(CL), 148 mA current limit (AEC-Q200)", 640, 815,
+      conn={'1': ('label', 'VPULL_CL'), '2': ('pwr', 'GND')})
+place(f"{LIB}:R_V", "R92", "100k DELAY pull-up to VS: auto-retry (AEC-Q200)", 680, 815,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('label', 'VPULL_DLY')})
+place(f"{LIB}:C_V", "C63", "100nF 50V U12 VS decoupling (AEC-Q200)", 720, 815,
+      conn={'1': ('label', 'VIN_PROT'), '2': ('pwr', 'GND')})
+place(f"{LIB}:C_V", "C64", "10nF 50V VPULL output (ESD, AEC-Q200)", 760, 815,
+      conn={'1': ('label', 'VPULL'), '2': ('pwr', 'GND')})
+
 NOTE_LINES = [
     "NOTES:",
     "1. Power nets (+5V, +3V3, GND, VIN) use power symbols throughout; signal nets use",
@@ -1394,7 +1533,7 @@ NOTE_LINES = [
     "   Q101 = AEC-Q101 (discretes) - Q200 = AEC-Q200 (passives).",
     "6. Harness (decided 2026-10-17, docs/harness.md): J1 Phoenix MKDS with a 20 AWG GXL",
     "   pigtail and DTM06-3S plug; J7/J9/J10/J11 KK 254 headers with 22 AWG pigtails and",
-    "   DTM06-6S / -2S / -08SA / -2S plugs; J8 an in-dash KK 254 cable to display/ J3.",
+    "   DTM06-6S / -3S / -08SA / -2S plugs; J8 an in-dash KK 254 cable to display/ J3.",
     "   No sealed connector is mounted on the board.",
     "7. RE-SCOPED 2026-09-25: this board is the small-gauges half of Cluster's Android",
     "   Automotive re-architecture - the center speedo (BT817AQ + ST7701S) moved to a",

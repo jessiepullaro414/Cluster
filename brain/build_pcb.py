@@ -979,7 +979,7 @@ TRUNK_WIDTH_LADDER = [1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
 # Brain board (2026-10-20): the panel converters' switch nodes left with the
 # panel; each screen port's switched 5 V (up to the TPS2557-Q1's 1.98 A limit)
 # is widened instead.
-TRUNK_NETS = ["+12V_PROT", "VBAT_IN", "VBAT_F", "SENSE_OUT", "COMMON", "SW_5V", "PORTA_5V", "PORTB_5V"]
+TRUNK_NETS = ["+12V_PROT", "VBAT_IN", "VBAT_F", "SENSE_HI", "COMMON", "SW_5V", "PORTA_5V", "PORTB_5V"]
 
 board.to_file(PCB)
 print("Wrote", PCB)

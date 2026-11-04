@@ -22,7 +22,7 @@ NET_WEIGHT = {
     "GND": 0.15, "+5V": 0.4, "+3V3": 0.3, "VIN_PROT": 0.4, "VIN_FUSED": 0.5,
     "VDDA": 3, "OSC_IN": 3, "OSC_OUT": 3, "RESET": 1, "CAN0_SPLIT": 2, "CAN1_SPLIT": 2,
     "SW": 8, "BOOT_CAP": 4, "FB": 3, "VCC_INT": 3,
-    "DGATE": 3, "HGATE": 3, "COMMON": 3, "CS_PLUS": 2, "SENSE_OUT": 2,
+    "DGATE": 3, "HGATE": 3, "COMMON": 3, "CS_PLUS": 2, "SENSE_HI": 2, "LM_VS": 2, "HGATE_DVDT": 3, "SENSE_TAP": 3, "CS_MINUS": 3,
     "CAP_CP": 2, "TMR": 2, "OV_DIV": 2, "UVLO_DIV": 2,
 }
 
@@ -48,20 +48,29 @@ CELLS = {
     # LM74930-Q1 ideal diode / surge front end.
     "FRONT": dict(
         anchor="U3",
-        order=["Q1", "Q3", "R49", "R48", "C48", "C49", "C47", "R50", "R51", "R52",
-               "R53", "R54", "D1"],
+        order=["Q1", "Q3", "C47", "R49", "R48", "C48", "C49", "D34", "R89", "C61", "R50", "R51", "R52",
+               "R53", "R54", "C62", "D1"],
         pulls={
-            "R48": {"CS_PLUS": pull("U3", [20], 4)},
+            "R49": {"SENSE_TAP": pull("U3", [18], 3), "CS_MINUS": pull("U3", [19], 3)},   # review 2026-11-03: Kelvin taps at the IC
+            "R48": {"CS_PLUS": pull("U3", [20], 4), "SENSE_TAP": pull("R49", [3], 4)},
             "C48": {"CAP_CP": pull("U3", [23], 4)},
             "C49": {"TMR": pull("U3", [9], 4)},
-            "C47": {"VIN_FUSED": pull("U3", [6, 7, 22], 3)},
+            # review 2026-11-03: VS (pin 22, with EN 6 and MODE 7) now comes through D34; C47 and D34 sit at the pin
+            "C47": {"LM_VS": pull("U3", [22], 8)},     # placed right after the FETs: 7.5 mm from pin 22 otherwise
+            "D34": {"LM_VS": pull("U3", [22], 4)},
+            "R89": {"HGATE": pull("U3", [14], 4)},
+            "C61": {"HGATE_DVDT": pull("R89", [2], 3)},
+            "C62": {"VIN_FUSED": pull("Q3", [5], 5)},
             "R50": {"ILIM": pull("U3", [11], 3)},
             # 2026-10-19: the OV/UV dividers had no pull, so on six layers
             # FreeRouting left SW_SENSE (U3 pin 3) unrouted every attempt.
             # Pulling all four divider parts made the POWER zone pack 9.4 mm
             # taller (72.8 mm board); R51 alone keeps the 63.4 mm outline.
             "R51": {"SW_SENSE": pull("U3", [3], 4)},
-        }),
+        },
+        # review 2026-11-03: the four new parts (D34, R89, C61, C62) stacked the cell to 17.9 mm and the board grew 5.5 mm;
+        # a flat keep-in lays it out wider instead, and the POWER zone in build_pcb.py is allowed the width.
+        keepin=(-22.0, -7.0, 22.0, 7.0)),
     # S32K144 (LQFP-64): VDD pins 7 and 41, VDDA 8, VREFH 9, VSS/VREFL 10 and 40, XTAL 11/12, RESET_b 63, SPI SCK 29, MOSI 25.
     "MCU": dict(
         anchor="U1",
@@ -104,6 +113,17 @@ CELLS = {
     "J7": dict(anchor="J7", order=["D28", "D29", "D30"], pulls={}),
     "J8": dict(anchor="J8", order=["D31"], pulls={}),
     "J9": dict(anchor="J9", order=["D32"], pulls={}),
+    # review 2026-11-03: the sender excitation switch and the 12 V pull-up / sensor-supply switch, each with its parts
+    "SENDEXC": dict(anchor="U11", order=["C65", "C66", "R94"],
+                    pulls={"C65": {"+3V3": pull("U11", [1], 4), "GND": pull("U11", [2], 4)},
+                           "C66": {"SENDER_EXC": pull("U11", [6], 4)},
+                           "R94": {"SENDER_EXC_EN": pull("U11", [3], 4)}}),
+    "VPULL": dict(anchor="U12", order=["C63", "R91", "R92", "R90", "C64"],
+                  pulls={"C63": {"VIN_PROT": pull("U12", [8], 4), "GND": pull("U12", [6], 4)},
+                         "R91": {"VPULL_CL": pull("U12", [4], 3)},
+                         "R92": {"VPULL_DLY": pull("U12", [5], 3)},
+                         "R90": {"VPULL_IN": pull("U12", [1], 3)},
+                         "C64": {"VPULL": pull("U12", [7], 4)}}),
     "INPUT": dict(anchor="J1", order=["F1"],
                   pulls={"F1": {"VIN": pull("J1", [1], 6)}}),
     "LDO": dict(anchor="U4", order=["C3", "C58"],

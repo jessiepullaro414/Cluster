@@ -77,6 +77,10 @@ GAUGES["U1"] = dict(
         38: ("PTA6", [("net", "LAMP_BRAKE"), ("fn", "PTA6")]),
         43: ("PTB12", [("net", "LAMP_ALT"), ("fn", "PTB12")]),
         44: ("PTD4", [("net", "LAMP_OIL"), ("fn", "PTD4")]),
+        # review 2026-11-03: sender excitation (U11 ON), the senders' ADC bias, the 12 V pull-up rail (U12 IN)
+        46: ("PTD2", [("net", "SENDER_EXC_EN"), ("fn", "PTD2")]),
+        53: ("PTE6", [("net", "SENDER_BIAS"), ("fn", "PTE6")]),
+        54: ("PTE2", [("net", "VPULL_EN"), ("fn", "PTE2")]),
     },
     # datasheet Table 7 + Figure 6 (64 LQFP): one CDEC per VDD pin, CREF on VREFH/VDDA,
     # >= 70 nF effective after aging/tolerance, placed within 2 mm of the pin
@@ -118,27 +122,33 @@ GAUGES["U3"] = dict(
         1: ("DGATE", [("net", "DGATE")]), 2: ("A", [("net", "COMMON")]),
         3: ("SW", [("net", "SW_SENSE")]),
         4: ("UVLO", [("net", "UVLO_DIV")]), 5: ("OV", [("net", "OV_DIV")]),
-        6: ("EN", [("net", "VIN_FUSED")]), 7: ("MODE", [("net", "VIN_FUSED")]),
+        # REVIEW 2026-11-03 (section 9, F-01/F-02): TI's common-source topology (SNOSDF6 Figure 8-1, 7.3.6). The sense
+        # resistor sits on the OUTPUT side, after the DGATE FET: C and ISCP on its top (SENSE_HI), RSET from that node to
+        # CS+, CS- on the output. ISCP and CS+ may be at most +-0.3 V from CS- (absolute maximum), and C, VS, CS+, CS-,
+        # ISCP must stay above -1 V; only A (-65 V) may see a reversed battery. VS, and EN and MODE tied to it for
+        # always-on operation, come through the diode D34 (LM_VS).
+        6: ("EN", [("net", "LM_VS")]), 7: ("MODE", [("net", "LM_VS")]),
         8: ("N.C", [("nc",)]),
         9: ("TMR", [("c", "GND", 10e-9)]),
         10: ("IMON", [("nc",)]),                      # "if unused, leave floating"
         11: ("ILIM", [("r", "GND", 10e3, 500e3)]),
         12: ("FLT", [("nc",)]),
         13: ("GND", [("net", "GND")]),
-        14: ("HGATE", [("net", "HGATE")]), 15: ("OUT", [("net", "COMMON")]),
+        14: ("HGATE", [("net", "HGATE"), ("r", "HGATE_DVDT", 47, 220)]),   # RG + CdVdT (7.3.2.1: required for inrush)
+        15: ("OUT", [("net", "COMMON")]),
         16: ("OVCLAMP", [("same", "5")]),            # tied to OV = clamp with circuit breaker
         17: ("N.C", [("nc",)]),
-        18: ("ISCP", [("same", "24")]),              # tied to C = internal 20 mV SCP threshold
-        19: ("CS-", [("net", "SENSE_OUT")]),
-        20: ("CS+", [("r", "VIN_FUSED", 49.9, 100)]),  # 50-100 ohm RSET to the sense resistor
+        18: ("ISCP", [("net", "SENSE_TAP")]),        # the top of RSENSE, its Kelvin tap: the internal 20 mV SCP threshold
+        19: ("CS-", [("net", "CS_MINUS")]),          # the bottom (output side) of RSENSE, its Kelvin tap
+        20: ("CS+", [("r", "SENSE_TAP", 49.9, 100)]),  # 50-100 ohm RSET to the top of RSENSE's Kelvin tap
         21: ("N.C", [("nc",)]),
-        22: ("VS", [("net", "VIN_FUSED"), ("c", "GND", 100e-9)]),
-        23: ("CAP", [("c", "VIN_FUSED", 100e-9)]),
-        24: ("C", [("net", "VIN_PROT")]),
+        22: ("VS", [("net", "LM_VS"), ("c", "GND", 1e-6)]),   # 8.2.2.1: a minimum of 1 uF CVS
+        23: ("CAP", [("c", "LM_VS", 100e-9)]),       # CAP to VS
+        24: ("C", [("net", "SENSE_HI")]),            # the DGATE FET's drain, the current path into RSENSE
         25: ("RTN", [("nc",)]),                       # "Leave exposed pad floating. Do not connect to GND plane"
     },
     decap=[
-        dict(pin="22", net="VIN_FUSED", min_nom=100e-9, max_mm=8.0, why="VS: 100 nF to GND (pin table); TI's 8.2.2.1 example asks for >= 1 uF (see findings)"),
+        dict(pin="22", net="LM_VS", min_nom=1e-6, max_mm=5.0, why="VS: a minimum of 1 uF CVS (8.2.2.1)"),
     ],
 )
 
@@ -250,14 +260,14 @@ GAUGES["J2"] = dict(
 
 # LM74930 FET pair since 2026-10-18: Vishay SQJ460AEP, PowerPAK SO-8L, pins 1-3 source, 4 gate, 5 (tab) drain
 SQJ460AEP_DS = "Vishay SQJ460AEP S22-0167 Rev. D 14-Feb-2022 page 1 (pinning, ratings)"
-for _q, g, d in (("Q1", "DGATE", "VIN_PROT"), ("Q3", "HGATE", "SENSE_OUT")):
+for _q, g, d in (("Q1", "DGATE", "SENSE_HI"), ("Q3", "HGATE", "VIN_FUSED")):
     GAUGES[_q] = dict(part="Vishay SQJ460AEP", status="READ", ds=SQJ460AEP_DS,
                       pins={1: ("S", [("net", "COMMON")]), 2: ("S", [("net", "COMMON")]),
                             3: ("S", [("net", "COMMON")]), 4: ("G", [("net", g)]), 5: ("D", [("net", d)])})
 # PMV55ENEA (SOT23, Nexperia 21 Mar 2016 table 2): pin 1 = gate, 2 = source, 3 = drain; still display/ Q3
 PMV55ENEA_DS = "Nexperia PMV55ENEA 21 Mar 2016 table 2, 5, 7"
-GAUGES["Q2"] = dict(part="Nexperia PMV37ENEA", status="PRIOR",
-                    ds="pin order assumed identical to PMV55ENEA (same SOT23 outline and series); datasheet not retrievable here",
+GAUGES["Q2"] = dict(part="Nexperia PMV37ENEA", status="READ",
+                    ds="Nexperia PMV37ENEA 21 May 2019 pinning table, 1 G, 2 S, 3 D (read through a datasheet mirror; nexperia.com refuses scripted downloads)",
                     pins={1: ("G", [("net", "BL_GATE")]), 2: ("S", [("net", "GND")]),
                           3: ("D", [("net", "AUX_VLED_RTN")])})
 # BAV99-Q (SOT23): 1 = anode 1, 2 = cathode 2, 3 = common (Nexperia BAV99 series Rev 8, table 3)
@@ -270,6 +280,44 @@ for _d in ("D24", "D25"):
     GAUGES[_d] = dict(part="Nexperia BAV99-Q reverse clamp (arrow LED)", status="READ",
                       ds="Nexperia BAV99 series Rev. 8",
                       pins={1: ("A1", [("net", "GND")]), 2: ("K2", [("nc",)]), 3: ("CA", [("free",)])})
+# R49 (review 2026-11-03, F-01, F-04): the sense resistor is after the DGATE FET, its taps are nets of their own (pads 3, 4)
+GAUGES["R49"] = dict(part="Susumu KRL3216E-M-R005-F-T5 on the Kelvin land pattern", status="READ",
+                     ds="TI SNOSDF6 Figure 8-1, 8.5.1; land pattern tools/make_kelvin_footprint.py",
+                     pins={1: ("~", [("net", "SENSE_HI")]), 2: ("~", [("net", "VIN_PROT")]),
+                           3: ("S1", [("net", "SENSE_TAP")]), 4: ("S2", [("net", "CS_MINUS")])})
+# D34 (review 2026-11-03): one section as the LM74930's VS supply diode, anode on the fused input
+GAUGES["D34"] = dict(part="Nexperia BAV99-Q (one section, LM74930 VS diode)", status="READ",
+                     ds="Nexperia BAV99 series Rev. 8",
+                     pins={1: ("A1", [("net", "VIN_FUSED")]), 2: ("K2", [("nc",)]), 3: ("CA", [("net", "LM_VS")])})
+# U11 (review 2026-11-03): the sender excitation switch, same part and pin table as brain/ U8 and U15
+GAUGES["U11"] = dict(
+    part="TI TPS22918QDBVRQ1, SOT-23-6", status="READ",
+    ds="TI SLVSCZ8B (Dec 2019) pin functions, 6.1, 9.2.3 (VOUT to VIN body diode)",
+    pins={
+        1: ("VIN", [("net", "+3V3")]), 2: ("GND", [("net", "GND")]),
+        3: ("ON", [("net", "SENDER_EXC_EN"), ("r", "GND", 10e3, 1e6)]),   # off while the MCU pin is high impedance
+        4: ("CT", [("nc",)]), 5: ("QOD", [("nc",)]),   # QOD open: VOUT floats when off (the firmware model needs that)
+        6: ("VOUT", [("net", "SENDER_EXC")]),
+    },
+    decap=[dict(pin="1", net="+3V3", min_nom=1e-6, max_mm=5.0, why="CIN >= 1 uF, 10x CL (9.2.3)")],
+)
+# U12 (review 2026-11-03): TI TPS1H000-Q1, HVSSOP-8 DGN0008K (SLVSDO6E table 4-1)
+GAUGES["U12"] = dict(
+    part="TI TPS1H000AQDGNRQ1, HVSSOP-8 PowerPAD", status="READ",
+    ds="TI SLVSDO6E (rev. May 2026) table 4-1, 5.1, 5.5, 6.3.2 (DELAY modes), 7.2 (R(CL) = 0.8 V x 600 / I)",
+    pins={
+        1: ("IN", [("r", "VPULL_EN", 1e3, 47e3)]),     # TI R(SER) from the MCU; IN has its own 150-400 k pull-down
+        2: ("DIAG_EN", [("net", "GND")]),             # diagnostics off: 0.5 uA standby
+        3: ("FAULT", [("nc",)]),                      # "Leave floating if not used"
+        4: ("CL", [("r", "GND", 1e3, 10e3)]),          # 3.24 k = 148 mA
+        5: ("DELAY", [("r", "VIN_PROT", 47e3, 220e3)]),  # pulled up to VS through 100 k: auto-retry
+        6: ("GND", [("net", "GND")]),
+        7: ("OUT", [("net", "VPULL")]),
+        8: ("VS", [("net", "VIN_PROT")]),
+        9: ("EP", [("net", "GND")]),                  # "Connect to device GND or leave floating"
+    },
+    decap=[dict(pin="8", net="VIN_PROT", min_nom=100e-9, max_mm=5.0, why="VS decoupling")],
+)
 for _d in ("D26", "D27"):
     GAUGES[_d] = dict(part="ROHM CSL0902ET1C green LED", status="READ",
                       ds="ROHM CSL0902ET1(C) Rev.007 figure 1 (cathode index)",
@@ -285,19 +333,20 @@ DISPLAY["U1"] = dict(
     pins={
         1: ("DGATE", [("net", "DGATE")]), 2: ("A", [("net", "COMMON")]),
         3: ("SW", [("net", "SW_SENSE")]), 4: ("UVLO", [("net", "UVLO_DIV")]),
-        5: ("OV", [("net", "OV_DIV")]), 6: ("EN", [("net", "VBAT_F")]),
-        7: ("MODE", [("net", "VBAT_F")]), 8: ("N.C", [("nc",)]),
+        # review 2026-11-03: EN from the ignition power latch, MODE/VS behind the diode D9, sense resistor on the output
+        5: ("OV", [("net", "OV_DIV")]), 6: ("EN", [("net", "BRAIN_EN"), ("r", "GND", 47e3, 470e3)]),
+        7: ("MODE", [("net", "LM_VS")]), 8: ("N.C", [("nc",)]),
         9: ("TMR", [("c", "GND", 10e-9)]), 10: ("IMON", [("free",)]),
         11: ("ILIM", [("r", "GND", 10e3, 500e3)]), 12: ("FLT", [("free",)]),
-        13: ("GND", [("net", "GND")]), 14: ("HGATE", [("net", "HGATE")]),
+        13: ("GND", [("net", "GND")]), 14: ("HGATE", [("net", "HGATE"), ("r", "HGATE_DVDT", 47, 220)]),
         15: ("OUT", [("net", "COMMON")]), 16: ("OVCLAMP", [("same", "5")]),
-        17: ("N.C", [("nc",)]), 18: ("ISCP", [("same", "24")]),
-        19: ("CS-", [("net", "SENSE_OUT")]), 20: ("CS+", [("r", "VBAT_F", 49.9, 100)]),
-        21: ("N.C", [("nc",)]), 22: ("VS", [("net", "VBAT_F"), ("c", "GND", 100e-9)]),
-        23: ("CAP", [("c", "VBAT_F", 100e-9)]), 24: ("C", [("net", "+12V_PROT")]),
+        17: ("N.C", [("nc",)]), 18: ("ISCP", [("net", "SENSE_TAP")]),
+        19: ("CS-", [("net", "CS_MINUS")]), 20: ("CS+", [("r", "SENSE_TAP", 49.9, 100)]),
+        21: ("N.C", [("nc",)]), 22: ("VS", [("net", "LM_VS"), ("c", "GND", 1e-6)]),
+        23: ("CAP", [("c", "LM_VS", 100e-9)]), 24: ("C", [("net", "SENSE_HI")]),
         25: ("RTN", [("nc",)]),
     },
-    decap=[dict(pin="22", net="VBAT_F", min_nom=100e-9, max_mm=5.0, why="VS 100 nF")],
+    decap=[dict(pin="22", net="LM_VS", min_nom=1e-6, max_mm=5.0, why="VS: a minimum of 1 uF CVS (8.2.2.1)")],
 )
 
 DISPLAY["U2"] = dict(
@@ -408,7 +457,7 @@ DISPLAY["U15"] = dict(
     decap=[dict(pin="1", net="+5V", min_nom=1e-6, max_mm=5.0, why="CIN >= 1 uF")],
 )
 
-for _q, g, d in (("Q1", "DGATE", "+12V_PROT"), ("Q2", "HGATE", "SENSE_OUT")):
+for _q, g, d in (("Q1", "DGATE", "SENSE_HI"), ("Q2", "HGATE", "VBAT_F")):
     DISPLAY[_q] = dict(part="Vishay SQJ460AEP", status="READ", ds=SQJ460AEP_DS,
                        pins={1: ("S1", [("net", "COMMON")]), 2: ("S2", [("net", "COMMON")]),
                              3: ("S3", [("net", "COMMON")]), 4: ("G", [("net", g)]), 5: ("D", [("net", d)])})
@@ -417,6 +466,15 @@ DISPLAY["Q3"] = dict(part="Nexperia PMV55ENEA", status="READ", ds=PMV55ENEA_DS,
 for _d in ("D5", "D6", "D7"):
     DISPLAY[_d] = dict(part="Nexperia BAV99-Q clamp", status="READ", ds=GAUGES["D10"]["ds"],
                        pins={1: ("A1", [("net", "GND")]), 2: ("K2", [("free",)]), 3: ("CA", [("free",)])})
+DISPLAY["R1"] = dict(part="Susumu KRL3216E-C-R002-G-T5 on the Kelvin land pattern", status="READ",
+                     ds="TI SNOSDF6 Figure 8-1, 8.5.1; land pattern tools/make_kelvin_footprint.py",
+                     pins={1: ("1", [("net", "SENSE_HI")]), 2: ("2", [("net", "+12V_PROT")]),
+                           3: ("S1", [("net", "SENSE_TAP")]), 4: ("S2", [("net", "CS_MINUS")])})
+# review 2026-11-03: single BAV99-Q sections as the LM74930 VS diode (D9) and the ignition / PWR_EN_MOCI
+# OR diodes of the power latch into EN (D10, D11); pin 1 anode, pin 3 cathode, pin 2 unused
+for _d, a, k in (("D9", "VBAT_F", "LM_VS"), ("D10", "IGN_EN_DIV", "BRAIN_EN"), ("D11", "PWR_EN_MOCI", "BRAIN_EN")):
+    DISPLAY[_d] = dict(part="Nexperia BAV99-Q (one section)", status="READ", ds=GAUGES["D10"]["ds"],
+                       pins={1: ("A1", [("net", a)]), 2: ("K2", [("nc",)]), 3: ("CA", [("net", k)])})
 
 # --- display/ audio and USB host (commit c307bf5), read against their datasheets 2026-10-17 ---
 DISPLAY["U9"] = dict(

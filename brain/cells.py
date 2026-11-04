@@ -26,8 +26,10 @@ NET_WEIGHT = {
     "EN_5V": 2,
     "FB_1V8": 3,
     "PORTA_ILIM": 3, "PORTB_ILIM": 3, "PORTA_5V": 1, "PORTB_5V": 1,
-    "DGATE": 3, "HGATE": 3, "COMMON": 3, "CS_PLUS": 2, "SENSE_OUT": 2,
+    "DGATE": 3, "HGATE": 3, "COMMON": 3, "CS_PLUS": 2, "SENSE_HI": 2,
     "CAP_CP": 2, "TMR": 2,
+    # review 2026-11-03: LM74930 VS diode, HGATE dV/dt network, ignition power latch
+    "LM_VS": 2, "HGATE_DVDT": 3, "BRAIN_EN": 2, "IGN_EN_DIV": 2, "SENSE_TAP": 3, "CS_MINUS": 3,
 }
 
 
@@ -60,18 +62,29 @@ CELLS = {
         }),
     "FRONT": dict(
         anchor="U1",
-        order=["Q1", "Q2", "R1", "C3", "R2", "C4", "C2", "R3", "R4", "R5", "R6",
-               "R7", "R8", "R15", "D1", "C1"],
+        # (review 2026-11-03: the input TVS D1 moved to the INPUT cell, beside the fuse it follows, and so did the
+        # 100 uF hold-up capacitor C1 (bulk on +12V_PROT: the buck keeps its own ceramics at its pins), so the
+        # keep-in below fits the front end alone and the bottom row keeps its height)
+        order=["Q1", "Q2", "R1", "C3", "R2", "C4", "C2", "D9", "R87", "C85", "D10", "D11", "R90",
+               "R3", "R4", "R5", "R6", "R7", "R8", "R15", "C86"],
         pulls={
-            # 2026-10-20: R2's VBAT_F end to R1's input pad (the Kelvin point
-            # RSET wants anyway). With only the CS_PLUS pull R2 sat on R1's
-            # output side, and the router threaded SENSE_OUT (2.6 A) between
-            # its two pads at 0.3 mm.
-            "R2": {"CS_PLUS": pull("U1", [20], 4), "VBAT_F": pull("R1", [1], 6)},
-            # C3 between CAP (pin 23) and VS (pin 22), not on the R1 -> Q2 line either
-            "C3": {"CAP_CP": pull("U1", [23], 4), "VBAT_F": pull("U1", [22], 4)},
+            # 2026-10-20: R2's far end to R1's top pad (the Kelvin point RSET wants anyway). Since the review of
+            # 2026-11-03 R1 sits on the output side (SENSE_HI -> +12V_PROT), so that end is SENSE_HI now.
+            "R1": {"SENSE_TAP": pull("U1", [18], 3), "CS_MINUS": pull("U1", [19], 3)},
+            "R2": {"CS_PLUS": pull("U1", [20], 4), "SENSE_TAP": pull("R1", [3], 6)},
+            # C3 between CAP (pin 23) and VS (pin 22)
+            "C3": {"CAP_CP": pull("U1", [23], 4), "LM_VS": pull("U1", [22], 4)},
             "C4": {"TMR": pull("U1", [9], 4)},
-            "C2": {"VBAT_F": pull("U1", [6, 7, 22], 3)},
+            # review 2026-11-03: VS (pin 22, MODE pin 7) through D9 with the 1 uF CVS at the pin; the HGATE dV/dt
+            # network at pin 14; the ignition-latch diodes and pull-down at EN (pin 6); the input capacitor at Q2
+            "C2": {"LM_VS": pull("U1", [22], 3)},
+            "D9": {"LM_VS": pull("U1", [22], 4)},
+            "R87": {"HGATE": pull("U1", [14], 4)},
+            "C85": {"HGATE_DVDT": pull("R87", [2], 3)},
+            "D10": {"BRAIN_EN": pull("U1", [6], 4)},
+            "D11": {"BRAIN_EN": pull("U1", [6], 4)},
+            "R90": {"BRAIN_EN": pull("U1", [6], 3)},
+            "C86": {"VBAT_F": pull("Q2", [5], 5)},
             "R3": {"ILIM": pull("U1", [11], 3)},
             "R4": {"IMON": pull("U1", [10], 3)},
             "R15": {"PWR_FLT": pull("U1", [12], 2)},
@@ -79,7 +92,11 @@ CELLS = {
             # FreeRouting left SW_SENSE (U1 pin 3) unrouted. Pulling R7 too
             # (or all four) packs the board 3.6-7.2 mm taller than 105 mm.
             "R5": {"SW_SENSE": pull("U1", [3], 4)},
-        }),
+        },
+        # review 2026-11-03: with the seven new front-end parts (VS diode and CVS, the HGATE dV/dt network, the
+        # latch diodes and pull-down, the input capacitor) the free placement stacked the cell to 33 mm and the
+        # board to 120 mm, over the dash opening's 116.7 mm; a flat keep-in lays it out along the bottom row.
+        keepin=(-20.0, -9.0, 20.0, 9.0)),
     "LDO": dict(
         anchor="U3",
         order=["C9", "C10", "R17", "R18"],
@@ -103,12 +120,15 @@ CELLS = {
     # board edge; the protected path then runs to the FRONT cell.
     "INPUT": dict(
         anchor="J2",
-        order=["F1"],
-        pulls={"F1": {"VBAT_IN": pull("J2", [1], 6)}}),
+        order=["F1", "D1", "C1"],
+        pulls={"F1": {"VBAT_IN": pull("J2", [1], 6)},
+               "D1": {"VBAT_F": pull("F1", [2], 6)}}),
     "IGN": dict(
         anchor="Q3",
-        order=["R52", "C53", "R51", "D5", "R53"],
-        pulls={}),
+        order=["R52", "C53", "R51", "D5", "R53", "R88", "R89", "C87"],
+        # review 2026-11-03: the ignition side of the power latch (100 k / 33 k / 10 nF) sits with the wake network
+        pulls={"R88": {"IGN_SENSE": pull("R51", [1], 3)}, "R89": {"IGN_EN_DIV": pull("R88", [2], 3)},
+               "C87": {"IGN_EN_DIV": pull("R88", [2], 3)}}),
     "DIAL": dict(
         anchor="U8",
         order=["C60", "C63", "R54", "R58", "R55", "C61", "D6", "R56", "R57",
@@ -162,7 +182,7 @@ CELLS = {
         pulls={}),
     "BUTTONS": dict(
         anchor="J9",
-        order=["R44", "R45", "R46", "R47"],
+        order=["R47"],
         pulls={}),
     "RTC": dict(
         anchor="J10",

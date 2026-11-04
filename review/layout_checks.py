@@ -92,12 +92,13 @@ def seg_dist(a1, a2, b1, b2):
 # gauges: 5 V budget in thermal_derating.py; battery side = 5 V power / 0.85 / 5.8 V (UVLO edge).
 # display: peak 5 V power 14.5 W (assumption, see thermal_derating.py) at the 6 V cranking edge, fuse 5 A.
 NEEDS = {
-    "gauges": {"VIN_FUSED": 0.40, "VIN_PROT": 0.40, "COMMON": 0.40, "SENSE_OUT": 0.40, "+5V": 0.45, "+3V3": 0.15, "AUX_VLED_RTN": 0.07},
-    "display": {"VBAT_IN": 2.6, "VBAT_F": 2.6, "+12V_PROT": 2.6, "COMMON": 2.6, "SENSE_OUT": 2.6, "+5V": 3.0, "+1V8": 0.1,
+    "gauges": {"VIN_FUSED": 0.40, "VIN_PROT": 0.40, "COMMON": 0.40, "SENSE_HI": 0.40, "+5V": 0.45, "+3V3": 0.15, "AUX_VLED_RTN": 0.07,
+               "VPULL": 0.15},   # review 2026-11-03: U12's 148 mA current limit
+    "display": {"VBAT_IN": 2.6, "VBAT_F": 2.6, "+12V_PROT": 2.6, "COMMON": 2.6, "SENSE_OUT": 2.6, "SENSE_HI": 2.6, "+5V": 3.0, "+1V8": 0.1,
                 "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15},
 }
 NEEDS["display-rgb"] = NEEDS["display"]   # same supply chain; the RGB receiver adds about 0.1 A on +5V
-NEEDS["brain"] = {k: v for k, v in NEEDS["display"].items() if not k.startswith("PANEL_")}
+NEEDS["brain"] = {k: v for k, v in NEEDS["display"].items() if not k.startswith("PANEL_") and k != "SENSE_OUT"}
 NEEDS["brain"].update({"PORTA_5V": 1.98, "PORTB_5V": 1.98})
 # the panel draws about 0.65 A at 5 V for its backlight (2.7 W / 0.88) plus the bias supply
 NEEDS["panel-tsd"] = {"+5V": 1.0, "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15}
@@ -118,8 +119,14 @@ PATHS = {
 }
 PATHS["display-rgb"] = PATHS["display"]
 # the brain board keeps display/'s front end and buck with the same designators; each screen
-# port's 5 V runs from its switch's OUT pins to the connector's 5 V contacts
-PATHS["brain"] = dict(PATHS["display"],
+# port's 5 V runs from its switch's OUT pins to the connector's 5 V contacts.
+# Review 2026-11-03: on brain/ the sense resistor moved to the output side (TI's common-source topology):
+# J2 -> F1 -> Q2 -> Q1 -> R1 -> the buck's VIN pins.
+PATHS["brain"] = dict({"VBAT_IN": [[("J2", "1")], [("F1", "1")]],
+                       "VBAT_F": [[("F1", "2")], [("Q2", "5")]],
+                       "COMMON": [[("Q2", "1"), ("Q2", "2"), ("Q2", "3")], [("Q1", "1"), ("Q1", "2"), ("Q1", "3")]],
+                       "SENSE_HI": [[("Q1", "5")], [("R1", "1")]],
+                       "+12V_PROT": [[("R1", "2")], [("U2", "8")], [("U2", "12")]]},
                       PORTA_5V=[[("U6", "6"), ("U6", "7")], [("J4", "2"), ("J4", "3"), ("J4", "4"), ("J4", "5")]],
                       PORTB_5V=[[("U7", "6"), ("U7", "7")], [("J18", "45"), ("J18", "46"), ("J18", "47"),
                                                              ("J18", "48"), ("J18", "49")]])
@@ -311,6 +318,32 @@ def check_path(lay, net, need, terms):
             print(f"          via {v['drill']} mm drill at ({v['x']:.1f}, {v['y']:.1f}): {d:.0f} K")
 
 
+# Review 2026-11-03 (F-04): TI SNOSDF6 8.5.1, "Follow kelvin connection for connecting CS+ and CS- pin to external current sense
+# resistor." Copper shared by a sense tap and the power path is in series with RSENSE as far as the LM74930 can tell, so it
+# lowers the real trip current by RSENSE / (RSENSE + shared); the first gauges/ route tripped its 1.49 A breaker near 0.45 A that
+# way. The taps are now nets of their own, joined to the terminals inside the resistor's footprint (a net tie, pads 3 and 4,
+# tools/make_kelvin_footprint.py). This checks that the taps are on those pads and that the LM74930's sense pins are only on them.
+KELVIN = {
+    "gauges": dict(sns="R49", top_net="SENSE_HI", bot_net="VIN_PROT", ic="U3", rset="R48"),
+    "brain": dict(sns="R1", top_net="SENSE_HI", bot_net="+12V_PROT", ic="U1", rset="R2"),
+}
+
+
+def check_kelvin(board, nl, lay):
+    k = KELVIN.get(board)
+    if not k:
+        return
+    sns, ic, rset = k["sns"], k["ic"], k["rset"]
+    want = {(sns, "1"): k["top_net"], (sns, "2"): k["bot_net"], (sns, "3"): "SENSE_TAP", (sns, "4"): "CS_MINUS",
+            (ic, "18"): "SENSE_TAP", (ic, "19"): "CS_MINUS"}
+    bad = [f"{r}.{p} on {nl.net_of(r, p)}, wants {n}" for (r, p), n in want.items() if nl.net_of(r, p) != n]
+    if "SENSE_TAP" not in {nl.net_of(rset, "1"), nl.net_of(rset, "2")}:
+        bad.append(f"{rset} (RSET) is not on SENSE_TAP")
+    lens = {n: sum(math.hypot(t["x2"] - t["x1"], t["y2"] - t["y1"]) for t in lay.tracks if t["net"] == n) for n in ("SENSE_TAP", "CS_MINUS")}
+    print(f"\n    current-sense Kelvin taps at {sns}, TI 8.5.1: SENSE_TAP {lens['SENSE_TAP']:.1f} mm, CS_MINUS {lens['CS_MINUS']:.1f} mm of their own copper, "
+          f"no shared power-path copper by construction  [{'FAIL: ' + '; '.join(bad) if bad else 'ok'}]")
+
+
 def check_current(board, lay):
     print(f"\n    current capacity (IPC-2221, outer 1 oz / inner 0.5 oz, limit {DT_LIMIT:.0f} K rise); nets with a copper pour are carried by the pour:")
     zone_layers = collections.defaultdict(set)
@@ -400,8 +433,9 @@ def main():
 
     # power net widths
     check_current(a.board, lay)
+    check_kelvin(a.board, nl, lay)
     print("\n    power-net track widths (mm) by layer:")
-    for net in sorted({"+5V", "+3V3", "VIN_PROT", "VIN_FUSED", "+12V_PROT", "VBAT_F", "VBAT_IN", "COMMON", "SENSE_OUT"} & set(nl.nets)):
+    for net in sorted({"+5V", "+3V3", "VIN_PROT", "VIN_FUSED", "+12V_PROT", "VBAT_F", "VBAT_IN", "COMMON", "SENSE_OUT", "SENSE_HI"} & set(nl.nets)):
         w = collections.defaultdict(lambda: collections.defaultdict(float))
         for t in lay.tracks:
             if t["net"] == net:

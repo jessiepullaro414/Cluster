@@ -25,6 +25,15 @@ static std::string trim(const std::string& s) {
     return a == std::string::npos ? "" : s.substr(a, b - a + 1);
 }
 
+// strtof reads garbage as 0, and 0 turns the battery protection off, so this one has to parse whole. In hours, with
+// decimals for bring-up (0.05 is 3 minutes), up to 30 days: some RTCs' alarms cannot reach further than a month.
+static void parse_parked_hours(const std::string& v, uint32_t* seconds) {
+    char* end = nullptr;
+    float h = std::strtof(v.c_str(), &end);
+    if (end == v.c_str() || *end) return;
+    if (h == 0.0f || (h >= 0.01f && h <= 720.0f)) *seconds = uint32_t(h * 3600.0f + 0.5f);
+}
+
 void parse_config(const std::string& text, Config* c) {
     std::istringstream in(text);
     std::string line;
@@ -56,6 +65,9 @@ void parse_config(const std::string& text, Config* c) {
         else if (k == "can_if") c->can_if = v;
         else if (k == "map_shape_cmd") c->map_shape_cmd = v;
         else if (k == "suspend_cmd") c->suspend_cmd = v;
+        else if (k == "poweroff_cmd") c->poweroff_cmd = v;
+        else if (k == "rtc_wakealarm") c->rtc_wakealarm = v;
+        else if (k == "parked_poweroff_hours") parse_parked_hours(v, &c->parked_poweroff_s);
         else if (k == "livi_port" && n > 0 && n < 65536) c->livi_port = int(n);
         else if (k == "page_port" && n > 0 && n < 65536) c->page_port = int(n);
         else if (c->dial && k == "dial_raw_min" && n >= 0) c->dial->raw_min = uint32_t(n);

@@ -1,0 +1,11 @@
+// /etc/polkit-1/rules.d/50-clusterd-power.rules: clusterd's suspend_cmd and poweroff_cmd run as the cluster user, and in
+// the car there is no login session to ask. Untested: written ahead of the hardware (software/linux/README.md, L6).
+polkit.addRule(function (action, subject) {
+    if (subject.user == "cluster" &&
+        (action.id == "org.freedesktop.login1.suspend" ||
+         action.id == "org.freedesktop.login1.suspend-multiple-sessions" ||
+         action.id == "org.freedesktop.login1.power-off" ||
+         action.id == "org.freedesktop.login1.power-off-multiple-sessions")) {
+        return polkit.Result.YES;
+    }
+});

@@ -13,7 +13,7 @@ Close the panel to stop `clusterd` and the harness. LIVI keeps running.
 | The **dial**: drag the rim or scroll to turn; press the centre (or hold Space) | **Simulated GPIO**: `/tmp/carsim/adc` (12-bit angle) and `/tmp/carsim/click` (0/1), read by `clusterd --sim-gpio` | Piher PSC-360 on Verdin ADC_1, push button on a gpio-keys pin |
 | Speed, RPM, fuel, coolant, oil, battery | **Simulated CAN**: VehicleMotion and VehicleFluids from the DBC (rolling counter, CRC-8), sent to `clusterd --can-udp 5101` | gauges/ sending on the private CAN link |
 | Lamps: turns (flashing 1.5 Hz), hazards, high beam, brake, alternator, oil; headlights + dash dimmer | Simulated CAN: Indicators | gauges/'s 12 V lamp inputs and dimmer divider |
-| Ignition (or key I) | Simulated CAN: PowerState. Key off: SuspendRequest with a 5 s countdown | gauges/'s ignition input |
+| Ignition (or key I) | Simulated CAN: PowerState. Key off: SuspendRequest with a 5 s countdown. Simulated GPIO: `/tmp/carsim/ign` (0/1) | gauges/'s ignition input, and the wake pin on the centre |
 | "Gauges board connected" | Unticked: frames stop, so the centre shows NO DATA | a broken private link |
 | **Connect Android Auto** / Disconnect | `phone.py` on Windows: starts the aa_phone emulator if needed, a fresh head unit server, one relay into LIVI | a phone plugged into the USB-C port or on Wi-Fi |
 
@@ -24,4 +24,4 @@ What happens on the centre (clusterd's dial flows, `../clusterd/src/shell.h`):
 - **In Settings.** Turn to choose a row, click to edit it (turn changes the value, click keeps it), hold to go back.
 - **With a phone on the map.** The dial goes to the phone: turn moves its highlight, click selects, a 0.6 s hold is Back. Keep holding to 1.5 s for our speedometer; from there a turn or click goes back to the map and a 0.6 s hold opens Settings.
 
-On a PC there's no real suspend. Key off only shows the countdown in the panel and logs "would suspend" (`clusterd-sim.conf`).
+On a PC there's no real suspend. Key off only shows the countdown in the panel and logs "would suspend" (`clusterd-sim.conf`), again every 35 s or so while the key stays off, because nothing really sleeps. The parked power-off is turned off here; `../aa-bench/bench_park.py` tests it.

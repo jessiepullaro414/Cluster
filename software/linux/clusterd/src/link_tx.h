@@ -8,6 +8,9 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+
+#include "bridge.h"
 
 namespace clusterd {
 
@@ -79,5 +82,93 @@ private:
     bool pending_ = false, fired_ = false;
     uint32_t due_ms_ = 0;
 };
+
+// What the key is known to be, from one source. Unknown: that source has nothing to say right now.
+enum class Ignition : uint8_t { Unknown, Off, On };
+
+// What main_linux.cpp has to do this loop.
+enum class ParkAction : uint8_t {
+    None,
+    KeyOn,      // awake with the key on: clear the RTC alarm, carry on as normal
+    Suspend,    // arm the RTC for alarm_s() seconds (0: leave the RTC alone), then suspend_cmd
+    PowerOff,   // clear the RTC alarm, then poweroff_cmd
+};
+
+struct ParkInput {
+    uint32_t now_ms = 0;                 // CLOCK_MONOTONIC: stops while suspended
+    uint64_t boot_s = 0;                 // CLOCK_BOOTTIME: keeps counting while suspended
+    Ignition pin = Ignition::Unknown;    // CTRL_WAKE1_MICO#; Unknown when not configured or unreadable
+    Ignition link = Ignition::Unknown;   // PowerState.IgnitionOn; Unknown while PowerState is not fresh
+    bool request_valid = false;          // PowerState is fresh, so the next two mean something
+    bool suspend_request = false;
+    uint32_t suspend_in_s = 0;
+};
+
+// The PowerState half of ParkInput, from the decoder.
+ParkInput park_input(const vhal::Bridge& b, uint32_t now_ms, uint64_t boot_s, Ignition pin);
+
+// The parked car, around PowerPolicy (docs/electrical-review.md section 9, B-01: brain/'s ignition latch). A suspended
+// module still draws current, so every suspend arms the RTC; if the car is still parked when the time is up the module
+// powers off, the latch lets go and the board falls to microamps. The next key on is then a cold boot.
+//
+// After a wake only the ignition matters, not what caused the wake:
+//   * On is believed at once, from either source. A dark screen while driving is the failure to avoid, so neither a
+//     broken link (the pin says On) nor a broken pin (a PowerState says On) can cause one.
+//   * Off has to wait kGraceMs. gauges/ sleeps with its transceivers in standby, so the link is silent after an alarm
+//     wake and also for the first moments of a key-on wake: gauges/ boots in about 0.5 s and sends PowerState every
+//     500 ms, and Linux has to bring CAN back. Nothing saying On for that long reads as key off.
+//   * Key off with time left is a stray wake: back to sleep with the alarm set to what is left, measured on
+//     CLOCK_BOOTTIME from the first suspend of this parked period. Only a key on restarts that period.
+//
+// Three more ways to end up awake with the key off and nobody to say so, each of which would flatten the battery:
+//   * The module booted after the key went off: it takes far longer to boot than gauges/ takes to count down and
+//     sleep, so no SuspendRequest ever arrives. The same goes for a link that has broken. If the pin says Off and no
+//     PowerState is heard for kGraceMs, that is a key off. Only the pin can start this, so a PC bench never does.
+//   * suspend_cmd failed (command_failed()), or returned and nothing happened for kCommandTimeoutMs of awake time:
+//     decide again and retry. After kMaxFailedSleeps in a row the module cannot sleep here, so it powers off.
+//   * A power-off that did not happen: the same retry.
+//
+// A limit of 0 turns the timer off: no alarm and never a power-off. Key-off wakes still go back to sleep, because
+// nothing else would. Pure logic: main_linux.cpp only reads the clocks and pin and runs the commands.
+class ParkPolicy {
+public:
+    static constexpr uint32_t kGraceMs = 5000;
+    static constexpr uint32_t kCommandTimeoutMs = 30000;
+    static constexpr uint32_t kMaxFailedSleeps = 3;
+    static constexpr uint32_t kEarlyAlarmS = 60;   // an alarm this close to the limit counts as the limit
+
+    explicit ParkPolicy(uint32_t limit_s) : limit_s_(limit_s) {}
+
+    // Call on every loop. Returns each action once.
+    ParkAction update(const ParkInput& in);
+    // CLOCK_BOOTTIME jumped against CLOCK_MONOTONIC: we were asleep. The caller also forgets what the decoder heard
+    // before the sleep (a new vhal::Bridge): CLOCK_MONOTONIC stopped too, so it would still read as fresh.
+    void resumed(uint32_t now_ms);
+    // The command for Suspend or PowerOff exited non-zero.
+    void command_failed(uint32_t now_ms);
+
+    uint32_t alarm_s() const { return alarm_s_; }
+    // A suspend or power-off is due or under way: the heartbeat says Suspending.
+    bool going_down() const { return state_ == State::Waiting || power_.pending(); }
+    // Waiting on a command or deciding after a wake: the pin is worth reading on every loop.
+    bool parked() const { return state_ != State::Idle; }
+
+private:
+    enum class State : uint8_t { Idle, Waiting, Deciding };
+
+    uint32_t limit_s_;
+    PowerPolicy power_;
+    State state_ = State::Idle;
+    uint32_t since_ms_ = 0;         // Waiting: when the command ran. Deciding: when the grace started
+    uint64_t parked_since_s_ = 0;   // CLOCK_BOOTTIME at the first suspend of this parked period
+    uint32_t alarm_s_ = 0;
+    uint32_t failed_ = 0;           // suspends in a row that did not put us to sleep
+    bool quiet_ = false;            // Idle: the pin says Off and nothing has been heard since quiet_since_ms_
+    uint32_t quiet_since_ms_ = 0;
+};
+
+// What to write to /sys/class/rtc/rtcN/wakealarm: "+N" arms N seconds from now, "0" clears. Writing a new alarm over
+// an enabled one is EBUSY (drivers/rtc/sysfs.c), so clear first.
+std::string wakealarm_text(uint32_t seconds_from_now);
 
 }  // namespace clusterd

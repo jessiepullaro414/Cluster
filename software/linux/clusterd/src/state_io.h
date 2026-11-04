@@ -30,6 +30,12 @@ struct Config {
     // rewrites LIVI's projection safe area (../livi/livi_config.py --apply). Empty: do nothing.
     std::string map_shape_cmd;
     std::string suspend_cmd = "systemctl suspend";
+    std::string poweroff_cmd = "systemctl poweroff";
+    // Parked this long with the key off: power off (ParkPolicy). Key parked_poweroff_hours, 0 = never.
+    uint32_t parked_poweroff_s = 48u * 3600u;
+    // The RTC that can wake the module. In mainline's imx95-verdin.dtsi that is rtc1, the System Manager's (SCMI BBM);
+    // rtc0 is the on-module RX8130 with no interrupt wired, which has no wakealarm file. Confirm on a real module.
+    std::string rtc_wakealarm = "/sys/class/rtc/rtc1/wakealarm";
 };
 void parse_config(const std::string& text, Config* c);
 // Only what the dial changes (the model) and the trip counter; the rest of the file is the installer's.

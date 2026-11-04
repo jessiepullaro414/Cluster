@@ -1,4 +1,4 @@
-// Host tests for clusterd's logic: dial angle, shell, CAN transmit schedule, power policy, telemetry
+// Host tests for clusterd's logic: dial angle, shell, CAN transmit schedule, power and parked-car policy, telemetry
 // JSON, LIVI status parsing, settings files. Frames are checked by unpacking them with the generated
 // codec, the same code gauges/ runs.
 #include <cmath>
@@ -319,6 +319,384 @@ static void test_power() {
     CHECK(q.update(5, true, true, 0));
 }
 
+static void feed_power(vhal::Bridge& b, uint32_t t, uint8_t ctr, bool ign, bool req, uint32_t secs) {
+    uint8_t raw[8];
+    cluster_power_state_t m = {};
+    m.ignition_on = ign; m.suspend_request = req; m.suspend_in_seconds = secs;
+    cluster_power_state_pack(&m, ctr, raw);
+    b.on_frame(CAN_ID_POWERSTATE, raw, 8, t);
+}
+
+// A car for the parked tests: the policy and both clocks. Awake time moves both; a sleep moves only CLOCK_BOOTTIME.
+struct Car {
+    ParkPolicy p;
+    uint32_t now = 1000;
+    uint64_t boot = 500;
+    uint32_t boot_ms = 0;
+    explicit Car(uint32_t limit_s) : p(limit_s) {}
+
+    ParkInput in(Ignition pin, Ignition link) const {
+        ParkInput i;
+        i.now_ms = now;
+        i.boot_s = boot;
+        i.pin = pin;
+        i.link = link;
+        return i;
+    }
+    void tick() {
+        now += 100;
+        boot_ms += 100;
+        if (boot_ms == 1000) { boot_ms = 0; boot++; }
+    }
+    // Runs ms of awake time in 100 ms loops. Returns the first action asked for, or None.
+    ParkAction run(uint32_t ms, Ignition pin = Ignition::Unknown, Ignition link = Ignition::Unknown) {
+        for (uint32_t t = 0; t < ms; t += 100) {
+            tick();
+            ParkAction a = p.update(in(pin, link));
+            if (a != ParkAction::None) return a;
+        }
+        return ParkAction::None;
+    }
+    // One loop with gauges/ awake, saying the key is off and it wants a suspend in secs.
+    ParkAction gauges_off(uint32_t secs, Ignition pin = Ignition::Off) {
+        tick();
+        ParkInput i = in(pin, Ignition::Off);
+        i.request_valid = i.suspend_request = true;
+        i.suspend_in_s = secs;
+        return p.update(i);
+    }
+    // One loop with gauges/ awake and the key on.
+    ParkAction gauges_on() {
+        tick();
+        ParkInput i = in(Ignition::On, Ignition::On);
+        i.request_valid = true;
+        return p.update(i);
+    }
+    void sleep(uint64_t s) {
+        boot += s;
+        p.resumed(now);
+    }
+};
+
+static void test_park() {
+    using A = ParkAction;
+    using I = Ignition;
+    const uint32_t kGrace = ParkPolicy::kGraceMs;
+    const uint32_t kLimit = 48u * 3600u;
+
+    {   // the alarm wakes it with the key still off and gauges/ asleep: it powers off, once, after the grace
+        Car c(kLimit);
+        CHECK(c.gauges_off(0) == A::Suspend);
+        CHECK(c.p.alarm_s() == kLimit);
+        CHECK(c.p.going_down() && c.p.parked());
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace - 100, I::Off) == A::None);    // the link gets its chance first
+        CHECK(c.run(100, I::Off) == A::PowerOff);
+        CHECK(c.run(10000, I::Off) == A::None);           // asked once
+        CHECK(c.p.going_down());
+    }
+    {   // key-on wake, from the pin: carries on at once, and nothing happens however long the drive
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(1000);
+        CHECK(c.run(100, I::On) == A::KeyOn);
+        CHECK(!c.p.parked() && !c.p.going_down());
+        CHECK(c.run(3600000, I::On, I::On) == A::None);
+    }
+    {   // key-on wake after the whole limit: the key decides, not the time
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit * 2);
+        CHECK(c.run(100, I::On) == A::KeyOn);
+        CHECK(c.run(100000, I::On, I::On) == A::None);
+    }
+    {   // key turned on during the alarm wake, at the last loop before it would have fired
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace - 100, I::Off) == A::None);
+        CHECK(c.run(100, I::On) == A::KeyOn);
+        CHECK(c.run(100000, I::On) == A::None);
+    }
+    {   // the same, seen only on the link: the pin is unreadable and gauges/ has just come up
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace - 200) == A::None);
+        CHECK(c.run(100, I::Unknown, I::On) == A::KeyOn);
+    }
+    {   // the policy disabled: no alarm, never a power-off, however long or however often it fails to sleep
+        Car c(0);
+        CHECK(c.gauges_off(0) == A::Suspend);
+        CHECK(c.p.alarm_s() == 0);
+        c.sleep(10u * 365u * 24u * 3600u);
+        CHECK(c.run(kGrace, I::Off) == A::Suspend);       // a stray wake still goes back to sleep
+        CHECK(c.p.alarm_s() == 0);
+        for (int i = 0; i < 10; i++) {
+            c.p.command_failed(c.now);
+            CHECK(c.run(kGrace, I::Off) == A::Suspend);
+            CHECK(c.p.alarm_s() == 0);
+        }
+        c.sleep(1000);
+        CHECK(c.run(100, I::On) == A::KeyOn);
+    }
+
+    // ---- a quiet gauges link at resume
+    {   // the pin says On, the link never speaks: the screen stays up, whatever is wrong with gauges/
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        CHECK(c.run(100, I::On) == A::KeyOn);
+        CHECK(c.run(3600000, I::On) == A::None);
+    }
+    {   // no pin, and the link is silent for less than the grace, then says On: never a decision before that
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace - 2000) == A::None);
+        CHECK(c.run(100, I::Unknown, I::On) == A::KeyOn);
+    }
+    {   // no pin and silence for the whole grace reads as key off: gauges/ sleeps at key off
+        Car c(kLimit);
+        c.gauges_off(0, I::Unknown);
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace) == A::PowerOff);
+    }
+    {   // the two sources disagree: On wins, either way round
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        CHECK(c.run(100, I::Off, I::On) == A::KeyOn);
+        Car d(kLimit);
+        d.gauges_off(0);
+        d.sleep(kLimit);
+        CHECK(d.run(100, I::On, I::Off) == A::KeyOn);
+    }
+
+    // ---- stray wakes and the clock
+    {   // a stray wake goes back to sleep with what is left, and the alarm then ends it on time
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(3600);
+        CHECK(c.run(kGrace, I::Off) == A::Suspend);
+        CHECK(c.p.alarm_s() == kLimit - 3600 - 5);        // 5 s of grace counted too
+        c.sleep(c.p.alarm_s());
+        CHECK(c.run(kGrace, I::Off) == A::PowerOff);
+    }
+    {   // an alarm that comes a little early still counts; earlier than that is a stray wake
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit - 30);
+        CHECK(c.run(kGrace, I::Off) == A::PowerOff);
+        Car d(kLimit);
+        d.gauges_off(0);
+        d.sleep(kLimit - ParkPolicy::kEarlyAlarmS - 10);
+        CHECK(d.run(kGrace, I::Off) == A::Suspend);
+        CHECK(d.p.alarm_s() == ParkPolicy::kEarlyAlarmS + 5);
+    }
+    {   // a drive starts the parked period again
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit - 100);
+        CHECK(c.run(100, I::On) == A::KeyOn);
+        CHECK(c.run(600000, I::On, I::On) == A::None);
+        CHECK(c.gauges_off(0) == A::Suspend);
+        CHECK(c.p.alarm_s() == kLimit);
+        c.sleep(kLimit - 100);
+        CHECK(c.run(kGrace, I::Off) == A::Suspend);       // not up yet, counted from this key off
+    }
+    {   // gauges/ never slept: its key-off frames neither restart the period nor start a second suspend
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        for (uint32_t t = 0; t < kGrace - 100; t += 100) CHECK(c.gauges_off(0) == A::None);
+        CHECK(c.gauges_off(0) == A::PowerOff);
+        Car d(kLimit);
+        d.gauges_off(0);
+        d.sleep(1000);
+        int suspends = 0;
+        for (uint32_t t = 0; t < kGrace + 1000; t += 100) suspends += d.gauges_off(0) == A::Suspend;
+        CHECK(suspends == 1);
+    }
+    {   // a blip of the key: gauges/ wakes, says On, then counts down again. A full new parked period.
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit - 10);
+        CHECK(c.run(100, I::Off, I::On) == A::KeyOn);
+        CHECK(c.gauges_off(1) == A::None);
+        CHECK(c.p.going_down());
+        CHECK(c.gauges_off(1) == A::None);
+        for (uint32_t t = 0; t < 700; t += 100) CHECK(c.gauges_off(1) == A::None);
+        CHECK(c.gauges_off(0) == A::None);                // 1 s from the first request, not from each frame
+        CHECK(c.gauges_off(0) == A::Suspend);
+        CHECK(c.p.alarm_s() == kLimit);
+    }
+    {   // the millisecond clock wraps during a wake
+        Car c(kLimit);
+        c.now = 0xFFFFFFFFu - 2000u;
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace - 100, I::Off) == A::None);
+        CHECK(c.run(100, I::Off) == A::PowerOff);
+    }
+
+    // ---- what the decoder hears around a sleep
+    {
+        vhal::Bridge b;
+        const uint32_t t = 5000;
+        feed_power(b, t, 3, true, false, 0);
+        ParkInput i = park_input(b, t, 77, I::Off);
+        CHECK(i.link == I::On && i.pin == I::Off && i.request_valid && !i.suspend_request && i.now_ms == t && i.boot_s == 77);
+        feed_power(b, t + 500, 4, false, true, 4);
+        i = park_input(b, t + 500, 77, I::Unknown);
+        CHECK(i.link == I::Off && i.request_valid && i.suspend_request && i.suspend_in_s == 4);
+        // no PowerState for 3 periods: the link has nothing to say
+        i = park_input(b, t + 500 + 1501, 77, I::Unknown);
+        CHECK(i.link == I::Unknown && !i.request_valid && !i.suspend_request);
+
+        // CLOCK_MONOTONIC stops in suspend, so a request from just before the sleep still reads as fresh on waking...
+        vhal::Bridge s;
+        feed_power(s, t, 5, false, true, 0);
+        CHECK(park_input(s, t + 100, 77, I::On).suspend_request);
+        // ... which is why main_linux.cpp starts a new decoder at resume: the key is on, and nothing puts it back down
+        s = vhal::Bridge();
+        i = park_input(s, t + 100, 77, I::On);
+        CHECK(i.link == I::Unknown && !i.request_valid);
+        Car c(kLimit);
+        c.now = t;
+        CHECK(c.gauges_off(0) == A::Suspend);
+        c.sleep(1000);
+        CHECK(c.p.update(i) == A::KeyOn);
+        i.now_ms = t + 200;
+        CHECK(c.p.update(i) == A::None);
+        // and gauges/ after its reset is heard even if its counter happens to match its last frame
+        feed_power(s, t + 300, 5, true, false, 0);
+        CHECK(park_input(s, t + 300, 77, I::On).link == I::On);
+    }
+
+    // ---- nobody to say the key went off
+    {   // booted with the key already off: gauges/ is asleep, no request will come, the pin is the only witness
+        Car c(kLimit);
+        CHECK(c.run(kGrace, I::Off) == A::None);          // counted from the first loop that saw it
+        CHECK(c.run(100, I::Off) == A::Suspend);
+        CHECK(c.p.alarm_s() == kLimit);
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace, I::Off) == A::PowerOff);
+    }
+    {   // the key coming on before the grace ends starts it over, and PowerState heard means gauges/ is in charge
+        Car c(kLimit);
+        CHECK(c.run(kGrace, I::Off) == A::None);
+        CHECK(c.run(100, I::On) == A::None);
+        CHECK(c.run(kGrace, I::Off) == A::None);
+        CHECK(c.run(100, I::Off, I::Off) == A::None);
+        CHECK(c.run(kGrace, I::Off) == A::None);
+        CHECK(c.run(100000, I::Off, I::On) == A::None);
+        CHECK(c.run(100000, I::On) == A::None);
+    }
+    {   // a wake in the middle of that wait starts it over: gauges/ gets its whole chance to come up
+        Car c(kLimit);
+        CHECK(c.run(kGrace, I::Off) == A::None);
+        c.sleep(1000);
+        CHECK(c.run(kGrace, I::Off) == A::None);
+        CHECK(c.run(100, I::Off) == A::Suspend);
+    }
+    {   // no pin and no gauges, as on a PC bench: nothing, ever, even across a resume nobody here asked for
+        Car c(kLimit);
+        CHECK(c.run(100000) == A::None);
+        c.sleep(kLimit * 2);
+        CHECK(c.run(100000) == A::None);
+        CHECK(!c.p.parked());
+    }
+    {   // a resume nobody here asked for, on the car, with the key off: the pin path puts it back
+        Car c(kLimit);
+        CHECK(c.run(100, I::On) == A::None);
+        c.sleep(1000);
+        CHECK(c.run(kGrace + 100, I::Off) == A::Suspend);
+        CHECK(c.p.alarm_s() == kLimit);
+    }
+
+    // ---- commands that do not work
+    {   // suspend_cmd fails: try again after the grace, and after kMaxFailedSleeps power off rather than run flat
+        Car c(kLimit);
+        CHECK(c.gauges_off(0) == A::Suspend);
+        for (uint32_t i = 1; i < ParkPolicy::kMaxFailedSleeps; i++) {
+            c.p.command_failed(c.now);
+            CHECK(c.run(kGrace - 100, I::Off) == A::None);
+            CHECK(c.run(100, I::Off) == A::Suspend);
+        }
+        c.p.command_failed(c.now);
+        CHECK(c.run(kGrace, I::Off) == A::PowerOff);
+    }
+    {   // suspend_cmd returns 0 and nothing happens: the same, on a timeout of awake time
+        Car c(kLimit);
+        CHECK(c.gauges_off(0) == A::Suspend);
+        for (uint32_t i = 1; i < ParkPolicy::kMaxFailedSleeps; i++) {
+            CHECK(c.run(ParkPolicy::kCommandTimeoutMs + kGrace - 100, I::Off) == A::None);
+            CHECK(c.run(100, I::Off) == A::Suspend);
+        }
+        CHECK(c.run(ParkPolicy::kCommandTimeoutMs + kGrace, I::Off) == A::PowerOff);
+    }
+    {   // a suspend that did not take and then the key: carries on, and the failures are forgotten
+        Car c(kLimit);
+        c.gauges_off(0);
+        CHECK(c.run(ParkPolicy::kCommandTimeoutMs - 100, I::On) == A::None);
+        CHECK(c.run(100, I::On) == A::KeyOn);
+        CHECK(!c.p.parked());
+        CHECK(c.gauges_on() == A::None);
+        CHECK(c.gauges_off(0) == A::Suspend);
+        for (uint32_t i = 1; i < ParkPolicy::kMaxFailedSleeps; i++) {
+            c.p.command_failed(c.now);
+            CHECK(c.run(kGrace, I::Off) == A::Suspend);
+        }
+        c.p.command_failed(c.now);                        // the one that would have ended in a power-off, but the key
+        CHECK(c.gauges_on() == A::KeyOn);
+        CHECK(c.gauges_off(0) == A::Suspend);
+        for (uint32_t i = 1; i < ParkPolicy::kMaxFailedSleeps; i++) {
+            c.p.command_failed(c.now);
+            CHECK(c.run(kGrace, I::Off) == A::Suspend);
+        }
+    }
+    {   // a sleep that really happened clears the failures too
+        Car c(kLimit);
+        c.gauges_off(0);
+        for (uint32_t i = 1; i < ParkPolicy::kMaxFailedSleeps; i++) {
+            c.p.command_failed(c.now);
+            CHECK(c.run(kGrace, I::Off) == A::Suspend);
+        }
+        c.sleep(1000);
+        CHECK(c.run(kGrace, I::Off) == A::Suspend);
+        CHECK(c.p.alarm_s() != 0);
+        c.p.command_failed(c.now);                        // one more would have been the last, without that sleep
+        CHECK(c.run(kGrace, I::Off) == A::Suspend);
+    }
+    {   // a power-off that fails or never happens is asked for again, and the key can still save it
+        Car c(kLimit);
+        c.gauges_off(0);
+        c.sleep(kLimit);
+        CHECK(c.run(kGrace, I::Off) == A::PowerOff);
+        c.p.command_failed(c.now);
+        CHECK(c.run(kGrace, I::Off) == A::PowerOff);
+        CHECK(c.run(ParkPolicy::kCommandTimeoutMs + kGrace, I::Off) == A::PowerOff);
+        CHECK(c.run(ParkPolicy::kCommandTimeoutMs, I::On) == A::KeyOn);
+    }
+
+    // the heartbeat follows gauges/'s countdown, as before
+    {
+        Car c(kLimit);
+        CHECK(!c.p.going_down());
+        CHECK(c.gauges_off(5) == A::None);
+        CHECK(c.p.going_down() && !c.p.parked());
+        c.tick();
+        ParkInput on = c.in(I::On, I::On);
+        on.request_valid = true;
+        CHECK(c.p.update(on) == A::None);                 // key back on before the countdown ends: cancelled
+        CHECK(!c.p.going_down());
+    }
+
+    CHECK(wakealarm_text(0) == "0");
+    CHECK(wakealarm_text(172800) == "+172800");
+}
+
 static void feed(vhal::Bridge& b, uint32_t t, uint8_t ctr, float kph, bool left, bool right, bool lights) {
     uint8_t raw[8];
     cluster_vehicle_motion_t m = {};
@@ -410,7 +788,28 @@ static void test_state_io() {
         parse_config(text, &e);
         CHECK(e.can_if == "can1" && e.vehicle.pulses_per_mile == 16000 && e.vehicle.tach_pulses_per_rev == 4);
         CHECK(e.suspend_cmd == "systemctl suspend" && e.map_shape_cmd.find("livi_config.py --apply") != std::string::npos);
+        CHECK(e.poweroff_cmd == "systemctl poweroff" && e.parked_poweroff_s == 48u * 3600u);
+        CHECK(e.rtc_wakealarm == "/sys/class/rtc/rtc1/wakealarm");
         CHECK(edc.detents_per_turn == 24 && edc.raw_max == 4095);
+    }
+
+    {   // the parked timer: hours with decimals, 0 turns it off, and anything else keeps the battery protected
+        auto hours = [](const char* v) {
+            Config p;
+            parse_config(std::string("parked_poweroff_hours = ") + v + "\n", &p);
+            return p.parked_poweroff_s;
+        };
+        const uint32_t kDefault = Config().parked_poweroff_s;
+        CHECK(kDefault == 48u * 3600u);
+        CHECK(hours("24") == 24u * 3600u);
+        CHECK(hours("0") == 0);
+        CHECK(hours("0.05") == 180);                   // bring-up: 3 minutes
+        CHECK(hours("720") == 720u * 3600u);
+        CHECK(hours("721") == kDefault && hours("-1") == kDefault && hours("0.001") == kDefault);
+        CHECK(hours("never") == kDefault && hours("48h") == kDefault && hours("nan") == kDefault);
+        Config p;
+        parse_config("poweroff_cmd = /bin/echo off\nrtc_wakealarm = /tmp/alarm\nparked_poweroff_hours =\n", &p);
+        CHECK(p.poweroff_cmd == "/bin/echo off" && p.rtc_wakealarm == "/tmp/alarm" && p.parked_poweroff_s == kDefault);
     }
 
     hmi::Model m;
@@ -484,6 +883,7 @@ int main() {
     test_shell();
     test_link_tx();
     test_power();
+    test_park();
     test_telemetry();
     test_state_io();
     std::printf("%s: %d checks, %d failures\n", failures ? "FAILED" : "ok", checks, failures);

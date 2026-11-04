@@ -23,4 +23,13 @@ dial_detents = 24
 livi_port = 4000
 page_port = 4010
 map_shape_cmd = python3 /usr/share/clusterd/livi_config.py --apply /home/cluster/.config/LIVI/config.json
+
+# Key off (software/linux/README.md): gauges/ counts down, then clusterd arms the RTC and suspends. If the car is still
+# parked when the time is up it powers off, and brain/'s latch drops the board to microamps; the next key on is a cold
+# boot. Both commands need polkit's permission for the cluster user (deploy/50-clusterd-power.rules).
 suspend_cmd = systemctl suspend
+poweroff_cmd = systemctl poweroff
+parked_poweroff_hours = 48  # decimals work (0.05 is 3 minutes, for bring-up), up to 720; 0 = no alarm, never power off
+# The RTC that can wake the module: rtc1, the System Manager's, in mainline's imx95-verdin.dtsi. rtc0 there is the
+# on-module RX8130, which has no interrupt wired and so no wakealarm file. Check on the module (L6).
+rtc_wakealarm = /sys/class/rtc/rtc1/wakealarm

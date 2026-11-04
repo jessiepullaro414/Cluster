@@ -4,7 +4,8 @@
 //   Shell state --> DisplaySettings, SpeedCalibration, InputConfig, TripCommand, heartbeat --> gauges/
 //   dial: ADC angle (sysfs IIO) + click (evdev, a gpio-keys node) --> Shell --> uinput keys / LIVI page
 //   LIVI state/status.json --> which phone is projecting
-//   PowerState suspend request --> save, heartbeat "suspending", suspend_cmd, rezero the dial on resume
+//   PowerState suspend request --> heartbeat "suspending", RTC alarm, suspend_cmd, rezero the dial on resume
+//   parked past the limit with the key off (PowerState and the wake pin) --> poweroff_cmd
 //   GET :4010/ and /state --> the settings page LIVI shows as its custom page
 //
 // Every piece of logic is in the pure files (shell.h, dial_angle, link_tx, telemetry, state_io) and
@@ -59,6 +60,12 @@ static int64_t boottime_minus_mono_ms() {
     return (int64_t(b.tv_sec) - m.tv_sec) * 1000 + (int64_t(b.tv_nsec) - m.tv_nsec) / 1000000;
 }
 
+static uint64_t boottime_s() {
+    timespec b;
+    clock_gettime(CLOCK_BOOTTIME, &b);
+    return uint64_t(b.tv_sec);
+}
+
 static std::string read_file(const std::string& path) {
     std::ifstream f(path, std::ios::binary);
     if (!f) return "";
@@ -76,6 +83,37 @@ static bool write_file_atomic(const std::string& path, const std::string& text) 
         if (!f.flush()) return false;
     }
     return std::rename(tmp.c_str(), path.c_str()) == 0;
+}
+
+// ---- the parked car: the RTC alarm and the ignition pin ------------------------------------------
+
+static bool write_sysfs(const std::string& path, const std::string& text) {
+    int fd = open(path.c_str(), O_WRONLY | O_TRUNC);
+    if (fd < 0) return false;
+    bool ok = write(fd, text.data(), text.size()) == ssize_t(text.size());
+    close(fd);
+    return ok;
+}
+
+// Clears first: arming over an enabled alarm is EBUSY.
+static bool rtc_alarm(const std::string& path, uint32_t seconds_from_now) {
+    bool cleared = write_sysfs(path, wakealarm_text(0));
+    return seconds_from_now ? write_sysfs(path, wakealarm_text(seconds_from_now)) : cleared;
+}
+
+// CTRL_WAKE1_MICO#, which Q3 pulls low with the key on: a gpio-keys node of its own, GPIO_ACTIVE_LOW, so any key down
+// in that node is the ignition. gpio-keys reports its pins again on resume, so this is right as soon as we thaw.
+static Ignition read_ignition_pin(int fd, const std::string& sim_file) {
+    if (fd >= 0) {
+        uint8_t keys[KEY_MAX / 8 + 1] = {};
+        if (ioctl(fd, EVIOCGKEY(sizeof keys), keys) < 0) return Ignition::Unknown;
+        for (uint8_t k : keys)
+            if (k) return Ignition::On;
+        return Ignition::Off;
+    }
+    if (sim_file.empty()) return Ignition::Unknown;
+    std::string v = read_file(sim_file);
+    return v.empty() ? Ignition::Unknown : v[0] == '1' ? Ignition::On : Ignition::Off;
 }
 
 // ---- SocketCAN ---------------------------------------------------------------------------------
@@ -263,11 +301,14 @@ struct Args {
     std::string web = "/usr/share/clusterd/web";
     std::string livi_status;          // default: $HOME/.config/LIVI/state/status.json
     std::string adc;                  // e.g. /sys/bus/iio/devices/iio:device0/in_voltage1_raw
-    std::string click;                // e.g. /dev/input/by-path/platform-gpio-keys-event
+    std::string click;                // e.g. /dev/input/by-path/platform-dial-click-event
+    std::string ign;                  // e.g. /dev/input/by-path/platform-gpio-keys-event, the node with only the wake pin
     std::string can_override;
     std::string replay;               // bench: a can_replay.py --dry-run log, played in a loop
     std::string harness;              // bench: HOST:PORT of gauges-fw's harness (the four small gauges), UDP
-    std::string sim_gpio;             // bench: DIR with files adc (dial counts) and click (0/1), like sysfs pins
+    // bench: DIR with files adc (dial counts), click and ign (0/1), like sysfs pins, and slept_s (seconds "asleep" so
+    // far, added to CLOCK_BOOTTIME so a PC can play a suspend)
+    std::string sim_gpio;
     int can_udp = 0;                  // bench: UDP port of the simulated CAN bus (13-byte datagrams, parse_udp_can)
     bool dial_stdin = false;
 };
@@ -290,6 +331,7 @@ static Args parse_args(int argc, char** argv) {
         else if (k == "--livi-status") a.livi_status = next();
         else if (k == "--adc") a.adc = next();
         else if (k == "--click") a.click = next();
+        else if (k == "--ign") a.ign = next();
         else if (k == "--can") a.can_override = next();
         else if (k == "--dial-stdin") a.dial_stdin = true;
         else if (k == "--replay") a.replay = next();
@@ -316,7 +358,7 @@ int main(int argc, char** argv) {
     shell.mutable_ui().mutable_model() = cfg.model;
     DialAngle dial(dial_cfg);
     LinkTx tx;
-    PowerPolicy power;
+    ParkPolicy park(cfg.parked_poweroff_s);
     VehicleSetup vehicle = cfg.vehicle;
     tx.set_vehicle(vehicle);
 
@@ -333,10 +375,12 @@ int main(int argc, char** argv) {
         else std::printf("clusterd: simulated CAN bus on udp 127.0.0.1:%d\n", args.can_udp);
     }
     // Bench: simulated GPIO, files that stand in for the dial's ADC and click pins.
-    std::string sim_click;
+    std::string sim_click, sim_ign, sim_slept;
     if (!args.sim_gpio.empty()) {
         if (args.adc.empty()) args.adc = args.sim_gpio + "/adc";
         sim_click = args.sim_gpio + "/click";
+        sim_ign = args.sim_gpio + "/ign";
+        sim_slept = args.sim_gpio + "/slept_s";
         std::printf("clusterd: simulated GPIO in %s\n", args.sim_gpio.c_str());
     }
     bool sim_click_down = false;
@@ -353,6 +397,15 @@ int main(int argc, char** argv) {
     if (click >= 0) {
         int clk = CLOCK_MONOTONIC;
         if (ioctl(click, EVIOCSCLOCKID, &clk) < 0) std::perror("clusterd: click input clock");
+    }
+    int ign_fd = args.ign.empty() ? -1 : open(args.ign.c_str(), O_RDONLY | O_NONBLOCK);
+    if (!args.ign.empty() && ign_fd < 0) std::perror("clusterd: ignition pin");
+    if (cfg.parked_poweroff_s) {
+        // Say so at start, not the first time the key goes off: otherwise the first sign is a flat battery.
+        if (access(cfg.rtc_wakealarm.c_str(), W_OK) != 0)
+            std::fprintf(stderr, "clusterd: cannot write %s: no parked power-off until that is fixed\n", cfg.rtc_wakealarm.c_str());
+        if (ign_fd < 0 && sim_ign.empty())
+            std::printf("clusterd: no ignition pin (--ign): after a wake the key is judged from the gauges link alone\n");
     }
     termios saved_tio = {};
     bool tio = false;
@@ -412,8 +465,10 @@ int main(int argc, char** argv) {
     const uint32_t replay_len = replay.empty() ? 0 : replay.back().t_ms + 50;
 
     act(shell.start());
-    uint32_t t_tele = 0, t_status = 0, t_adc = 0;
-    int64_t sleep_ref = boottime_minus_mono_ms();
+    uint32_t t_tele = 0, t_status = 0, t_adc = 0, t_pin = 0;
+    Ignition pin = read_ignition_pin(ign_fd, sim_ign);
+    auto sim_slept_s = [&]() { return sim_slept.empty() ? 0ll : std::atoll(read_file(sim_slept).c_str()); };
+    int64_t sleep_ref = boottime_minus_mono_ms() + sim_slept_s() * 1000;
     // Synthetic presses from --dial-stdin: release at this time.
     uint32_t stdin_release_at = 0;
     bool stdin_down = false, livi_up = false;
@@ -431,11 +486,22 @@ int main(int argc, char** argv) {
         uint32_t now = now_ms();
 
         // Were we asleep? (suspend_cmd returns after the resume, but a resume from elsewhere counts too.)
-        int64_t ref = boottime_minus_mono_ms();
+        const long long slept_s = sim_slept_s();
+        const uint64_t boot_s = boottime_s() + uint64_t(slept_s);
+        int64_t ref = boottime_minus_mono_ms() + slept_s * 1000;
         if (ref - sleep_ref > 2000) {
             std::printf("clusterd: resumed after %lld s\n", (long long)((ref - sleep_ref) / 1000));
-            power.resumed();
+            park.resumed(now);
             dial.rezero();
+            // CLOCK_MONOTONIC stopped with us, so what was heard before the sleep would still read as fresh, and more
+            // of it may be queued in the sockets. Key on must not find an old SuspendRequest and go straight back down.
+            bridge = vhal::Bridge();
+            can_frame stale;
+            while (can >= 0 && read(can, &stale, sizeof stale) == ssize_t(sizeof stale)) {}
+            uint8_t stale_udp[64];
+            while (can_udp >= 0 && recv(can_udp, stale_udp, sizeof stale_udp, 0) > 0) {}
+            pin = read_ignition_pin(ign_fd, sim_ign);
+            t_pin = now;
         }
         sleep_ref = ref;
 
@@ -528,18 +594,39 @@ int main(int argc, char** argv) {
         d.centre_shows_speed = shell.centre_shows_speed();
         tx.set_display(d);
 
-        vhal::PropValue req = bridge.get(vhal::Prop::SuspendRequest, now);
-        vhal::PropValue secs = bridge.get(vhal::Prop::SuspendInSeconds, now);
-        bool suspend_now = power.update(now, req.available, req.value != 0.0f, uint32_t(secs.value));
+        if (park.parked() || now - t_pin >= 100) {
+            t_pin = now;
+            pin = read_ignition_pin(ign_fd, sim_ign);
+        }
+        ParkAction action = park.update(park_input(bridge, now, boot_s, pin));
         // "Running" once LIVI has taken a telemetry push: the centre screen is really up.
-        tx.set_heartbeat(power.pending() || suspend_now ? Heartbeat::Suspending : livi_up ? Heartbeat::Running : Heartbeat::Booting);
+        tx.set_heartbeat(park.going_down() ? Heartbeat::Suspending : livi_up ? Heartbeat::Running : Heartbeat::Booting);
         Frame out[LinkTx::kCount];
         int n = tx.poll(now, out);
         for (int k = 0; k < n; k++) can_send(can, out[k]);
 
-        if (suspend_now) {
-            std::printf("clusterd: ignition off, suspending (%s)\n", cfg.suspend_cmd.c_str());
-            if (std::system(cfg.suspend_cmd.c_str()) != 0) std::fprintf(stderr, "clusterd: suspend command failed\n");
+        if (action == ParkAction::KeyOn) {
+            std::printf("clusterd: key on, carrying on\n");
+            if (cfg.parked_poweroff_s) rtc_alarm(cfg.rtc_wakealarm, 0);
+        } else if (action == ParkAction::Suspend) {
+            std::printf("clusterd: ignition off, suspending (%s), %s\n", cfg.suspend_cmd.c_str(),
+                        park.alarm_s() ? ("RTC alarm in " + std::to_string(park.alarm_s()) + " s").c_str() : "no RTC alarm");
+            // Armed before the command, which may not return until after the resume. If it cannot be armed, suspend
+            // anyway: that is the old behaviour, and a sysfs error should not mean a cold boot at every key on.
+            if (park.alarm_s() && !rtc_alarm(cfg.rtc_wakealarm, park.alarm_s()))
+                std::fprintf(stderr, "clusterd: could not arm the RTC alarm (%s): no parked power-off after this sleep\n", cfg.rtc_wakealarm.c_str());
+            if (std::system(cfg.suspend_cmd.c_str()) != 0) {
+                std::fprintf(stderr, "clusterd: suspend command failed\n");
+                if (cfg.parked_poweroff_s) rtc_alarm(cfg.rtc_wakealarm, 0);
+                park.command_failed(now);
+            }
+        } else if (action == ParkAction::PowerOff) {
+            std::printf("clusterd: parked with the key off, powering off (%s)\n", cfg.poweroff_cmd.c_str());
+            rtc_alarm(cfg.rtc_wakealarm, 0);
+            if (std::system(cfg.poweroff_cmd.c_str()) != 0) {
+                std::fprintf(stderr, "clusterd: power-off command failed\n");
+                park.command_failed(now);
+            }
         }
     }
 

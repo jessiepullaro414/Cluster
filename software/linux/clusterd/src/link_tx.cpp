@@ -111,4 +111,81 @@ bool PowerPolicy::update(uint32_t now_ms, bool valid, bool suspend_request, uint
     return false;
 }
 
+ParkInput park_input(const vhal::Bridge& b, uint32_t now_ms, uint64_t boot_s, Ignition pin) {
+    using vhal::Prop;
+    const vhal::PropValue ign = b.get(Prop::IgnitionOn, now_ms);
+    const vhal::PropValue req = b.get(Prop::SuspendRequest, now_ms);
+    const vhal::PropValue secs = b.get(Prop::SuspendInSeconds, now_ms);
+    ParkInput in;
+    in.now_ms = now_ms;
+    in.boot_s = boot_s;
+    in.pin = pin;
+    in.link = !ign.available ? Ignition::Unknown : ign.value != 0.0f ? Ignition::On : Ignition::Off;
+    in.request_valid = req.available;
+    in.suspend_request = req.value != 0.0f;
+    in.suspend_in_s = uint32_t(secs.value);
+    return in;
+}
+
+ParkAction ParkPolicy::update(const ParkInput& in) {
+    // PowerPolicy always sees PowerState, so a cleared request resets it, but it only decides while nothing is parked.
+    const bool requested = power_.update(in.now_ms, in.request_valid, in.suspend_request, in.suspend_in_s);
+
+    if (state_ == State::Idle) {
+        if (in.pin != Ignition::Off || in.link != Ignition::Unknown) {
+            quiet_ = false;
+        } else if (!quiet_) {
+            quiet_ = true;
+            quiet_since_ms_ = in.now_ms;
+        }
+        if (!requested && !(quiet_ && in.now_ms - quiet_since_ms_ >= kGraceMs)) return ParkAction::None;
+        quiet_ = false;
+        failed_ = 0;
+        parked_since_s_ = in.boot_s;
+        alarm_s_ = limit_s_;
+        state_ = State::Waiting;
+        since_ms_ = in.now_ms;
+        return ParkAction::Suspend;
+    }
+
+    if (state_ == State::Waiting) {
+        if (in.now_ms - since_ms_ < kCommandTimeoutMs) return ParkAction::None;
+        failed_++;                  // still here: it did not work, or the sleep was too short to notice
+        state_ = State::Deciding;
+        since_ms_ = in.now_ms;
+    }
+
+    if (in.pin == Ignition::On || in.link == Ignition::On) {
+        state_ = State::Idle;
+        return ParkAction::KeyOn;
+    }
+    if (in.now_ms - since_ms_ < kGraceMs) return ParkAction::None;
+
+    const uint64_t parked_s = in.boot_s - parked_since_s_;
+    state_ = State::Waiting;
+    since_ms_ = in.now_ms;
+    if (limit_s_ != 0 && (parked_s + kEarlyAlarmS >= limit_s_ || failed_ >= kMaxFailedSleeps)) return ParkAction::PowerOff;
+    alarm_s_ = limit_s_ == 0 ? 0 : uint32_t(limit_s_ - parked_s);
+    return ParkAction::Suspend;
+}
+
+void ParkPolicy::resumed(uint32_t now_ms) {
+    power_.resumed();
+    quiet_ = false;
+    failed_ = 0;
+    if (state_ == State::Idle) return;   // not a sleep of ours: nothing was armed and there is nothing to decide
+    state_ = State::Deciding;
+    since_ms_ = now_ms;
+}
+
+void ParkPolicy::command_failed(uint32_t now_ms) {
+    failed_++;
+    state_ = State::Deciding;
+    since_ms_ = now_ms;
+}
+
+std::string wakealarm_text(uint32_t seconds_from_now) {
+    return seconds_from_now == 0 ? "0" : "+" + std::to_string(seconds_from_now);
+}
+
 }  // namespace clusterd

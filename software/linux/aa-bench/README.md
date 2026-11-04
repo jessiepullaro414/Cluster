@@ -7,6 +7,11 @@
 dial going to the phone as knob keys, Settings on a long hold, and the settings page server. 11 checks pass
 in WSL Ubuntu 22.04.
 
+`bench_park.py` runs the real daemon through key-off, sleep and wake, and checks the wiring of the parked-car
+power-off that the host tests cannot reach: the RTC file, the two commands, noticing a resume, forgetting frames
+from before the sleep. A script plays gauges/, the wake pin and the sleep, so it says nothing about a real RTC, real
+suspend or evdev. Stdlib Python only; about 20 s.
+
 ## Android Auto from an emulator (the owner has an iPhone)
 
 **Can an emulated Android phone drive LIVI? In principle yes, with two unknowns.**

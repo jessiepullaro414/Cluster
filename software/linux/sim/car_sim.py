@@ -3,6 +3,7 @@
 
   * the rotary dial (Piher PSC-360 + push button) -> SIMULATED GPIO: the files DIR/adc (raw 12-bit angle) and
     DIR/click (0/1) that clusterd reads with --sim-gpio DIR, exactly where the Verdin's ADC and gpio-keys would be
+  * the ignition -> SIMULATED GPIO too: DIR/ign (0/1), the wake pin, as well as PowerState below
   * speed, rpm, fuel, coolant, oil, volts, the six lamps, headlights + dimmer, ignition -> the private CAN link,
     playing the gauges board: VehicleMotion, VehicleFluids, Indicators and PowerState, packed from the DBC with the
     rolling counter and CRC-8 (can_replay.PrivateEncoder), sent to clusterd's SIMULATED CAN bus (--can-udp PORT)
@@ -61,6 +62,7 @@ class CarSim:
         self.click = False
         self.phone_proc = None
         self.suspend_at = None
+        self.key_on = True
         self.write_gpio()
 
         root.title("Car (cluster bench): dial, pedals and switches")
@@ -172,7 +174,7 @@ class CarSim:
     # ---- the dial: simulated ADC and button
     def write_gpio(self):
         raw = int(self.angle % 360.0 / 360.0 * 4096) % 4096
-        for name, val in (("adc", str(raw)), ("click", "1" if self.click else "0")):
+        for name, val in (("adc", str(raw)), ("click", "1" if self.click else "0"), ("ign", "1" if self.key_on else "0")):
             tmp = os.path.join(self.gpio_dir, name + ".tmp")
             with open(tmp, "w") as f:
                 f.write(val + "\n")
@@ -227,6 +229,8 @@ class CarSim:
 
     # ---- the car
     def ignition_changed(self):
+        self.key_on = self.ign.get()
+        self.write_gpio()
         if self.ign.get():
             self.suspend_at = None
         else:

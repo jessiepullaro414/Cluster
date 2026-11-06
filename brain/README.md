@@ -40,7 +40,9 @@ difference inside a pair. The autorouter is fenced out of both corridors.
 
 Build: `python build_schematic.py`, `python build_pcb.py`, `python route_board.py`,
 `python ../run_drc.py ClusterBrain.kicad_pcb`, `python build_bom.py`,
-`python ../review/layout_checks.py brain`, `python ../review/review_netlist.py brain`.
+`python ../review/layout_checks.py brain`, `python ../review/review_netlist.py brain`,
+`python ../review/usb1_topology.py`. The autorouter's power-track widths vary from run to run,
+so check `layout_checks.py` after each route: 2026-11-06's board is the best of four.
 
 Not known yet: whether the Verdin iMX95 drives DSI and LVDS as two independent
 screens at once (the i.MX 95 itself can; question 9 in `docs/rfq-drafts.md`

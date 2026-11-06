@@ -10,9 +10,9 @@ layer's pour. USB 2.0 wants 90 ohm +/-15 %, and the same pair also has to serve 
 recovery port.
 
 * Main run: both tracks on F.Cu over the solid In1 GND plane, 0.5 mm apart all the way,
-  which is the pad pitch at J1, at the ESD array and at the receptacle. 0.19 mm wide
-  over 0.0994 mm of 3313 prepreg comes to about 90 ohm differential (review/dsi_impedance.py's
-  field solve: 93 ohm at 0.18 mm with a 0.32 mm gap, 87.6 ohm at 0.20 mm with a 0.30 mm gap).
+  which is the pad pitch at J1, at the ESD array and at the receptacle. 0.19 mm wide with
+  a 0.31 mm gap over 0.0994 mm of 3313 prepreg comes to 90.3 ohm differential
+  (review/dsi_impedance.py's field solve).
 * Two left bends and two right bends, so the bends' length differences cancel.
 * The ESD array U17 is turned so its channels line up with the tracks, which run
   straight over pins 2 and 9 and pins 1 and 10: TI SLVSCO7C keeps those NC pins for this.

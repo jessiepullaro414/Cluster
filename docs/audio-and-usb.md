@@ -93,7 +93,7 @@ The 5 A fuse and breaker have room in every row. These are at what the ports adv
 
 **Where it is.** On the bottom edge with J17, 19.8 mm from it, so two plugs fit side by side (a USB-C overmold can be 12.35 mm wide). It's in the strip under the buck, which the other cells left free. **The outline stays 184.8 x 104.9 mm and none of the 179 existing parts moved** (`brain/floorplan.py`, checked part by part).
 
-**The pair is planned, not autorouted** (`brain/usb_route.py`). The first route left it 54 and 67 mm long on In2 and In3, with 12.5 mm of skew. It now runs on F.Cu over the solid In1 plane, 0.19 mm wide and 0.5 mm apart, which field-solves to about 90 ohm differential (USB 2.0: 90 ohm +/-15 %), with both legs 43.6 mm long. U17 is lined up with J19's contacts and the tracks run straight over it, on the NC pins TI keeps for that (SLVSCO7C). The bench branch to J13 goes through one via per track to B.Cu: 10.8 and 13.3 mm, about 3 pF per line with the empty header (estimated).
+**The pair is planned, not autorouted** (`brain/usb_route.py`). The first route left it 54 and 67 mm long on In2 and In3, with 12.5 mm of skew. It now runs on F.Cu over the solid In1 plane, 0.19 mm wide and 0.5 mm apart, which field-solves to 90.3 ohm differential (USB 2.0: 90 ohm +/-15 %), with both legs 43.6 mm long. U17 is lined up with J19's contacts and the tracks run straight over it, on the NC pins TI keeps for that (SLVSCO7C). The bench branch to J13 goes through one via per track to B.Cu: 10.8 and 13.3 mm, about 3 pF per line with the empty header (estimated).
 
 **Flashing a module.** Hold CTRL_RECOVERY_MICO# low on J9 at power-on, as before (Design Guide 2.20). Then either:
 

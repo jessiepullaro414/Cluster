@@ -172,10 +172,13 @@ CELLS = {
     # reset/recovery/power pins at the other end (246-260).
     # Bring-up headers sit with the Verdin pins they serve (UART_3 pins 147/149
     # and USB_1 pins 159-165, middle of the odd row), in the bottom strip.
+    # 2026-11-06: C91, the USB_1_VBUS sense filter, is at J13 and the module's pin.
+    # The keep-in is the cell's old outline, so the cells after it don't move.
     "USBUART": dict(
         anchor="J13",
-        order=["J12"],
-        pulls={}),
+        order=["J12", "C91"],
+        keepin=(-7.5, -1.8, 1.8, 12.0),
+        pulls={"C91": {"USB_VBUS": pull("J13", [1], 4)}}),
     "JTAG": dict(
         anchor="J8",
         order=["R48"],
@@ -271,6 +274,42 @@ CELLS = {
             "C81": {"+5V": pull("U11", [2, 3], 4)},
             "R71": {"USB2_CC1": pull("J17", ["A5"], 2)},
             "R72": {"USB2_CC2": pull("J17", ["B5"], 2)},
+        }),
+    # Second USB-C port (2026-11-06). It goes in the free strip under the buck, which
+    # isn't a rectangle, in three cells. The receptacle with its CC resistors, which stay
+    # to the right of the pair's planned route (usb_route.py) and clear of R10, R11 and C5.
+    # The ESD array alone, which floorplan.py lines up with the receptacle's contacts. And
+    # the power parts to the right, built round the bulk capacitor. floorplan.py checks all
+    # three against every other part.
+    "USBC2": dict(
+        anchor="J19",
+        order=["R94", "R95"],
+        keepin=(1.0, -8.8, 4.3, 2.6),
+        anchor_gap=0.35,
+        pulls={
+            "R94": {"USB1_CC1": pull("J19", ["A5"], 2)},
+            "R95": {"USB1_CC2": pull("J19", ["B5"], 2)},
+        }),
+    "USBC2_ESD": dict(anchor="U17", order=[], pulls={}),
+    # J19 is off the -x side and C90's VBUS pad faces it. The keep-in's top edge is C8's
+    # lower edge and its right edge is R8's left edge. The blocked box is C5 and R13: the
+    # strip is lower to the left of C90 than above it. Positions in floorplan.py.
+    "USBC2_PWR": dict(
+        anchor="C90",
+        order=["D12", "U16", "C88", "C89", "R91", "R92", "R93", "R96"],
+        keepin=(-10.0, -10.5, 8.1, 4.4),
+        blocked=[(-12.0, -12.0, -4.3, -6.0)],
+        anchor_gap=0.35,
+        rot={"D12": (90, 270)},       # upright in the column beside J19, as near its contacts as it can be
+        pulls={
+            "U16": {"USB1_VBUS": pull("C90", [1], 4)},
+            "D12": {"USB1_VBUS": pull("C90", [1], 3)},
+            "C88": {"+5V": pull("U16", [2, 3], 4)},
+            "C89": {"+5V": pull("U16", [2, 3], 4)},
+            "R91": {"USB1_ILIM": pull("U16", [5], 4)},
+            "R92": {"USB1_OC_N": pull("U16", [8], 3)},
+            "R93": {"USB1_EN": pull("U16", [4], 3)},
+            "R96": {"USB1_VBUS": pull("C90", [1], 2)},
         }),
 }
 

@@ -49,8 +49,9 @@ _RULES = [
     # Communications this board uses: CAN to ecu-pcb/gauges, the audio codec's
     # I2S_1 + I2C_1 (2026-10-16: wireless Android Auto / CarPlay need sound),
     # and the USB_2 host port (USB 2.0 pair, VBUS enable, over-current).
-    # USB_2 is the Verdin host-only port; USB_1 stays on the bench header J13.
-    # USB_2's SuperSpeed lanes and the MSP USB1_TX1/RX1 pairs stay unused (bank
+    # USB_2 is the Verdin host-only port. USB_1 (bench header J13 and, since
+    # 2026-11-06, the second USB-C port J19) is wired by name through X1_NETS, in
+    # bank E with the bench headers' other pins. USB_2's SuperSpeed lanes and the MSP USB1_TX1/RX1 pairs stay unused (bank
     # E): the port is USB 2.0 only, which is all a phone or a projection dongle
     # needs.
     ("D", r"^(CAN_1_|I2S_1_|I2C_1_|USB_2_D_|USB_2_EN$|USB_2_OC#$)"),

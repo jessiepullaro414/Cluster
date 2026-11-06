@@ -48,7 +48,7 @@ The codec cell (AUDIO, with its LDO) is in the left strip beside the Verdin sock
 
 ## 2. USB-C host port (J17) on Verdin USB_2
 
-* **Port**: Verdin `USB_2` (X1 pins 181 D-, 183 D+, 185 EN, 187 OC#), the host-only port. `USB_1` (OTG, recovery) stays on the bench header J13. USB 2.0 only: the SuperSpeed lanes stay unused (bank E, no-connect). A phone or a projection dongle negotiates USB 2.0 on this receptacle.
+* **Port**: Verdin `USB_2` (X1 pins 181 D-, 183 D+, 185 EN, 187 OC#), the host-only port. `USB_1` (OTG, recovery) goes to the bench header J13 and, since 2026-11-06, to the second port J19 (section 2a). USB 2.0 only: the SuperSpeed lanes stay unused (bank E, no-connect). A phone or a projection dongle negotiates USB 2.0 on this receptacle.
 * **Connector**: GCT USB4105-GF-A, USB Type-C 2.0 16-pin receptacle, on the bottom board edge (footprint drawn for this part; its edge line is 3.1 mm below the origin and the floorplan aligns it to the board edge). The receptacle is board-mount; reach a console or glovebox with a panel-mount USB-C extension cable.
 * **VBUS**: TPS2557-Q1 (U11, orderable TPS2557QDRBRQ1; EN is active-HIGH on this variant, do not substitute the -2556). R(ILIM) = 61.9 k gives 1.61 / 1.805 / 1.98 A min/typ/max (datasheet table). 100 k pull-down on EN keeps the port off until software enables it (the module datasheet lists a reset pull-down for USB_1_EN but none for USB_2_EN). FAULT goes to `USB_2_OC#` through a 100 k pull-up to +1V8. 5 V TVS (D8, SMAJ5.0A) on VBUS because a hot-plugged cable can ring above the switch's 7 V absolute maximum. 100 uF hybrid polymer on VBUS (USB 2.0 cites 120 uF per downstream port; the board uses the one polymer part it already carries, 17 % under).
 * **VBUS pins**: only the A9/B4 pair of VBUS contacts is wired (the A4/B9 pair is on its own net, USB2_VBUS_L). The autorouter could not cross the D+/D-/CC escape to join the pairs, and every Type-C plug ties all four of its VBUS pins together, so either pair carries the current: 1.5 A across two contacts, against 1.25 A per contact in the Type-C spec. This departs from "connect all four": a 3 A port, or a stricter reading, needs the link added (B.Cu through two vias above the pad row).
@@ -56,6 +56,63 @@ The codec cell (AUDIO, with its LDO) is in the left strip beside the Verdin sock
 * **ESD**: TPD4E05U06-Q1 on D+, D-, CC1, CC2. The shield goes straight to ground.
 * **Routing**: D+/D- are routed by the autorouter, short (the port is next to the module's USB_2 pins) but not length-matched or impedance-controlled. Acceptable for a short USB 2.0 hop; check with a USB eye test if a dongle is flaky.
 * **Why it exists**: a wired phone, and a wireless-projection dongle (the common Android Auto / CarPlay wireless adapters) as the fallback if native wireless cannot be licensed.
+
+## 2a. Second USB-C host port (J19) on Verdin USB_1, added 2026-11-06
+
+The owner, working on the Alfa: "it would expand the addons a lot. make the change to the brain for both". brain/ is the same board in the Mustang and the Alfa, so both get it. **Nothing here is built or measured.** Figures are from the datasheets named, or calculated by the scripts named.
+
+**What a port can be.** The module has exactly two USB ports, however capable the processor is, and J17 uses USB_2. USB_1 was only on the bench header J13.
+
+| Option | For | Against | |
+|---|---|---|---|
+| Host port on USB_1, sharing the pair with J13 | Its own controller: USB_1 is the SoC's USB 2.0 controller and USB_2 its USB 3 one (mainline `imx95-verdin.dtsi`, read 2026-11-06). No new kind of part. The Design Guide allows it (2.4.3.2.1) | The pair has a branch, and flashing needs thought (below) | **Built** |
+| USB hub chip on USB_2 | Leaves USB_1 alone | All add-ons and a phone share one 480 Mbit/s bus. A stick's 166 Mbit/s of video is a third of that. More parts: a hub, its clock and supplies | No |
+| A mux between J13 and J19 | Removes the stub | A part, a control line and its own capacitance on the pair. No number asks for it | No |
+| TUSB321 role controller on USB_1 (Design Guide figure 29) | Flashing with a C-to-C cable too | More parts and an automatic host/client choice that a phone could win. Not automotive grade in the guide's part number | No |
+| USB 3 on either port | 5 Gbit/s | A SuperSpeed mux and four more controlled pairs through this strip, for add-ons that don't need it yet | Not now |
+
+**The circuit** is J17's (section 2), same parts: U16 TPS2557-Q1, U17 TPD4E05U06-Q1, D12 SMAJ5.0A, C90 100 uF polymer, J19 GCT USB4105-GF-A. USB_1_EN drives U16 (the module tree already has it as `reg_usb1_vbus`) and U16's FAULT goes to USB_1_OC# with a 100 k pull-up to 1.8 V. It differs in four ways.
+
+1. **J19 advertises the default USB current, not 1.5 A: Rp is 56 k, not 22 k.** On USB 2.0 that's 500 mA, which is what anything made for a USB 2.0 port expects. J17 stays the port that charges a phone at 1.5 A. The sum below forces this.
+2. **U16's limit is lower: R91 = 100 k gives 0.945 / 1.11 / 1.27 A** (SLVSC97B IOS table), not 1.61 to 1.98 A. A device with no CC logic, such as a stick or a hub on a USB-A adapter, ignores Rp and could otherwise take more than the buck has to spare. Over 500 mA is still allowed, for an add-on's short peaks.
+3. **The pair also goes to J13**, as USB_1 is the recovery port (Design Guide 2.20). Use one at a time.
+4. **USB_1_VBUS senses J19's VBUS, through 1 k with 100 nF at the pin (R96, C91).** So a PC can flash the module through J19. The pin's absolute maximum is 5.5 V and D12 doesn't conduct until 6.4 V, so a direct connection wouldn't survive hot-plug ringing for certain; the filter is 100 us. J13's VBUS pin stays on the same net.
+
+**The 5 V sum** (`review/thermal_derating.py`, table A2, which also counts J17 for the first time). Verdin 5 W typical and 10 W peak are assumed (Toradex's datasheet doesn't publish them), a panel is 4 W by estimate, the rest 0.5 W. The buck is rated 6 A.
+
+| Car | Second port | +5V, typical / peak | Against 6 A | Buck junction at 85 C ambient (estimate, RthJA 25) | Input at peak, 12 V / 9 V |
+|---|---|---|---|---|---|
+| Mustang, 1 panel | **0.5 A, as built** | 3.9 / 4.9 A | fits | 128 C | 2.3 / 3.0 A |
+| Mustang, 1 panel | 1.5 A | 4.9 / 5.9 A | fits, just | 149 C | 2.7 / 3.6 A |
+| Alfa, 2 panels | **0.5 A, as built** | 4.7 / 5.7 A | fits | 145 C | 2.6 / 3.5 A |
+| Alfa, 2 panels | 1.5 A | 5.7 / 6.7 A | **over** | 169 C, over the 150 C limit | 3.1 / 4.1 A |
+
+The 5 A fuse and breaker have room in every row. These are at what the ports advertise. A device that ignores Rp and takes U16's full 1.27 A puts the Alfa at 6.5 A peak. That's over the rating, for an assumed module peak, and the failure would be a reset, not damage: measure the real module before relaxing this.
+
+**VBUS copper.** Both ports' VBUS now route like the screen ports' 5 V: outer layers, 0.3 mm with an F.Cu pour along the path, and the large vias. J17's had never been rated by `review/layout_checks.py`: at 0.2 mm near the receptacle it came out at 92 K for U11's 1.98 A limit.
+
+**Where it is.** On the bottom edge with J17, 19.8 mm from it, so two plugs fit side by side (a USB-C overmold can be 12.35 mm wide). It's in the strip under the buck, which the other cells left free. **The outline stays 184.8 x 104.9 mm and none of the 179 existing parts moved** (`brain/floorplan.py`, checked part by part).
+
+**The pair is planned, not autorouted** (`brain/usb_route.py`). The first route left it 54 and 67 mm long on In2 and In3, with 12.5 mm of skew. It now runs on F.Cu over the solid In1 plane, 0.19 mm wide and 0.5 mm apart, which field-solves to about 90 ohm differential (USB 2.0: 90 ohm +/-15 %), with both legs 43.6 mm long. U17 is lined up with J19's contacts and the tracks run straight over it, on the NC pins TI keeps for that (SLVSCO7C). The bench branch to J13 goes through one via per track to B.Cu: 10.8 and 13.3 mm, about 3 pF per line with the empty header (estimated).
+
+**Flashing a module.** Hold CTRL_RECOVERY_MICO# low on J9 at power-on, as before (Design Guide 2.20). Then either:
+
+| | Cable | Loss on the pair, calculated (`review/usb1_topology.py`). 720 MHz is the third harmonic of a 480 Mbit/s signal | |
+|---|---|---|---|
+| **Through J19** | An ordinary USB-A to USB-C cable from the PC | -0.2 dB at 480 MHz, -0.3 dB at 720 MHz | The clean path: only the short branch hangs on the pair. No need to open the box to reach it, though J9 is inside |
+| Through J13 | A five-wire lead to the header, as before | -1.5 dB at 480 MHz, -7.3 dB at 720 MHz | The whole run to J19 is an open stub. It may not hold 480 Mbit/s: if it doesn't, use J19 |
+
+A USB-C to USB-C cable to a PC won't work on J19: both ends present Rp, so neither supplies VBUS and nothing is detected. Nothing is harmed. With a PC on J19 and the module not running as host, U16 is off and blocks the PC's 5 V from +5V (I(REV) 1 uA maximum at 25 C, SLVSC97B).
+
+In normal running USB_1 is set to host in the device tree (`software/linux/README.md`). The mainline tree also shows a switch on the module: out of reset, the SoC's USB 3 controller drives USB_1 for recovery and USB_2 has none, until software sets a line on the module's GPIO expander (`USB_RECOV_CTRL#`). So J17 works only once that's done, as it always has.
+
+**Not verified:**
+* The eye on either path, and whether flashing holds high speed through J13. Measure at bring-up.
+* That recovery needs USB_1_VBUS at all, and which level of USB_1_ID it wants. Both are in the questions for Toradex.
+* Real module power, the real buck temperature, and how much the panels draw: this sum is mostly estimates.
+* **J17's pair is still autorouted**, on In2 and In3, where a 0.2 mm track sits 0.11 mm from the next layer's pour, which lowers its impedance. It's about 30 mm long and it's been like that since 2026-10-16. Planning it too would have to cross this run on another layer. Not done.
+* **Reaching the ports.** Plugs aren't drawn in either car's model. The Mustang's tub is 112 mm inside against this 104.9 mm board, so both ports need openings in it, or short leads; J17 had the same problem. In the Alfa, the box needs two openings on that side (`alfa-gtv-cluster/docs/camera-and-sound.md`).
+* **No common-mode choke on either port.** The Design Guide's USB-C reference designs have one (12 ohm at 100 MHz) and says external USB needs one to pass EMI testing. Neither port has a footprint for one, so an EMI failure here means a board change. Decide before a sold kit.
 
 ## 3. Wireless radio (Verdin iMX95 WB)
 The WB module carries a **u-blox MAYA-W260-00B**: Wi-Fi 6 (2.4 and 5 GHz), simultaneous station + access point + P2P, Bluetooth 5.4 and 802.15.4, **two U.FL antenna connectors** on the module (Verdin iMX95 datasheet sections 1.7.14 and 5.18). No carrier circuit is needed. Its SDIO and Bluetooth UART use SD3 and UART pins on the SODIMM; this board does not use any of those pins.
@@ -86,8 +143,9 @@ Layer note: the autorouter now also gets a **GND pour on the back layer (B.Cu)**
 * **Antenna U.FL location** on the module (not in the datasheet text).
 * **TAC5112-Q1**: datasheet read, not bench-tested; the DC level on the line outputs and the exact software bring-up are untested. `AVDD_MODE`/`IOVDD_IO_MODE` rules are from section 8.3.
 * **Verdin I2C_1 pull-ups** (none listed) and the **GPIO expander rail** for `USB_2_EN` / `USB_2_OC#` (assumed 1.8 V like all Verdin I/O).
-* **J17 hole clearance**: the four ground shield-side pads are 0.194 mm from the NPTH locating pegs (KiCad default 0.25 mm; that is GCT's own land pattern as drawn in KiCad's footprint). Confirm the board house's NPTH-to-copper limit.
+* **J17 and J19 hole clearance**: each one's four ground shield-side pads are 0.194 mm from the NPTH locating pegs (KiCad default 0.25 mm; that is GCT's own land pattern as drawn in KiCad's footprint). Confirm the board house's NPTH-to-copper limit.
 * **SMAJ5.0A**'s AEC-Q101 listing and the **JST XH** ordering suffixes (the BOM marks both PATTERN).
-* **Only one VBUS contact pair is wired** on J17 (see section 2).
-* **USB VBUS capacitor** is 100 uF, under the USB 2.0 120 uF figure.
+* **Only one VBUS contact pair is wired** on J17 and J19 (see section 2).
+* **USB VBUS capacitors** are 100 uF each, under the USB 2.0 120 uF figure.
+* **The second port** (section 2a): nothing about it is measured. Its open items are listed there.
 * **Licensing** (Apple MFi, Google receiver terms): separate business gate B5.

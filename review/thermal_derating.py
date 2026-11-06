@@ -243,6 +243,22 @@ def display(sch=None, pcb=None):
         ["CAN, dial, 1V8, misc", f"{p_misc:.1f}", "estimate"],
         ["total on +5V", f"{p5_typ:.1f} typ / {p5_pk:.1f} peak", f"{p5_pk / 5.0:.1f} A peak at 5 V"],
     ], ["load", "W", "basis"])
+    # USB-C ports (2026-11-06, docs/audio-and-usb.md section 2a). Neither table above
+    # counted J17. J17 advertises 1.5 A; J19 advertises the default current, 0.5 A on
+    # USB 2.0. The Alfa has two panels on brain/, the Mustang one, each as above.
+    rating_a = 6.0                                               # LM61460-Q1 output current
+    print("\nA2. +5V with the USB-C ports at what they advertise, against the LM61460-Q1's 6 A")
+    a2 = []
+    p_panel = p_bl_in + p_bias_in
+    for car, panels in (("Mustang, 1 panel", 1), ("Alfa, 2 panels", 2)):
+        for label, i_j19 in (("J19 0.5 A (as built)", 0.5), ("J19 1.5 A (rejected)", 1.5)):
+            usb_w = 5.0 * (1.5 + i_j19)
+            typ = (p_verdin_typ + p_misc + panels * p_panel + usb_w) / 5.0
+            pk = (p_verdin_pk + p_misc + panels * p_panel + usb_w) / 5.0
+            loss = 0.30 + (typ / 4.0) ** 2 * 1.5
+            a2.append([car, label, f"{typ:.1f} typ / {pk:.1f} peak", "OVER" if pk > rating_a else "ok", f"{loss:.2f} W",
+                       f"{85 + 25.0 * loss:.0f} C", f"{(pk * 5.0) / 0.9 / 12.0:.1f} A at 12 V, {(pk * 5.0) / 0.9 / 9.0:.1f} A at 9 V"])
+    tab(a2, ["car", "second port", "+5V, A", "against 6 A", "buck loss at typ", "TJ at TA 85 C, RthJA 25", "input at peak, 90 % efficient (F1 5 A)"])
     rows = []
     print("\nB. Dissipation (TA 85 C)")
     # LM61460: DS fig 10-3 at 2.1 MHz, RthJA 25 C/W EVM allows 4 A at 105 C ambient -> ~1.8 W; use P = 0.30 W + (Iout/4)^2 x 1.5 W

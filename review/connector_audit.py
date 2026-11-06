@@ -31,6 +31,9 @@ OFFBOARD = {
 }
 
 
+OFFBOARD["brain"] = dict(OFFBOARD["display"], J17="USB-C host port on USB_2", J19="USB-C host port on USB_1")
+
+
 def label(nl, ref):
     v = nl.comps[ref]["value"].split()
     return f"{ref} {v[0]}" if ref[0] in "RC" and v else f"{ref} {nl.comps[ref]['value'].split(' (')[0][:34]}"

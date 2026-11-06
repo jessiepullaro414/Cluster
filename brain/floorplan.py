@@ -40,11 +40,16 @@ in millimetres except the gaps below.
 import os as _os, sys as _sys
 _sys.path.insert(0, _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "..", "tools"))
 from cellplace import rot_xy, rotate_cell as _rotate_cell
+import usb_route as _usb_route
 
 GAP = 3.0           # clearance between neighbouring cells, mm
 KEEP_GAP = 3.0      # between the module keepout and the strips
 INPUT_ROT = 270     # J2 pins along the right board edge
 USBC_EDGE_OFFSET = 3.1   # PCB edge is 3.1 mm below the USB-C footprint origin (GCT USB4105 footprint)
+USBC2_GAP = 1.5          # second USB-C port: USBC cell to J19's courtyard, mm
+USBC2_PWR_GAP = 0.5      # J19's courtyard to its power parts, mm
+USBC2_TVS_COLUMN = 3.85  # D12 upright (3.5 mm wide) and its gap to C90, mm
+USBC2_BOTTOM = 0.45      # lowest power part to the board edge, mm
 # Left strip columns (cell names, vertical alignment in the keepout band).
 LEFT_COLS = [(["JTAG", "MFI"], "center"), (["AUDIO", "LDO3V3"], "top")]
 
@@ -232,5 +237,41 @@ def floorplan(parts, res, j1_bbox, j1_dsi_y, keep_w, keep_h, margin, porta_pads,
         H += bottom_top - usbc_top
         usbc_top = bottom_top
     put("USBC", usbc_left, usbc_top)
+    # Second USB-C port (2026-11-06): on the same bottom edge, in the strip under
+    # the buck, which the cells above leave free. Nothing above moves and the outline
+    # doesn't change. J19 is about 20 mm from J17, so two plugs fit side by side
+    # (a USB-C overmold can be 12.35 mm wide).
+    placed_2, bbox_2 = cells["USBC2"]
+    usbc2_left = usbc_left + size("USBC")[0] + USBC2_GAP
+    # The cell's left edge is J19's: its CC resistors are all to the right of the origin.
+    put("USBC2", usbc2_left, H - USBC_EDGE_OFFSET - (placed_2["J19"][1] - bbox_2[1]))
+    # U17 lines up with J19's contacts, D- over B7 and D+ over A6, so the pair runs straight
+    # through it (usb_route.py). Turned 270 degrees, pin 1 is to the right of pin 2.
+    out["U17"] = (round(out["J19"][0] + _usb_route.U17_X_FROM_J19, 3),
+                  round(out["J19"][1] - _usb_route.ESD_ABOVE_J19, 3), 270)
+    # USBC2_PWR is placed by its anchor, C90 (keep-in and blocked box in cells.py): its
+    # left side touches the column kept for the TVS, its bottom the board-edge margin.
+    c90_x0, c90_y0, c90_x1, c90_y1 = parts["C90"].rbbox(0)
+    c90_x = out["J19"][0] + parts["J19"].rbbox(0)[2] + USBC2_PWR_GAP + USBC2_TVS_COLUMN - c90_x0
+    c90_y = H - USBC2_BOTTOM - c90_y1
+    for ref, (cx, cy, a) in cells["USBC2_PWR"][0].items():
+        out[ref] = (round(c90_x + cx, 3), round(c90_y + cy, 3), a)
+
+    # The strip isn't a rectangle, so check the new cells part by part.
+    def box(ref):
+        ox_, oy_, a_ = out[ref]
+        x0_, y0_, x1_, y1_ = parts[ref].rbbox(a_)
+        return ox_ + x0_, oy_ + y0_, ox_ + x1_, oy_ + y1_
+    for name in ("USBC2", "USBC2_ESD", "USBC2_PWR"):
+        for ref in cells[name][0]:
+            a_ = box(ref)
+            if ref != "J19":          # the receptacle's mouth overhangs the edge on purpose
+                assert a_[3] <= H and a_[2] <= W, f"{ref} is off the board"
+            for other in out:
+                if other == ref or other == "J1":
+                    continue
+                b_ = box(other)
+                assert a_[2] <= b_[0] or b_[2] <= a_[0] or a_[3] <= b_[1] or b_[3] <= a_[1], \
+                    f"floorplan: {ref} overlaps {other}"
     return dict(placed=out, width=W, height=H, keepout=(KX, KY, KX + keep_w, KY + keep_h),
                 j4_rot=rot_a, j18_rot=rot_b)

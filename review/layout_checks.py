@@ -58,7 +58,7 @@ CFG["brain"] = dict(CFG["display"],
                     switch=["SW_5V", "BOOT_C", "BOOT_R"],
                     own={"SW_5V", "BOOT_C", "BOOT_R", "+5V", "GND", "+12V_PROT", "VCC_LDO", "FB_5V"},
                     fast=["DSI_D0_P", "DSI_D0_N", "DSI_CLK_P", "LVDS0_CLK_P", "LVDS0_CLK_N",
-                          "LVDS1_D3_P", "USB2_DP", "USB2_DN", "CAN1_H", "CAN1_L"])
+                          "LVDS1_D3_P", "USB2_DP", "USB2_DN", "USB_DP", "USB_DN", "CAN1_H", "CAN1_L"])
 # the TSD panel board (2026-10-20): display/'s panel bias and backlight converters
 CFG["panel-tsd"] = dict(
     pcb=os.path.join(ROOT, "panel-tsd", "ClusterPanelTSD.kicad_pcb"),
@@ -99,7 +99,7 @@ NEEDS = {
 }
 NEEDS["display-rgb"] = NEEDS["display"]   # same supply chain; the RGB receiver adds about 0.1 A on +5V
 NEEDS["brain"] = {k: v for k, v in NEEDS["display"].items() if not k.startswith("PANEL_") and k != "SENSE_OUT"}
-NEEDS["brain"].update({"PORTA_5V": 1.98, "PORTB_5V": 1.98})
+NEEDS["brain"].update({"PORTA_5V": 1.98, "PORTB_5V": 1.98, "USB2_VBUS": 1.98, "USB1_VBUS": 1.27})   # each switch's maximum limit
 # the panel draws about 0.65 A at 5 V for its backlight (2.7 W / 0.88) plus the bias supply
 NEEDS["panel-tsd"] = {"+5V": 1.0, "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15}
 # (2026-10-20) Where the current really flows. A net listed here is rated only along the copper
@@ -127,6 +127,8 @@ PATHS["brain"] = dict({"VBAT_IN": [[("J2", "1")], [("F1", "1")]],
                        "COMMON": [[("Q2", "1"), ("Q2", "2"), ("Q2", "3")], [("Q1", "1"), ("Q1", "2"), ("Q1", "3")]],
                        "SENSE_HI": [[("Q1", "5")], [("R1", "1")]],
                        "+12V_PROT": [[("R1", "2")], [("U2", "8")], [("U2", "12")]]},
+                      USB2_VBUS=[[("U11", "6"), ("U11", "7")], [("J17", "A9"), ("J17", "B4")]],
+                      USB1_VBUS=[[("U16", "6"), ("U16", "7")], [("J19", "A9"), ("J19", "B4")]],
                       PORTA_5V=[[("U6", "6"), ("U6", "7")], [("J4", "2"), ("J4", "3"), ("J4", "4"), ("J4", "5")]],
                       PORTB_5V=[[("U7", "6"), ("U7", "7")], [("J18", "45"), ("J18", "46"), ("J18", "47"),
                                                              ("J18", "48"), ("J18", "49")]])

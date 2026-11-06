@@ -182,6 +182,11 @@ X1_NETS = {
     "UART_3_RXD": "UART_RXD", "UART_3_TXD": "UART_TXD",
     "USB_1_D_P": "USB_DP", "USB_1_D_N": "USB_DN",
     "USB_1_VBUS": "USB_VBUS", "USB_1_ID": "USB_ID",
+    # 2026-11-06: USB_1 is also the second USB-C host port, J19 (build_usb_host()).
+    # VBUS enable and over-current flag, both 1.8 V. USB_1_ID stays on J13 with no
+    # pull: Design Guide table 14 allows leaving it open and setting the port's
+    # direction in software, and recovery mode doesn't use it.
+    "USB_1_EN": "USB1_EN", "USB_1_OC#": "USB1_OC_N",
     # Audio (2026-10-16): Verdin I2S_1 in controller mode (the module drives
     # BCLK and SYNC) to the TAC5112-Q1 codec, which is the target. Module
     # D_OUT is the codec's DIN and module D_IN is the codec's DOUT. I2S_1_MCLK
@@ -1135,6 +1140,7 @@ def build_control(x0, y0, usable_h):
     flow(conn_uart, "J12", "Samtec TSW-103-07-G-S A55 console UART_3 1.8V (bench only)", {
         "TXD": "UART_TXD", "RXD": "UART_RXD", "GND": "GND",
     })
+    # Since 2026-11-06 the same pair also goes to J19, the second USB-C port.
     flow(conn_usb, "J13", "Samtec TSW-105-07-G-S USB_1 OTG (bench only)", {
         "VBUS": "USB_VBUS", "D_N": "USB_DN", "D_P": "USB_DP", "ID": "USB_ID",
         "GND": "GND",
@@ -1450,6 +1456,25 @@ def build_usb_host(x0, y0, usable_h):
 
     The GCT USB4105 receptacle has D+ on both A6 and B6 and D- on both A7 and
     B7 (a 16-pin USB 2.0 part), so those pairs are tied together.
+
+    SECOND PORT, J19 on Verdin USB_1 (2026-11-06, the owner: more room for add-ons,
+    on the board both cars share). Same circuit as J17, which Verdin Carrier Board
+    Design Guide V1.2 section 2.4.3.2.1 allows on the first USB port. USB_1 has its
+    own controller, so the two ports don't share bandwidth. It differs from J17 in
+    four ways, each for a reason in docs/audio-and-usb.md section 2a:
+      * Rp is 56 k, the Type-C default current (500 mA on a USB 2.0 port), not 22 k.
+        Two 1.5 A ports and two panels would be 6.7 A at the 5 V buck's peak against
+        its 6 A rating (review/thermal_derating.py). J17 stays the charging port.
+      * RILIM is 100 k, 945 / 1110 / 1270 mA (SLVSC97B IOS table), so a device with
+        no CC logic, such as a hub on a USB-A adapter, can't take more than that.
+      * USB_1 is the recovery port (Design Guide 2.20), so the pair also still goes to
+        the bench header J13. Only one may be plugged in at a time.
+      * USB_1_VBUS senses this port's VBUS, so a module can be flashed through J19
+        with an ordinary USB-A to USB-C cable. The sense pin's absolute maximum is
+        5.5 V and the TVS doesn't conduct until 6.4 V, so hot-plug ringing is kept
+        off it by 1 k + 100 nF (R96, C91). With a PC on J19 and U16 off, U16 blocks
+        the PC's 5 V from +5V (I(REV) 1 uA maximum at 25 C, SLVSC97B).
+    A USB-C to USB-C cable to a PC won't work for flashing: both ends present Rp.
     """
     r, c = f"{LIB}:R", f"{LIB}:C"
     c0805 = build_generic_symbol(f"{LIB}:C_0805", "C", "C", PASSIVE_PINS)
@@ -1459,6 +1484,8 @@ def build_usb_host(x0, y0, usable_h):
                                 parts.TPS2557_Q1)
     u_esd = build_generic_symbol(f"{LIB}:TPD4E05U06-Q1", "U", "TPD4E05U06-Q1",
                                  parts.TPD4E05U06_Q1)
+    u_esd_thru = build_generic_symbol(f"{LIB}:TPD4E05U06-Q1-THRU", "U", "TPD4E05U06-Q1",
+                                      parts.TPD4E05U06_Q1_THRU)
     usbc_pins = [(n, f"{n}_{role}", "passive") for n, role in
                  (("A1", "GND"), ("A4", "VBUS"), ("A5", "CC1"), ("A6", "DP"),
                   ("A7", "DN"), ("A8", "SBU1"), ("A9", "VBUS"), ("A12", "GND"),
@@ -1518,6 +1545,39 @@ def build_usb_host(x0, y0, usable_h):
         "B1_GND": "GND", "B4_VBUS": "USB2_VBUS", "B5_CC2": "USB2_CC2",
         "B6_DP": "USB2_DP", "B7_DN": "USB2_DN", "B8_SBU2": None,
         "B9_VBUS": "USB2_VBUS_L", "B12_GND": "GND", "SHIELD": "GND"})
+
+    # --- J19, on USB_1 (2026-11-06, see the docstring) ---------------------
+    flow(u_sw, "U16", "TPS2557-Q1", {
+        "IN1": "+5V", "IN2": "+5V", "OUT1": "USB1_VBUS", "OUT2": "USB1_VBUS",
+        "EN": "USB1_EN", "ILIM": "USB1_ILIM", "FAULT": "USB1_OC_N",
+        "GND": "GND", "EP": "GND"})
+    # The module lists a reset pull-down for USB_1_EN (unlike USB_2_EN), but the
+    # port stays off with the module unplugged only if the carrier holds it too.
+    flow(r, "R93", "100k USB EN pull-down", {"1": "USB1_EN", "2": "GND"})
+    flow(r, "R91", "100k 1% USB ILIM (0.95-1.27 A)", {"1": "USB1_ILIM", "2": "GND"})
+    flow(r, "R92", "100k FAULT pull-up to +1V8", {"1": "USB1_OC_N", "2": "+1V8"})
+    flow(c, "C88", "100n USB switch IN", {"1": "+5V", "2": "GND"})
+    flow(c0805, "C89", "10u USB switch IN", {"1": "+5V", "2": "GND"})
+    flow(cpol, "C90", "100u 35V hybrid polymer VBUS (Panasonic EEH-ZA1V101P)",
+         {"1": "USB1_VBUS", "2": "GND"})
+    flow(tvs, "D12", "SMAJ5.0A VBUS TVS", {"1": "USB1_VBUS", "2": "GND"})
+    flow(r, "R94", "56k Rp CC1 (default USB current, +/-20 percent or better)", {"1": "USB1_CC1", "2": "+5V"})
+    flow(r, "R95", "56k Rp CC2 (default USB current, +/-20 percent or better)", {"1": "USB1_CC2", "2": "+5V"})
+    flow(r, "R96", "1k USB_1_VBUS sense series", {"1": "USB1_VBUS", "2": "USB_VBUS"})
+    flow(c, "C91", "100n USB_1_VBUS sense filter", {"1": "USB_VBUS", "2": "GND"})
+    # The pair runs straight over the package, on TI's NC pins (brain/usb_route.py).
+    flow(u_esd_thru, "U17", "TPD4E05U06-Q1 USB ESD", {
+        "CH1": "USB_DP", "CH2": "USB_DN", "CH3": "USB1_CC1", "CH4": "USB1_CC2",
+        "GND1": "GND", "GND2": "GND",
+        "CH1_THRU": "USB_DP", "CH2_THRU": "USB_DN", "CH3_THRU": "USB1_CC1", "CH4_THRU": "USB1_CC2"})
+    flow(conn_usb, "J19", "GCT USB4105-GF-A USB-C 2.0 host receptacle", {
+        # Only the A9/B4 VBUS pair is wired, as on J17: 0.5 A advertised, 1.27 A at most.
+        "A1_GND": "GND", "A4_VBUS": "USB1_VBUS_L", "A5_CC1": "USB1_CC1",
+        "A6_DP": "USB_DP", "A7_DN": "USB_DN", "A8_SBU1": None,
+        "A9_VBUS": "USB1_VBUS", "A12_GND": "GND",
+        "B1_GND": "GND", "B4_VBUS": "USB1_VBUS", "B5_CC2": "USB1_CC2",
+        "B6_DP": "USB_DP", "B7_DN": "USB_DN", "B8_SBU2": None,
+        "B9_VBUS": "USB1_VBUS_L", "B12_GND": "GND", "SHIELD": "GND"})
 
 
 def main():

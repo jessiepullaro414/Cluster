@@ -554,6 +554,17 @@ for _u, _p in (("U6", "PORTA"), ("U7", "PORTB")):
     _pins = dict(DISPLAY["U11"]["pins"])
     _pins.update({6: ("OUT", [("net", _p + "_5V")]), 7: ("OUT", [("net", _p + "_5V")])})
     BRAIN[_u] = dict(DISPLAY["U11"], part="TI TPS2557-Q1 screen-port 5 V switch, DRB", pins=_pins)
+# Second USB-C port (2026-11-06): J17's switch and ESD array again, on USB_1.
+_pins = dict(DISPLAY["U11"]["pins"])
+_pins.update({6: ("OUT", [("net", "USB1_VBUS")]), 7: ("OUT", [("net", "USB1_VBUS")])})
+BRAIN["U16"] = dict(DISPLAY["U11"], ds="TI SLVSC97B (Sep 2020) terminal functions, 7.1, IOS table (100 k -> 0.945-1.27 A)", pins=_pins)
+_pins = dict(DISPLAY["U14"]["pins"])
+_pins.update({1: ("CH1", [("net", "USB_DP")]), 2: ("CH2", [("net", "USB_DN")]),
+              4: ("CH3", [("net", "USB1_CC1")]), 5: ("CH4", [("net", "USB1_CC2")]),
+              # SLVSCO7C: NC pins are kept for optional straight-through routing, each facing a channel pin
+              6: ("CH4_THRU", [("net", "USB1_CC2")]), 7: ("CH3_THRU", [("net", "USB1_CC1")]),
+              9: ("CH2_THRU", [("net", "USB_DN")]), 10: ("CH1_THRU", [("net", "USB_DP")])})
+BRAIN["U17"] = dict(DISPLAY["U14"], pins=_pins)
 # TSD panel board: the panel converters moved there with their designators.
 PANEL_TSD = {k: DISPLAY[k] for k in ("U6", "U7")}
 

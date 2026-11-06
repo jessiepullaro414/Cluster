@@ -406,6 +406,14 @@ Use a current-limited bench supply (1 A at first), no Verdin module, no screens,
 7. **Fit the module (brain):** confirm it boots at key-on, that CTRL_PWR_EN_MOCI stays high in suspend, that a falling edge on CTRL_WAKE1_MICO# wakes it, that the RTC alarm wakes it, and that software power-off with the key off drops the board to the step 3 figure (`software/linux/README.md`, L6). Measure suspend current.
 8. **Screens one at a time**, then the surge tests from section 8 (pulse 1 and 2a) and the sender-short test (G-08). In the car: compare the tach against a timing light.
 
+### 9.5a Second USB-C port on brain/, 2026-11-06
+
+The owner asked for it for add-ons, on both cars. Design, sums and what's unverified: `audio-and-usb.md` section 2a. J19 on USB_1, 14 new parts (J19, U16, U17, D12, C88-C91, R91-R96), same outline, none of the 179 existing parts moved. Added to first power-up, after step 7: with the module fitted and USB_1 set to host, plug a USB 2.0 stick into J19 and read it, then flash once through J19 with a USB-A to USB-C cable and once through J13, and look at both on a USB eye test if one is to hand.
+
+Found on the way, fixed: J17's VBUS had never been rated by `layout_checks.py`, and at 0.2 mm near the receptacle came out at 92 K for U11's 1.98 A limit. Both ports' VBUS now route like the screen ports' 5 V, and they're on the list: 7 K and 4 K.
+
+Verification: ERC 0. Real `kicad-cli` DRC 0 unconnected, findings only in `fab/build_fab.py`'s accepted categories (hole_clearance x8, now J17 and J19). `review_netlist.py brain` 49 PASS, 0 FAIL, the same 5 WARN as before. `layout_checks.py brain`: under-width power copper 3.4 mm in all, against 5.5 mm on the last board, best of four full routes; COMMON's 1.1 mm neck at 0.3 mm (88 K) is unchanged, and the other necks are at 28 K or less. `usb1_topology.py`: both legs 43.6 mm to J19's first contact. `mech/build_assembly.py`: 0 clashes. `fab/build_fab.py brain` passes its gate.
+
 ### 9.6 Verification run for this section
 
 ERC (gauges: the 4 known items; brain: 0); real `kicad-cli` DRC after routing; `review/review_netlist.py`, `review/layout_checks.py`,

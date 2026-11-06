@@ -550,6 +550,12 @@ def _pad_by_number(ref, number):
 # lengths and write the corridors; route_board.py adds the copper after the
 # autorouter (FreeRouting hangs when the board already carries wiring).
 _fan_items, _fan_report, _fan_corridors, _fan_dropped = _fan_route.plan(_pad_by_number)
+# 2026-11-06: USB_1's pair is planned the same way (usb_route.py).
+import usb_route as _usb_route
+_usb_items, _usb_report, _usb_corridors, _usb_dropped = _usb_route.plan(_pad_by_number)
+_fan_report.update(_usb_report)
+_fan_corridors.update(_usb_corridors)
+_fan_dropped = list(_fan_dropped) + list(_usb_dropped)
 for _pair, (_ln, _lp) in sorted(_fan_report.items()):
     print(f"  {_pair}: N {_ln:.2f} mm, P {_lp:.2f} mm, skew {abs(_ln - _lp):.2f} mm")
 
@@ -587,7 +593,7 @@ def _cell_rect(cell_name, pad=1.5):
 _report_rects = {name: _cell_rect(name) for name in ("BUCK",)}
 json.dump({"fan_corridors_mm": {k: [list(p) for p in v] for k, v in _fan_corridors.items()},
            "fan_dropped_pins": [list(x) for x in _fan_dropped],
-           "fan_planned_nets": _fan_route.planned_nets(),
+           "fan_planned_nets": _fan_route.planned_nets() + _usb_route.planned_nets(),
            "in1_report_rects_mm": _report_rects},
           open(os.path.join(HERE, "plane_keepouts.json"), "w"), indent=1)
 for _g, _c in _fan_corridors.items():
@@ -979,7 +985,8 @@ TRUNK_WIDTH_LADDER = [1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
 # Brain board (2026-10-20): the panel converters' switch nodes left with the
 # panel; each screen port's switched 5 V (up to the TPS2557-Q1's 1.98 A limit)
 # is widened instead.
-TRUNK_NETS = ["+12V_PROT", "VBAT_IN", "VBAT_F", "SENSE_HI", "COMMON", "SW_5V", "PORTA_5V", "PORTB_5V"]
+TRUNK_NETS = ["+12V_PROT", "VBAT_IN", "VBAT_F", "SENSE_HI", "COMMON", "SW_5V", "PORTA_5V", "PORTB_5V",
+              "USB2_VBUS", "USB1_VBUS"]
 
 board.to_file(PCB)
 print("Wrote", PCB)
@@ -993,7 +1000,7 @@ for ref, (dx, dy) in ref_label_pos.items():
     # the assembly drawing and the BOM, just not printed on the board).
     # The tiny TVS arrays and the USB switch sit among 0603s with no room for
     # a printed label either (2026-10-16).
-    label_layer = "F.SilkS" if (ref[0] in "UJF" and ref not in ("U11", "U12", "U13", "U14")) else "F.Fab"
+    label_layer = "F.SilkS" if (ref[0] in "UJF" and ref not in ("U11", "U12", "U13", "U14", "U16", "U17")) else "F.Fab"
     new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "{label_layer}") '
            f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)

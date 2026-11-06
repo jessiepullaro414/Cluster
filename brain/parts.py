@@ -329,6 +329,16 @@ TPD4E05U06_Q1 = [
     (9,  "NC3", "no_connect"),
     (10, "NC4", "no_connect"),
 ]
+# The same part with TI's optional straight-through routing used (SLVSCO7C pin table: the NC
+# pins are not connected inside and are kept for this): each NC pin faces a channel pin across
+# the package and carries that channel's net, so the track runs straight over both. U17, the
+# USB_1 pair's array.
+TPD4E05U06_Q1_THRU = [p for p in TPD4E05U06_Q1 if p[0] not in (6, 7, 9, 10)] + [
+    (6,  "CH4_THRU", "passive"),
+    (7,  "CH3_THRU", "passive"),
+    (9,  "CH2_THRU", "passive"),
+    (10, "CH1_THRU", "passive"),
+]
 
 
 # ---------------------------------------------------------------------------
@@ -535,6 +545,7 @@ FOOTPRINTS = {
     "TAC5112-Q1": "Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.7x3.7mm_ThermalVias",
     "TPS2557-Q1": "Package_DFN_QFN:Texas_DRB0008A",
     "TPD4E05U06-Q1": "Package_SON:USON-10_2.5x1.0mm_P0.5mm",
+    "TPD4E05U06-Q1-THRU": "Package_SON:USON-10_2.5x1.0mm_P0.5mm",
     # D-11 (2026-10-18): the line-out legs swing about +-1.4 V around 0 V on
     # the connector side of the DC-blocking capacitors; TPD4E05U06-Q1 is
     # unidirectional and conducts below -0.6 V. TPD4E02B04-Q1 (TI SLVSDZ2A):

@@ -55,7 +55,8 @@ sibling board's own BOM.
     XH and J17 is the GCT USB4105-GF-A (PATTERN suffixes flagged); D8 SMAJ5.0A
     is multi-source with its AEC-Q101 listing unchecked; J16 is a reserved,
     DNP, TBD pad set for Apple's MFi coprocessor (no part chosen on purpose).
-    See docs/audio-and-usb.md.
+    See docs/audio-and-usb.md. The second USB-C port (added 2026-11-06) is the
+    same parts again: U16, U17, D12, J19.
   * PASSIVES are specified parametrically - value, package, and the
     AEC-Q200 requirement - same real reasoning as every sibling board.
   * LIVE PRICING AND STOCK ARE NOT INCLUDED.
@@ -137,9 +138,10 @@ BOARD_SIDE_CONNECTORS = {
     "J14": ("B5B-XH-A(LF)(SN)", "JST", "5-circuit XH 2.50 mm vertical header, balanced stereo line-out: L+, L-, R+, R-, GND. Mating: XHP-5 housing with SXH-001T-P0.6 crimps. PATTERN: ordering suffix (LF)(SN) is JST's lead-free tin variant, confirm in the cart. Deliberately a different family from the KK 254 headers so audio cannot be mated to the CAN or dial headers", "-"),
     "J15": ("B3B-XH-A(LF)(SN)", "JST", "3-circuit XH 2.50 mm vertical header, 2-wire electret microphone: bias+signal, return, shield. Mating: XHP-3 housing with SXH-001T-P0.6 crimps. PATTERN: confirm the ordering suffix in the cart", "-"),
     "J17": ("USB4105-GF-A", "GCT", "USB Type-C 2.0 16-pin receptacle, top-mount horizontal (the part KiCad's USB_C_Receptacle_GCT_USB4105-xx-A_16P footprint is drawn for; its tags list USB4105-GF-A). Host port on Verdin USB_2 with a TPS2557-Q1 VBUS switch. A panel-mount USB-C extension cable carries it to a console or glovebox port", "-"),
+    "J19": ("USB4105-GF-A", "GCT", "USB Type-C 2.0 16-pin receptacle, same part as J17. Second host port, on Verdin USB_1 with a TPS2557-Q1 VBUS switch: advertises the default USB current, limit 0.95 to 1.27 A. A module can also be flashed through it with a USB-A to USB-C cable (docs/audio-and-usb.md section 2a)", "-"),
     "J16": ("(not populated - no coprocessor chosen)", "Apple MFi programme (TBD)", "RESERVED, DO NOT POPULATE: 1x6 0.1 in header for an MFi daughterboard (1 I2C_1 SDA, 2 I2C_1 SCL, 3 reset GPIO, 4 GND, 5 MFI_5V switched by U15 from Verdin GPIO_3, 6 +1V8 I/O reference). Apple's MFi authentication coprocessor, which CarPlay needs (iAP2), is only available through Apple's MFi programme, so its regulator, level shifting and the coprocessor itself go on the daughterboard; no Apple part number, supply voltage or reset polarity is specified here. Populate with a Samtec TSW-106-07-G-S once the daughterboard exists. TBD", "TBD"),
     "J12": ("TSW-103-07-G-S", "Samtec", "1x3 0.100in gold-finish pin header, A55 console UART_3 (1.8 V logic: use a 1.8 V USB-serial adapter or a level shifter) - bench and service use only", "-"),
-    "J13": ("TSW-105-07-G-S", "Samtec", "1x5 0.100in gold-finish pin header, USB_1 (VBUS, D-, D+, ID, GND) for flashing/adb bring-up - bench use only, keep the cable short (USB 2.0 high speed over an uncontrolled header)", "-"),
+    "J13": ("TSW-105-07-G-S", "Samtec", "1x5 0.100in gold-finish pin header, USB_1 (VBUS, D-, D+, ID, GND) for flashing/adb bring-up - bench use only, keep the cable short (USB 2.0 high speed over an uncontrolled header). Same pair as J19: use one at a time", "-"),
     "J9": ("TSW-104-07-G-S", "Samtec", "1x4 0.100in gold-finish pin header, power/recovery/reset buttons - bench and service use only, not part of the vehicle harness", "-"),
     "J11": ("22-27-2041", "Molex", "4-circuit KK 254 (2.54mm) vertical header for the rotary dial: sensor 5V (switched), sensor signal, ground, click switch. Same KK 254 family as J3 (22-27-2031); mating housing and crimps are separate Molex KK 254 parts", "-"),
     "J10": ("1058", "Keystone Electronics", "20mm coin cell (2032) holder, real unambiguous Keystone part number - same real numbering convention as this family's own Keystone 3568 fuse holder, identified from the real footprint name rather than an independent datasheet citation in build_schematic.py's own comments", "-"),

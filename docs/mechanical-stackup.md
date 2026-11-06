@@ -28,7 +28,7 @@ The owner is making a new housing, so the stock depths are a guide to what the d
 | Module top-side components | **unknown**: use Toradex's maximum-height 3D model | Toradex developer site |
 | Heatsink base, on the 7.0 mm S3/S4 standoffs | 7.0 above the carrier | design guide 4.4.1 |
 | Verdin Industrial Heatsink fins | **unknown** (datasheet not retrieved; its thermal pad is 26 x 22 x 3.175 mm) | Toradex accessory page; asked in `rfq-drafts.md` section 2 |
-| Tallest carrier parts on the other side | J17 USB-C receptacle, J2 / J11 / J14 / J15 headers: heights **unknown** here (read them from the footprint 3D models) | |
+| Tallest carrier parts on the other side | J17 and J19 USB-C receptacles, J2 / J11 / J14 / J15 headers: heights **unknown** here (read them from the footprint 3D models) | |
 
 So the carrier with the module and heatsink is about 1.6 + 7.0 + fins deep, the panel is 7.8 deep, and the cable fitting depth of the stock cluster (about 113 mm) is far more than that needs. The real constraints are the ones still unknown: the heatsink fin height, the FPC bend between panel and carrier, and where air can reach the heatsink in a closed dash.
 

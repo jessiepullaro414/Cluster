@@ -67,5 +67,5 @@ The senders (J7 pins 3 to 5) are single-wire: their return is the sender's own b
 
 ## Not covered
 
-- display/ also has the dial header J11 (KK 254), the audio headers J14/J15 (JST XH), the USB-C port J17 and the panel flex connector J4. All are in the dash; none uses a sealed connector.
+- brain/ also has the dial header J11 (KK 254), the audio headers J14/J15 (JST XH), the USB-C ports J17 and J19 and the panel flex connector J4. All are in the dash; none uses a sealed connector.
 - The board BOMs still carry the older wording: gauges/ names a **DTM06-5S** (which does not exist; J7 needs the 6S) and an older DTM06-3S pigtail note on J8. Those lines live in `gauges/build_bom.py` and `build_schematic.py`, which have uncommitted changes from the electrical review, so they are listed here rather than patched; display/'s BOM is updated.

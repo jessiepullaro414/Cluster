@@ -314,6 +314,19 @@ def derived_brain(nl):
     for u, r in (("U6", "R37"), ("U7", "R77"), ("U11", "R69")):
         add("PASS" if abs(v(r) - 61.9e3) < 1 else "FAIL", u, f"TPS2557-Q1 RILIM {fmt(v(r))} ohm",
             "61.9 k = 1.61 / 1.81 / 1.98 A (SLVSC97B IOS table)")
+    # Second USB-C port (2026-11-06, docs/audio-and-usb.md section 2a).
+    add("PASS" if abs(v("R91") - 100e3) < 1 else "FAIL", "U16", f"TPS2557-Q1 RILIM {fmt(v('R91'))} ohm",
+        "100 k = 0.945 / 1.11 / 1.27 A (SLVSC97B IOS table)")
+    for r in ("R71", "R72"):
+        add("PASS" if abs(v(r) - 22e3) < 1 else "FAIL", "J17", f"Rp {r} {fmt(v(r))} ohm", "22 k to 5 V = 1.5 A (USB Type-C table 4-24)")
+    for r in ("R94", "R95"):
+        add("PASS" if abs(v(r) - 56e3) < 1 else "FAIL", "J19", f"Rp {r} {fmt(v(r))} ohm", "56 k to 5 V = default current (USB Type-C table 4-24)")
+    tau = v("R96") * v("C91")
+    add("PASS" if tau >= 50e-6 else "FAIL", "J1", f"USB_1_VBUS sense filter {tau * 1e6:.0f} us (R96, C91)",
+        "keeps hot-plug ringing off a pin with a 5.5 V absolute maximum; the TVS starts at 6.4 V")
+    add("PASS" if nl.net_of("J19", "A6") == nl.net_of("J13", "3") == nl.net_of("J1", "165") == "USB_DP" and
+        nl.net_of("J19", "A7") == nl.net_of("J13", "2") == nl.net_of("J1", "163") == "USB_DN" else "FAIL",
+        "J19", "USB_1 pair reaches J1, J13 and J19", "Design Guide 2.4.3.2.1 and 2.20")
 
 
 def derived_panel_tsd(nl):

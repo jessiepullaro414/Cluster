@@ -126,20 +126,25 @@ There is no device-tree source in this repository yet. These are from mainline L
 &verdin_gpio_keys { status = "okay"; };
 &verdin_key_wakeup { wakeup-event-action = <EV_ACT_ASSERTED>; };
 
-/* USB_1 is client-only: it is the bench header J13, and USB_1_ID is not pulled up on brain/. */
+/* USB_1 is host only in normal running: it is the second USB-C port J19, and also the bench header J13.
+   USB_1_ID is not pulled up on brain/. */
 / { /delete-node/ connector; };          /* the module tree's gpio-usb-b-connector, watching USB_1_ID (SODIMM 161) */
 &usb2 {
     status = "okay";
-    dr_mode = "peripheral";              /* the module tree has "otg" */
+    dr_mode = "host";                    /* the module tree has "otg". For adb, a bench image sets "peripheral" */
     /delete-property/ usb-role-switch;
-    /delete-property/ vbus-supply;       /* USB_1_EN is not connected on brain/ */
     /delete-node/ port;
+    /* keep the module tree's vbus-supply: USB_1_EN drives U16, J19's VBUS switch */
 };
 ```
 
-- **USB_1 client-only.** The Verdin Carrier Board Design Guide's table for unused USB signals gives two choices for
-  USB_1_ID: pull it up to 1.8 V, or set the port to client-only in software. brain/ leaves it on a header pin with no
-  pull-up, so a role switch would read a floating pin. The Android option's tree needs the same.
+- **USB_1 is a host port in the device tree (changed 2026-11-06, with J19).** The Verdin Carrier Board Design Guide's
+  table for unused USB signals lets USB_1_ID stay open with the port's direction set in software, which is what this
+  does: brain/ leaves the pin on a J13 pin with no pull-up, so a role switch would read a floating pin. Flashing isn't
+  affected: recovery mode runs the module's own loader in client mode before Linux starts (Design Guide 2.20), with
+  CTRL_RECOVERY_MICO# held low on J9 at power-on and a PC on J13, or on J19 through a USB-A to USB-C cable. adb needs
+  a bench image with `dr_mode = "peripheral"`, as the running system otherwise has no client port. The Android option's
+  tree needs the same.
 - **The dial click needs a gpio-keys node of its own**, here named `dial-click`. clusterd treats any key event on
   `--click` as the click, and any key down on `--ign` as the ignition, so the two must not share a node. The module
   tree's `gpio-keys` node, with only the wake pin in it, is what `--ign` opens.
@@ -161,10 +166,10 @@ No board change is needed for this option.
 | Dial click | GPIO_1 | a `gpio-keys` device-tree node of its own, read as evdev (`--click`) |
 | Ignition wake | CTRL_WAKE1_MICO# (X1 252) | `gpio-keys` with `wakeup-source`, so ignition on resumes from suspend-to-RAM; its state read as evdev too (`--ign`, EVIOCGKEY) |
 | Parked power-off | Ignition latch: LM74930 EN = ignition OR CTRL_PWR_EN_MOCI (B-01) | RTC alarm through `rtc_wakealarm`, then `systemctl poweroff`; the latch does the rest |
-| Bench USB | J13 on USB_1 (USB_1_ID not pulled up) | client-only in the device tree (notes above) |
+| Second USB-C host, bench USB | J19 and J13 on USB_1 (USB_1_ID not pulled up) | host in the device tree (notes above); recovery and adb in the same notes |
 | Audio | TAC5112-Q1 on I2S_1 + I2C_1 | an ALSA sound card in the device tree; whether a mainline or TI driver covers the TAC5112 is **not checked** |
 | Wi-Fi / Bluetooth | MAYA-W260 on the WB module (simultaneous station + access point per the Verdin datasheet) | LIVI runs its own access point (hostapd) and BlueZ profiles for wireless CarPlay and Android Auto |
-| USB-C host | J17 on USB_2 | wired Android Auto and wired CarPlay |
+| USB-C host | J17 on USB_2 | wired Android Auto and wired CarPlay; the port that charges at 1.5 A |
 | Apple coprocessor | J16 (DNP): I2C_1 SDA/SCL, MFI_RST_N on GPIO_2, GND | LIVI probes I2C addresses **0x10 and 0x11** (its iap2-mfi crate), clear of the codec at 0x50. Its optional power line is a pin on `/dev/gpiochip0` only, so leave it at -1 and hold MFI_RST_N released with a device-tree `gpio-hog`. Set the bus with `livi_config.py --mfi-bus N` |
 
 ## Platform
@@ -211,7 +216,7 @@ From Git Bash, prefix `MSYS_NO_PATHCONV=1` and use `wsl -e`, or the `/mnt/c/...`
 | L2 | LIVI config for the round panel and the dial | script done; untested in LIVI |
 | L3 | Real LIVI on a PC with Android Auto from an emulator or phone via `aa-bench/relay.py` | **done 2026-10-17**: Android Auto from an emulator projects in LIVI (round 720 px layout), clusterd's replayed drive shows on LIVI's dashboard, the dial opens our settings page; round-panel findings in `aa-bench/README.md` |
 | L4 | LIVI on a Linux board with Wi-Fi + Bluetooth (wireless Android Auto end to end) | open: hardware |
-| L5 | Torizon/Debian image for the Verdin: device tree (CAN, ADC, gpio-keys, wake, codec, MFi bus, USB_1 client-only), LIVI, clusterd | open: Verdin + carrier |
+| L5 | Torizon/Debian image for the Verdin: device tree (CAN, ADC, gpio-keys, wake, codec, MFi bus, USB_1 host), LIVI, clusterd | open: Verdin + carrier |
 | L6 | Suspend/resume measured, the parked power-off proven (below), CarPlay with a real coprocessor | open |
 
 **L6, the parked power-off.** Set `parked_poweroff_hours = 0.05` (3 minutes). On brain/, with a meter in the battery

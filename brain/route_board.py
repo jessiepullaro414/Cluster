@@ -155,6 +155,9 @@ BATTERY_PATH_NETS = ["VBAT_IN", "VBAT_F", "COMMON", "SENSE_HI", "+12V_PROT"]   #
 # large vias, an F.Cu pour along its path); at 0.2 mm layout_checks.py rated it
 # at 92 K.
 BATTERY_PATH_NETS += ["PORTA_5V", "PORTB_5V"]
+# 2026-11-06: the USB-C ports' VBUS too. J17's had never been rated: at 0.2 mm near the
+# receptacle layout_checks.py put it at 92 K for U11's 1.98 A limit, and J19's at 34 K for 1.27 A.
+BATTERY_PATH_NETS += ["USB2_VBUS", "USB1_VBUS"]
 BATTERY_PATH_LAYERS = ["F.Cu", "B.Cu"]
 BATTERY_ROUTE_WIDTH_UM = 300
 BATTERY_VIA = (1000, 500)             # pad, drill (um)
@@ -228,7 +231,8 @@ if ok:
     extra = ""
     for name, pts in cfg["fan_corridors_mm"].items():
         poly = " ".join(str(int(round(x * 1000))) + " " + str(int(round(-y * 1000))) for x, y in pts)
-        layers = ("F.Cu", "In2.Cu", "In3.Cu", "B.Cu") if name.endswith("_VIAS") else ("F.Cu",)
+        layers = (("F.Cu", "In2.Cu", "In3.Cu", "B.Cu") if name.endswith("_VIAS")
+                  else ("B.Cu",) if name.endswith("_BCU") else ("F.Cu",))
         for lay in layers:
             extra += (" (keepout fan_corridor_" + name + "_" + lay.replace(".", "_")
                       + " (polygon " + lay + " 0 " + poly + "))")
@@ -427,7 +431,7 @@ for name, poly in cfg["fan_corridors_mm"].items():
             continue
         if t.GetClass() == "PCB_VIA":
             pts = [(U(t.GetPosition().x), U(t.GetPosition().y))]
-        elif t.GetLayer() != pcbnew.F_Cu and not name.endswith("_VIAS"):
+        elif not name.endswith("_VIAS") and t.GetLayer() != (pcbnew.B_Cu if name.endswith("_BCU") else pcbnew.F_Cu):
             continue
         else:
             s, e = t.GetStart(), t.GetEnd()
@@ -448,6 +452,7 @@ import sys
 sys.path.insert(0, {HERE!r})
 import pcbnew
 import fan_route
+import usb_route
 board = pcbnew.LoadBoard({PCB!r})
 mm = pcbnew.FromMM
 
@@ -462,6 +467,10 @@ def pad(ref, number):
 
 
 items, report, corridors, dropped = fan_route.plan(pad)
+items2, report2, _, _ = usb_route.plan(pad)
+items = list(items) + list(items2)
+report = dict(report, **report2)
+LAYER = dict(zip(("F.Cu", "B.Cu"), (pcbnew.F_Cu, pcbnew.B_Cu)))
 for it in items:
     if it[0] == "seg":
         _, layer, net, width, pts = it
@@ -472,7 +481,7 @@ for it in items:
             t.SetStart(pcbnew.VECTOR2I(mm(x0), mm(y0)))
             t.SetEnd(pcbnew.VECTOR2I(mm(x1), mm(y1)))
             t.SetWidth(mm(width))
-            t.SetLayer(pcbnew.F_Cu)
+            t.SetLayer(LAYER[layer])
             t.SetNet(board.FindNet(net))
             board.Add(t)
     else:
@@ -487,7 +496,7 @@ for it in items:
         board.Add(v)
 board.Save({PCB!r})
 for pair, (ln, lp) in sorted(report.items()):
-    print("fan", pair, "N", ln, "mm, P", lp, "mm, skew", round(abs(ln - lp), 2), "mm")
+    print("planned", pair, "N", round(ln, 2), "mm, P", round(lp, 2), "mm, skew", round(abs(ln - lp), 2), "mm")
 ''')
 
 

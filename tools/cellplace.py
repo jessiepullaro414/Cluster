@@ -62,7 +62,7 @@ class Part:
 
 
 def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
-               allowed_rot=None, verbose=False, keepin=None, anchor_gap=None):
+               allowed_rot=None, verbose=False, keepin=None, anchor_gap=None, blocked=None):
     """parts: ref -> Part. anchor: ref placed at the origin. order: refs in
     placement order. net_weight: net -> weight (nets not listed use
     default_weight; GND-like nets should be listed low). pulls:
@@ -74,6 +74,8 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
     that sits on a board edge, so nothing else lands beyond that edge.
     anchor_gap: clearance kept around the anchor part (default ANCHOR_GAP), raised
     for a fine-pitch part or connector that needs escape room for its wiring.
+    blocked: optional [(x0, y0, x1, y1)] in the cell frame where nothing may go, for a
+    cell fitted into a space that isn't a rectangle.
     Returns {ref: (ox, oy, rot)} and the cell bbox."""
     pulls = pulls or {}
     a_gap = ANCHOR_GAP if anchor_gap is None else anchor_gap
@@ -96,6 +98,7 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
         boxes.append((ox + x0 - g, oy + y0 - g, ox + x1 + g, oy + y1 + g))
 
     add_box(anchor)
+    boxes.extend(blocked or [])
 
     def cost_grid(ref, a, xs, ys):
         """Cost over a grid of origin positions xs (n,) x ys (m,) -> (m, n)."""
@@ -206,7 +209,8 @@ def plan_cells(parts, cells, net_weight):
             seen.add(m)
         result[name] = place_cell(parts, c["anchor"], c["order"], net_weight,
                                   pulls=c["pulls"], allowed_rot=c.get("rot"),
-                                  keepin=c.get("keepin"), anchor_gap=c.get("anchor_gap"))
+                                  keepin=c.get("keepin"), anchor_gap=c.get("anchor_gap"),
+                                  blocked=c.get("blocked"))
     return result, seen
 
 

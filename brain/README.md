@@ -4,8 +4,9 @@ The Toradex Verdin iMX95 carrier that runs the centre screen, with everything
 that does not depend on the car or the panel: the 12 V input and surge
 protection (LM74930-Q1), the 5 V buck, the 1.8 V rail, the ignition wake and
 sleep control, the private CAN link to the gauges board, the audio codec and
-its connectors, the USB-C host port, the MFi daughterboard header, the dial
-input and the bench headers.
+its connectors, two USB-C host ports (J17 on USB_2 and, since 2026-11-06, J19
+on USB_1; [docs/audio-and-usb.md](../docs/audio-and-usb.md)), the MFi daughterboard
+header, the dial input and the bench headers.
 
 Power (review 2026-11-03, `docs/electrical-review.md` section 9): the
 ignition switches the board on through the LM74930's EN pin, and the

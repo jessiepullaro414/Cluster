@@ -10,7 +10,7 @@ The center gauge runs Linux with LIVI (CarPlay / Android Auto) or Android Automo
 
 | Dir | Role | Core | Board |
 |---|---|---|---|
-| [brain/](brain/) | Centre-screen board, **the same in every car**: wireless Android Auto / CarPlay host with sound, two screen ports | Toradex Verdin iMX95 WB SoM (screwed down on M2 standoffs, heatsink-ready), screen port A (MIPI DSI) and B (LVDS, single or dual link), TAC5112-Q1 audio codec, USB-C host port | 184.8 x 104.9mm |
+| [brain/](brain/) | Centre-screen board, **the same in every car**: wireless Android Auto / CarPlay host with sound, two screen ports | Toradex Verdin iMX95 WB SoM (screwed down on M2 standoffs, heatsink-ready), screen port A (MIPI DSI) and B (LVDS, single or dual link), TAC5112-Q1 audio codec, two USB-C host ports | 184.8 x 104.9mm |
 | [panel-tsd/](panel-tsd/) | Panel board for the TSD TST040HDBC-42 4 in 800-nit round MIPI panel: its FPC connector, +/-6 V bias, backlight, and the input from port A | TPS65131-Q1, TPS61165-Q1 | 75.4 x 52.3mm |
 | [gauges/](gauges/) | 4 small aux gauges, resistive sender front end, Hall or two-wire VR speed, tach and six 12 V indicator-lamp inputs | NXP S32K144, 4x GC9A01 round SPI | 447.1 x 65.9mm |
 
@@ -39,7 +39,7 @@ Open items and rationale live in the working plan, not here. Panel: TSD TST040HD
 
 ## Wireless Android Auto / CarPlay hardware (2026-10-16)
 
-Required by the owner. brain/ carries the physical pieces: audio codec and connectors, a USB-C host port, the Verdin WB module's Wi-Fi 6 / Bluetooth 5.4 (antennas are a mechanical item) and a reserved DNP MFi access point. **Licensing (Apple MFi for CarPlay, Google's Android Auto receiver terms) is a separate business gate (plan item B5) that hardware does not solve.** Wiring, antenna rules, software bring-up and what is unverified: [docs/audio-and-usb.md](docs/audio-and-usb.md).
+Required by the owner. brain/ carries the physical pieces: audio codec and connectors, two USB-C host ports, the Verdin WB module's Wi-Fi 6 / Bluetooth 5.4 (antennas are a mechanical item) and a reserved DNP MFi access point. **Licensing (Apple MFi for CarPlay, Google's Android Auto receiver terms) is a separate business gate (plan item B5) that hardware does not solve.** Wiring, antenna rules, software bring-up and what is unverified: [docs/audio-and-usb.md](docs/audio-and-usb.md).
 
 ## Workflow
 

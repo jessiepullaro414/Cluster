@@ -87,7 +87,7 @@ The owner, working on the Alfa: "it would expand the addons a lot. make the chan
 | Alfa, 2 panels | **0.5 A, as built** | 4.7 / 5.7 A | fits | 145 C | 2.6 / 3.5 A |
 | Alfa, 2 panels | 1.5 A | 5.7 / 6.7 A | **over** | 169 C, over the 150 C limit | 3.1 / 4.1 A |
 
-The 5 A fuse and breaker have room in every row. These are at what the ports advertise. A device that ignores Rp and takes U16's full 1.27 A puts the Alfa at 6.5 A peak. That's over the rating, for an assumed module peak, and the failure would be a reset, not damage: measure the real module before relaxing this.
+The 5 A fuse and 4.96 A breaker have room in every row. At the 6 V cranking edge the Alfa's peak would need 5.3 A, so the breaker would trip and the board restart. These are at what the ports advertise. A device that ignores Rp and takes U16's full 1.27 A puts the Alfa at 6.5 A peak. That's over the rating, for an assumed module peak, and the failure would be a reset, not damage: measure the real module before relaxing this.
 
 **VBUS copper.** Both ports' VBUS now route like the screen ports' 5 V: outer layers, 0.3 mm with an F.Cu pour along the path, and the large vias. J17's had never been rated by `review/layout_checks.py`: at 0.2 mm near the receptacle it came out at 92 K for U11's 1.98 A limit.
 
@@ -105,6 +105,8 @@ The 5 A fuse and breaker have room in every row. These are at what the ports adv
 A USB-C to USB-C cable to a PC won't work on J19: both ends present Rp, so neither supplies VBUS and nothing is detected. Nothing is harmed. With a PC on J19 and the module not running as host, U16 is off and blocks the PC's 5 V from +5V (I(REV) 1 uA maximum at 25 C, SLVSC97B).
 
 In normal running USB_1 is set to host in the device tree (`software/linux/README.md`). The mainline tree also shows a switch on the module: out of reset, the SoC's USB 3 controller drives USB_1 for recovery and USB_2 has none, until software sets a line on the module's GPIO expander (`USB_RECOV_CTRL#`). So J17 works only once that's done, as it always has.
+
+**Known fault, not fixed: the buck can't get this current onto the board.** All of its output leaves L1 on one 0.2 mm track, 10.2 mm to the first via on this board. This sum assumes the copper can carry what it adds up to, and today it can't. Details in `electrical-review.md` section 9.5a. Don't order brain/ until that's fixed.
 
 **Not verified:**
 * The eye on either path, and whether flashing holds high speed through J13. Measure at bring-up.

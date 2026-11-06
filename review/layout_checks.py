@@ -10,7 +10,9 @@ layout_checks.py - routed-copper checks that need the .kicad_pcb.
      prepreg, so the distance is measured in plan view regardless of layer;
   2. long fast nets (SPI, CAN) and how many layers/vias they use, for the signal-integrity estimate;
   3. widths of the power nets against the currents they carry (nets in PATHS: along the path the
-     current takes, counting same-net fill beside a track and the vias, with milliamp branches apart);
+     current takes, counting same-net fill beside a track and the vias, with milliamp branches apart;
+     a net carried by a pour: solved as copper sheets by power_sheet.py, and a pour-carried net
+     that nothing has solved is a FAIL, because a pour says nothing about how a pad reaches it);
   4. (2026-10-19, six layers) the GND reference planes In1.Cu and In4.Cu carry no other net's
      track: exits 1 if they do, since a split plane under a fast net is the failure this guards.
 """
@@ -23,6 +25,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from kmodel import Layout, Netlist  # noqa: E402
+import power_sheet  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(HERE, ".."))
 CFG = {
@@ -91,6 +94,8 @@ def seg_dist(a1, a2, b1, b2):
 # steady-state branch currents (A) the copper of each net must carry, with the reasoning.
 # gauges: 5 V budget in thermal_derating.py; battery side = 5 V power / 0.85 / 5.8 V (UVLO edge).
 # display: peak 5 V power 14.5 W (assumption, see thermal_derating.py) at the 6 V cranking edge, fuse 5 A.
+# brain: thermal_derating.py table A2, the Alfa's 28.5 W peak on +5V, 90 % efficient, is 2.64 A at 12 V. Lower supplies are
+# short: 5.28 A at the 6 V cranking edge would trip the 4.96 A breaker first, which is a restart, not damage.
 NEEDS = {
     "gauges": {"VIN_FUSED": 0.40, "VIN_PROT": 0.40, "COMMON": 0.40, "SENSE_HI": 0.40, "+5V": 0.45, "+3V3": 0.15, "AUX_VLED_RTN": 0.07,
                "VPULL": 0.15},   # review 2026-11-03: U12's 148 mA current limit
@@ -99,7 +104,9 @@ NEEDS = {
 }
 NEEDS["display-rgb"] = NEEDS["display"]   # same supply chain; the RGB receiver adds about 0.1 A on +5V
 NEEDS["brain"] = {k: v for k, v in NEEDS["display"].items() if not k.startswith("PANEL_") and k != "SENSE_OUT"}
+NEEDS["brain"].update({k: 2.65 for k in ("VBAT_IN", "VBAT_F", "+12V_PROT", "COMMON", "SENSE_HI")})
 NEEDS["brain"].update({"PORTA_5V": 1.98, "PORTB_5V": 1.98, "USB2_VBUS": 1.98, "USB1_VBUS": 1.27})   # each switch's maximum limit
+NEEDS["brain"]["SW_5V"] = 6.0     # the LM61460-Q1's rated output, all of it through this copper
 # the panel draws about 0.65 A at 5 V for its backlight (2.7 W / 0.88) plus the bias supply
 NEEDS["panel-tsd"] = {"+5V": 1.0, "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15}
 # (2026-10-20) Where the current really flows. A net listed here is rated only along the copper
@@ -127,6 +134,7 @@ PATHS["brain"] = dict({"VBAT_IN": [[("J2", "1")], [("F1", "1")]],
                        "COMMON": [[("Q2", "1"), ("Q2", "2"), ("Q2", "3")], [("Q1", "1"), ("Q1", "2"), ("Q1", "3")]],
                        "SENSE_HI": [[("Q1", "5")], [("R1", "1")]],
                        "+12V_PROT": [[("R1", "2")], [("U2", "8")], [("U2", "12")]]},
+                      SW_5V=[[("U2", "10")], [("L1", "1")]],
                       USB2_VBUS=[[("U11", "6"), ("U11", "7")], [("J17", "A9"), ("J17", "B4")]],
                       USB1_VBUS=[[("U16", "6"), ("U16", "7")], [("J19", "A9"), ("J19", "B4")]],
                       PORTA_5V=[[("U6", "6"), ("U6", "7")], [("J4", "2"), ("J4", "3"), ("J4", "4"), ("J4", "5")]],
@@ -189,7 +197,11 @@ def current_path(lay, net, terminals):
                 link(("t", i), ("v", j))
         for key, p in pads:
             on_layer = t["layer"] in p["layers"] or "*.Cu" in p["layers"]
-            if on_layer and pt_seg((p["x"], p["y"]), *ends[i]) <= max(p["w"], p["h"]) / 2:
+            hx, hy = power_sheet.pad_box(p)
+            # a track end on the pad, or the pad's centre under the track. (This was a circle as wide as the pad's long side,
+            # which on L1 reached 2.35 mm past the pad's short side, so a path could stop short of the copper that carries it.)
+            if on_layer and (any(abs(e[0] - p["x"]) <= hx + 0.01 and abs(e[1] - p["y"]) <= hy + 0.01 for e in ends[i])
+                             or pt_seg((p["x"], p["y"]), *ends[i]) <= t["width"] / 2):
                 link(("t", i), ("p",) + key)
     for j, v in vi:
         for key, p in pads:
@@ -263,6 +275,23 @@ def cross_width(t, fills, reach=6.0):
     return min(hi, reach) - max(lo, -reach)
 
 
+def carried_by_wider(lay, net, t):
+    """True if the midpoint of track t lies on a same-net pad or inside a wider same-net track. That piece of t isn't what
+    carries the current: a track running into a pad, or the short thin end of a track under a wider one's round end."""
+    mx, my = (t["x1"] + t["x2"]) / 2, (t["y1"] + t["y2"]) / 2
+    for lst in lay.pads.values():
+        for p in lst:
+            if p["net"] == net and (t["layer"] in p["layers"] or "*.Cu" in p["layers"]):
+                hx, hy = power_sheet.pad_box(p)
+                if abs(mx - p["x"]) <= hx and abs(my - p["y"]) <= hy:
+                    return True
+    for u in lay.tracks:
+        if u["net"] == net and u["layer"] == t["layer"] and u["width"] > t["width"] + 1e-6:
+            if pt_seg((mx, my), (u["x1"], u["y1"]), (u["x2"], u["y2"])) <= u["width"] / 2:
+                return True
+    return False
+
+
 def check_path(lay, net, need, terms):
     names = " -> ".join("/".join(f"{r}.{p}" for r, p in term) for term in terms)
     res = current_path(lay, net, terms)
@@ -288,6 +317,10 @@ def check_path(lay, net, need, terms):
         w = cross_width(t, fills[t["layer"]]) if fills[t["layer"]] else t["width"]
         dt = rise_for(need, w, 0.5 if internal else 1.0, internal)
         total += ln
+        if dt > DT_LIMIT and carried_by_wider(lay, net, t):
+            if worst is None:
+                worst = (0.0, round(w, 2), t["layer"], (round(t["x1"], 1), round(t["y1"], 1)))
+            continue
         if rise_for(need, t["width"], 0.5 if internal else 1.0, internal) > DT_LIMIT >= dt:
             by_fill += ln
         if dt > DT_LIMIT:
@@ -346,8 +379,8 @@ def check_kelvin(board, nl, lay):
           f"no shared power-path copper by construction  [{'FAIL: ' + '; '.join(bad) if bad else 'ok'}]")
 
 
-def check_current(board, lay):
-    print(f"\n    current capacity (IPC-2221, outer 1 oz / inner 0.5 oz, limit {DT_LIMIT:.0f} K rise); nets with a copper pour are carried by the pour:")
+def check_current(board, lay, pcb):
+    print(f"\n    current capacity (IPC-2221, outer 1 oz / inner 0.5 oz, limit {DT_LIMIT:.0f} K rise):")
     zone_layers = collections.defaultdict(set)
     for z in lay.zones:
         ls = z["layers"] or []
@@ -357,6 +390,9 @@ def check_current(board, lay):
         terms = PATHS.get(board, {}).get(net)
         if terms:
             check_path(lay, net, need, terms)
+            continue
+        if power_sheet.BOARDS.get(board, {}).get("net") == net:
+            power_sheet.check(board, pcb)
             continue
         worst, short, total = None, 0.0, 0.0
         for t in lay.tracks:
@@ -376,7 +412,7 @@ def check_current(board, lay):
             continue
         # a rise above ~500 K is a burn-through, not a number to trust: cap the print
         shown = f"{worst[0]:.0f}" if worst[0] < 500 else ">500"
-        status = "ok" if short == 0 else ("pour-carried?" if zl else "FAIL")
+        status = "ok" if short == 0 else "FAIL"     # a pour isn't an excuse: power_sheet.py solves the nets it carries
         print(f"      {net:<12} {need:4.2f} A  {short:5.0f} of {total:5.0f} mm of track under-width (limit {DT_LIMIT:.0f} K); "
               f"worst {worst[1]} mm on {worst[2]} -> {shown} K near {worst[3]}  [{status}]" + (f" pour on {zl}" if zl else ""))
 
@@ -434,7 +470,7 @@ def main():
         print(f"      {net:<14} {tot:6.1f} mm  " + ", ".join(f"{k} {v:.0f}" for k, v in sorted(per.items())) + f"  vias {nv}")
 
     # power net widths
-    check_current(a.board, lay)
+    check_current(a.board, lay, a.pcb or cfg["pcb"])
     check_kelvin(a.board, nl, lay)
     print("\n    power-net track widths (mm) by layer:")
     for net in sorted({"+5V", "+3V3", "VIN_PROT", "VIN_FUSED", "+12V_PROT", "VBAT_F", "VBAT_IN", "COMMON", "SENSE_OUT", "SENSE_HI"} & set(nl.nets)):

@@ -213,7 +213,7 @@ class Layout:
                 layers = pd.get("layers", [])
                 self.pads.setdefault((ref, str(ch[1])), []).append(
                     dict(x=x + dx, y=y + dy, net=self._first(pd, "net"), layers=layers,
-                         w=float(size[0]), h=float(size[1])))
+                         w=float(size[0]), h=float(size[1]), angle=float(pat[2]) if len(pat) > 2 else 0.0))
 
     def pad_xy(self, ref, pin):
         lst = self.pads.get((ref, str(pin)))

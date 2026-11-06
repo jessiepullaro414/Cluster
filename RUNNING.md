@@ -236,7 +236,7 @@ Needs `kiutils`, `kicad-cli`, a JRE and the FreeRouting jar (section 0). The gen
 
 `docs/electrical-review.md` is the written review; the scripts that produced its numbers re-run after any regeneration:
 `python review/review_netlist.py gauges|display` (pin-by-pin against datasheet tables in `review/expected.py`, decoupling per supply pin,
-exit status 1 on any FAIL), `review/layout_checks.py`, `review/surge_sim.py`, `review/thermal_derating.py`, `review/dsi_impedance.py`,
+exit status 1 on any FAIL), `review/layout_checks.py`, `review/power_sheet.py` (a net carried by a pour, solved as copper sheets; `layout_checks.py` and `fab/build_fab.py` run it too), `review/surge_sim.py`, `review/thermal_derating.py`, `review/dsi_impedance.py`,
 `review/connector_audit.py`. They only read the generated KiCad files.
 
 ## 12. The demo video (`software/demo`)

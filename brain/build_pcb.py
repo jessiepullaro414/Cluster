@@ -556,6 +556,11 @@ _usb_items, _usb_report, _usb_corridors, _usb_dropped = _usb_route.plan(_pad_by_
 _fan_report.update(_usb_report)
 _fan_corridors.update(_usb_corridors)
 _fan_dropped = list(_fan_dropped) + list(_usb_dropped)
+# 2026-11-06: and the copper that carries the 5 V rail's real current (power_route.py).
+import power_route as _power_route
+_pwr_items, _pwr_report, _pwr_corridors, _pwr_dropped, _pwr_nets = _power_route.plan(_pad_by_number)
+_fan_corridors.update(_pwr_corridors)
+_fan_dropped = list(_fan_dropped) + list(_pwr_dropped)
 for _pair, (_ln, _lp) in sorted(_fan_report.items()):
     print(f"  {_pair}: N {_ln:.2f} mm, P {_lp:.2f} mm, skew {abs(_ln - _lp):.2f} mm")
 
@@ -591,13 +596,38 @@ def _cell_rect(cell_name, pad=1.5):
 # cells are reported instead (route_board.py prints how much In1 wiring ends up
 # inside each one) so the compromise is measured, not assumed.
 _report_rects = {name: _cell_rect(name) for name in ("BUCK",)}
+# The autorouter's own edge clearance leaves copper 0.35 mm from the board edge, against the 0.5 mm the board setup and
+# fab/build_fab.py's gate want (2026-11-06: +1V8 ran along the bottom edge). A strip along each edge, on every signal layer,
+# holds it back: the router keeps 0.2 mm from a fence as well.
+_EDGE_FENCE = 0.3
+_ex0, _ey0, _ex1, _ey1 = BOARD_OFFSET_X, BOARD_OFFSET_Y, BOARD_OFFSET_X + board_width, BOARD_OFFSET_Y + board_height
+for _name, (_a, _b, _c, _d) in {"EDGE_T_VIAS": (_ex0, _ey0, _ex1, _ey0 + _EDGE_FENCE), "EDGE_B_VIAS": (_ex0, _ey1 - _EDGE_FENCE, _ex1, _ey1),
+                                "EDGE_L_VIAS": (_ex0, _ey0, _ex0 + _EDGE_FENCE, _ey1), "EDGE_R_VIAS": (_ex1 - _EDGE_FENCE, _ey0, _ex1, _ey1)}.items():
+    _fan_corridors[_name] = [(_a, _b), (_c, _b), (_c, _d), (_a, _d)]
+    _pwr_nets[_name] = []
 json.dump({"fan_corridors_mm": {k: [list(p) for p in v] for k, v in _fan_corridors.items()},
            "fan_dropped_pins": [list(x) for x in _fan_dropped],
            "fan_planned_nets": _fan_route.planned_nets() + _usb_route.planned_nets(),
+           "corridor_nets": _pwr_nets,
            "in1_report_rects_mm": _report_rects},
           open(os.path.join(HERE, "plane_keepouts.json"), "w"), indent=1)
 for _g, _c in _fan_corridors.items():
-    print(f"{_g} corridor (mm):", [(round(x, 2), round(y, 2)) for x, y in _c])
+    if not _g.startswith(("PWR", "EDGE")):
+        print(f"{_g} corridor (mm):", [(round(x, 2), round(y, 2)) for x, y in _c])
+print(f"power_route: {len(_pwr_corridors)} fences, {len(_pwr_dropped)} pads planned")
+# A pad under a fence can't be reached by the router, so everything under a power fence must be
+# on the planned copper. Nothing else would catch this until the route came back unconnected.
+_dropped_set = {(r, str(n).split("@")[0]) for r, n in _fan_dropped}
+for _fp in board.footprints:
+    _r = _fp.properties.get("Reference")
+    for _p in _fp.pads:
+        if (_r, str(_p.number)) in _dropped_set or not str(_p.number) or not _p.net or not _p.net.name:
+            continue
+        _rx, _ry = _rot_xy(_p.position.X, _p.position.Y, _fp.position.angle or 0)
+        _px, _py = _fp.position.X + _rx, _fp.position.Y + _ry
+        for _g, _c in _pwr_corridors.items():
+            if not _g.endswith("_IN3") and _fan_route.inside(_c, _px, _py):
+                raise SystemExit(f"power_route: {_r} pad {_p.number} ({_p.net.name}) is under the fence {_g}, and it isn't planned")
 
 print(f"Board outline: {board_width:.1f} x {board_height:.1f} mm, "
       f"{len(board.footprints)} footprints, {len(net_registry)} nets")

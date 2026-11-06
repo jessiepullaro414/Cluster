@@ -99,6 +99,15 @@ def build_board(board):
     if unconnected or unexpected:
         raise SystemExit(f"{board}: not fab-ready: {unconnected} unconnected items, "
                          f"unexpected DRC types {unexpected}")
+    # DRC can't see a power net that's too thin for its current: brain/'s +5V passed this gate at
+    # 1021 K until 2026-11-06. A net carried by a pour gets solved (review/power_sheet.py).
+    sys.path.insert(0, os.path.join(ROOT, "review"))
+    import power_sheet
+    sys.path.pop(0)
+    if board in power_sheet.BOARDS:
+        fails = power_sheet.check(board, pcb)
+        if fails:
+            raise SystemExit(f"{board}: not fab-ready: review/power_sheet.py: " + "; ".join(fails))
 
     run([KICAD_CLI, "pcb", "export", "gerbers", "--output", gdir + os.sep,
          "--layers", LAYERS, "--subtract-soldermask", pcb])

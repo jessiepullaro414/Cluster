@@ -112,7 +112,7 @@ def real_unconnected_count():
     # fans and their stub vias) can also short or crowd routed copper, which
     # is a failed attempt just like an open connection.
     bad = [v for v in drc.get("violations", [])
-           if v.get("type") in ("shorting_items", "tracks_crossing", "clearance", "hole_to_hole")]
+           if v.get("type") in ("shorting_items", "tracks_crossing", "clearance", "hole_to_hole", "copper_edge_clearance")]
     if bad:
         print(f"  real DRC: {len(bad)} short/clearance violation(s) in this attempt "
               f"({sorted({v['type'] for v in bad})})")
@@ -231,6 +231,9 @@ if ok:
     extra = ""
     for name, pts in cfg["fan_corridors_mm"].items():
         poly = " ".join(str(int(round(x * 1000))) + " " + str(int(round(-y * 1000))) for x, y in pts)
+        if name.endswith("_IN3"):      # power_route.py: tracks stay off this stretch of pour, vias may pass
+            extra += " (wire_keepout fan_corridor_" + name + " (polygon In3.Cu 0 " + poly + "))"
+            continue
         layers = (("F.Cu", "In2.Cu", "In3.Cu", "B.Cu") if name.endswith("_VIAS")
                   else ("B.Cu",) if name.endswith("_BCU") else ("F.Cu",))
         for lay in layers:
@@ -422,16 +425,21 @@ from fan_route import inside
 b = pcbnew.LoadBoard({PCB!r})
 U = pcbnew.ToMM
 cfg = json.load(open({KEEPOUTS!r}))
-mine = set(cfg["fan_planned_nets"]) | {{"GND"}}
+everyone = set(cfg["fan_planned_nets"]) | {{"GND"}}
+own = cfg.get("corridor_nets", {{}})
 bad = 0
 for name, poly in cfg["fan_corridors_mm"].items():
     poly = [tuple(p) for p in poly]
+    mine = set(own.get(name, everyone))
+    layer = pcbnew.In3_Cu if name.endswith("_IN3") else pcbnew.B_Cu if name.endswith("_BCU") else pcbnew.F_Cu
     for t in b.GetTracks():
         if t.GetNetname() in mine:
             continue
         if t.GetClass() == "PCB_VIA":
+            if name.endswith("_IN3"):
+                continue
             pts = [(U(t.GetPosition().x), U(t.GetPosition().y))]
-        elif not name.endswith("_VIAS") and t.GetLayer() != (pcbnew.B_Cu if name.endswith("_BCU") else pcbnew.F_Cu):
+        elif not name.endswith("_VIAS") and t.GetLayer() != layer:
             continue
         else:
             s, e = t.GetStart(), t.GetEnd()
@@ -453,6 +461,7 @@ sys.path.insert(0, {HERE!r})
 import pcbnew
 import fan_route
 import usb_route
+import power_route
 board = pcbnew.LoadBoard({PCB!r})
 mm = pcbnew.FromMM
 
@@ -468,7 +477,8 @@ def pad(ref, number):
 
 items, report, corridors, dropped = fan_route.plan(pad)
 items2, report2, _, _ = usb_route.plan(pad)
-items = list(items) + list(items2)
+items3 = power_route.plan(pad)[0]
+items = list(items) + list(items2) + list(items3)
 report = dict(report, **report2)
 LAYER = dict(zip(("F.Cu", "B.Cu"), (pcbnew.F_Cu, pcbnew.B_Cu)))
 for it in items:
@@ -485,12 +495,13 @@ for it in items:
             t.SetNet(board.FindNet(net))
             board.Add(t)
     else:
-        _, net, x, y = it
+        _, net, x, y, *size = it
+        dia, drill = size if size else (fan_route.VIA_DIA, fan_route.VIA_DRILL)
         v = pcbnew.PCB_VIA(board)
         v.SetPosition(pcbnew.VECTOR2I(mm(x), mm(y)))
         v.SetViaType(pcbnew.VIATYPE_THROUGH)
-        v.SetWidth(mm(fan_route.VIA_DIA))
-        v.SetDrill(mm(fan_route.VIA_DRILL))
+        v.SetWidth(mm(dia))
+        v.SetDrill(mm(drill))
         v.SetLayerPair(pcbnew.F_Cu, pcbnew.B_Cu)
         v.SetNet(board.FindNet(net))
         board.Add(v)
@@ -785,21 +796,23 @@ for t in board.GetTracks():
     if t.GetNetname() in TRUNK_NETS:
         trunk_entries.append(entry)
 
+# In rounds from the narrowest target up, so two neighbouring nets share the room between them. Going straight to the widest
+# target, chunk by chunk, gives it all to whichever comes first (gauges/route_board.py, 2026-11-04).
+for target in sorted(LADDER):
+    for entry in trunk_entries:
+        track, s, e, half, netcode, layer = entry
+        if entry[3] * 2 >= target - 1e-6:
+            continue
+        if can_widen(track, s, e, layer, netcode, target):
+            track.SetWidth(pcbnew.FromMM(target))
+            entry[3] = target / 2      # keep the obstacle list honest
+
 hist = {{}}
 total_len = {{}}
 for entry in trunk_entries:
     track, s, e, half, netcode, layer = entry
     seg_len = math.hypot(e[0] - s[0], e[1] - s[1])
-    chosen = half * 2
-    for target in LADDER:
-        if target <= chosen + 1e-6:
-            break
-        if can_widen(track, s, e, layer, netcode, target):
-            track.SetWidth(pcbnew.FromMM(target))
-            entry[3] = target / 2      # keep the obstacle list honest
-            chosen = target
-            break
-    key = round(chosen, 2)
+    key = round(entry[3] * 2, 2)
     hist[key] = hist.get(key, 0) + 1
     total_len[key] = total_len.get(key, 0.0) + seg_len
 
@@ -821,6 +834,16 @@ for w in sorted(hist, reverse=True):
 # of retrying FreeRouting alone fixes it, since route_until_clean()
 # already believed it succeeded and stopped.
 MAX_PIPELINE_ATTEMPTS = 12
+
+
+def power_failures():
+    """review/power_sheet.py solves +5V on the finished copper. In3 is shared with signals, so what the route leaves of the
+    pour changes from run to run: a route that fails it is a failed attempt, as an unconnected net is."""
+    result = subprocess.run([sys.executable, os.path.join(HERE, "..", "review", "power_sheet.py"), "brain", "--pcb", PCB],
+                            capture_output=True, text=True)
+    if result.returncode not in (0, 1):
+        raise SystemExit(f"power_sheet.py did not run: {result.stderr[-400:]}")
+    return [line.strip() for line in result.stdout.splitlines() if "[FAIL]" in line]
 
 
 def regenerate_unrouted_board():
@@ -856,7 +879,16 @@ if __name__ == "__main__":
         if real_unconnected == 0:
             print(f"\nReal DRC confirms 0 unconnected items (pipeline attempt "
                   f"{pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS}).")
-            break
+            _power = power_failures()
+            if not _power:
+                break
+            print("WARNING: review/power_sheet.py fails this route:", *_power, sep="\n  ")
+            if pipeline_attempt < MAX_PIPELINE_ATTEMPTS:
+                print("Regenerating a fresh unrouted board and trying the whole pipeline again.")
+                regenerate_unrouted_board()
+            else:
+                print("Out of pipeline attempts: this board keeps the failure above.")
+            continue
         print(f"\nWARNING: FreeRouting/route_until_clean() reported success, but "
               f"kicad-cli's own real DRC found {real_unconnected} unconnected "
               f"item(s) (pipeline attempt {pipeline_attempt}/{MAX_PIPELINE_ATTEMPTS}) - "

@@ -38,11 +38,20 @@ The pairs from the Verdin socket to each port are planned, not autorouted
 guard tracks where the socket has a ground pin between pairs and no length
 difference inside a pair. The autorouter is fenced out of both corridors.
 
+The copper that carries the 5 V rail's real current is planned as well
+(`power_route.py`): L1 and the output capacitors onto a bar with five vias into
+the In3 pour, J1's supply pins onto a bar with three, two at each port switch,
+a wide SW_5V, and U2's PGND pins to the input capacitors and their own GND vias.
+The rest of +5V carries milliamps and stays autorouted. `route_board.py` runs
+`../review/power_sheet.py` on each route, which solves the net with its pours as
+copper sheets, and counts a failure as a failed attempt (2026-11-06,
+[electrical review](../docs/electrical-review.md) section 9.5b).
+
 Build: `python build_schematic.py`, `python build_pcb.py`, `python route_board.py`,
 `python ../run_drc.py ClusterBrain.kicad_pcb`, `python build_bom.py`,
 `python ../review/layout_checks.py brain`, `python ../review/review_netlist.py brain`,
 `python ../review/usb1_topology.py`. The autorouter's power-track widths vary from run to run,
-so check `layout_checks.py` after each route: 2026-11-06's board is the best of four.
+so check `layout_checks.py` after each route: 2026-11-06's board is the best of six clean routes.
 
 Not known yet: whether the Verdin iMX95 drives DSI and LVDS as two independent
 screens at once (the i.MX 95 itself can; question 9 in `docs/rfq-drafts.md`

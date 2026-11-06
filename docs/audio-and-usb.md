@@ -106,7 +106,7 @@ A USB-C to USB-C cable to a PC won't work on J19: both ends present Rp, so neith
 
 In normal running USB_1 is set to host in the device tree (`software/linux/README.md`). The mainline tree also shows a switch on the module: out of reset, the SoC's USB 3 controller drives USB_1 for recovery and USB_2 has none, until software sets a line on the module's GPIO expander (`USB_RECOV_CTRL#`). So J17 works only once that's done, as it always has.
 
-**Known fault, not fixed: the buck can't get this current onto the board.** All of its output leaves L1 on one 0.2 mm track, 10.2 mm to the first via on this board. This sum assumes the copper can carry what it adds up to, and today it can't. Details in `electrical-review.md` section 9.5a. Don't order brain/ until that's fixed.
+**The copper now carries this.** Since 2026-11-06 the buck's output reaches the In3 pour on planned copper, not on one 0.2 mm track, and `review/power_sheet.py` solves the routed net for these currents: `electrical-review.md` section 9.5b.
 
 **Not verified:**
 * The eye on either path, and whether flashing holds high speed through J13. Measure at bring-up.

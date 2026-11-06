@@ -16,9 +16,9 @@ So each place that carries real current gets copper of its own, fenced from the 
   pin 11 each carry half of what the low-side switch conducts, about 2.2 A RMS at 5.7 A out, and
   had 0.2 mm stubs. It also shortens the input loop, which TI SNVSB70 asks for.
 * The output capacitors' GND pads to one large via each.
-* L1 pad 2 and the output capacitors onto one bar with five 1.0/0.5 mm vias into In3. Nothing
+* L1 pad 2 and the output capacitors onto one bar with four 1.0/0.5 mm vias into In3. Nothing
   fits inside the pad (no via in pad), but the 1.4 mm gap beside it holds them.
-* J1's supply pins 251-259 onto a bar with three vias into In3.
+* J1's supply pins 251-259 onto a bar with two vias into In3.
 * The port switches' IN pins (U6, U7, U11) with their capacitors onto a bar with two vias each,
   on the far side of the switch's own pin row. U16 sits right under the buck, so it gets a
   direct F.Cu run instead, and that run carries on past C89 to two more vias below U16. In3 is
@@ -39,6 +39,10 @@ import math
 VIA_5V = (1.0, 0.5)      # pad, drill: the battery path's size, about 2.6 A per via at 17 K
 VIA_GND = (0.8, 0.4)
 MARGIN = 0.05            # fence beyond the copper. The router keeps its 0.2 mm clearance from the fence
+# Vias on one bar stay this far apart, centre to centre. Each cuts a 1.4 mm hole in the GND planes (1.0 mm plus 0.2 mm
+# clearance a side), and the pour keeps nothing narrower than 0.2 mm: closer than 1.6 mm and the holes merge into a slot. The
+# first version's five vias at 1.4 mm cut a 7 mm slot in In1 and In4, the longest on the board, across the output loop's return.
+VIA_PITCH_MIN = 1.7
 
 
 def _box_round(a, b, half):
@@ -159,7 +163,9 @@ def plan(pad):
     xc54, _, _ = pad("C54", "1")
     xb = (xl + 0.59 + xc54 - 0.575) / 2
     P.seg("+5V", 1.42, (xb, yl - 2.8), (xb, yl + 2.8))     # touches L1's pad all along its height, and the capacitors'
-    for d in (-2.8, -1.4, 0.0, 1.4, 2.8):
+    bar_vias = (-2.8, -2.8 / 3, 2.8 / 3, 2.8)
+    assert min(b - a for a, b in zip(bar_vias, bar_vias[1:])) >= VIA_PITCH_MIN
+    for d in bar_vias:
         P.via("+5V", xb, yl + d, VIA_5V)
     P.seg("+5V", 1.2, (xl, yl), (xb, yl))                  # 1.2 mm: a wider round end would stick out of the pad's near side
     P.seg("+5V", 1.2, (xl, yl - 1.6), (xb, yl - 1.6))
@@ -182,9 +188,10 @@ def plan(pad):
     P.seg("+5V", 1.0, (x88, y88), (x89, y89))
     yd = y89 + 1.65                      # below C89, on the way to the bottom edge
     P.seg("+5V", 1.0, (x89, y89), (x89, yd))
-    P.seg("+5V", 1.0, (x89 - 0.6, yd), (x89 + 0.6, yd))
-    P.via("+5V", x89 - 0.6, yd, VIA_5V)
-    P.via("+5V", x89 + 0.6, yd, VIA_5V)
+    d = VIA_PITCH_MIN / 2
+    P.seg("+5V", 1.0, (x89 - d, yd), (x89 + d, yd))
+    P.via("+5V", x89 - d, yd, VIA_5V)
+    P.via("+5V", x89 + d, yd, VIA_5V)
 
     # --- J1's supply pins onto a bar, vias into In3
     xj = [pad("J1", str(p))[0] for p in (251, 253, 255, 257, 259)]
@@ -196,9 +203,10 @@ def plan(pad):
     xm = xj[2] + 0.39
     yv = ybar + 1.55
     P.seg("+5V", 2.0, (xm, ybar), (xm, yv))
-    P.seg("+5V", 1.0, (xm - 1.2, yv), (xm + 1.2, yv))
-    for d in (-1.2, 0.0, 1.2):
-        P.via("+5V", xm + d, yv, VIA_5V)
+    d = VIA_PITCH_MIN / 2
+    P.seg("+5V", 1.0, (xm - d, yv), (xm + d, yv))
+    P.via("+5V", xm - d, yv, VIA_5V)
+    P.via("+5V", xm + d, yv, VIA_5V)
 
     # --- the port switches
     u6 = _west_or_east_switch(P, pad, "U6", ("C41", "1"), ("C40", "1"), -1)

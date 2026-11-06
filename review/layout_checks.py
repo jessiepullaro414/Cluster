@@ -15,6 +15,8 @@ layout_checks.py - routed-copper checks that need the .kicad_pcb.
      that nothing has solved is a FAIL, because a pour says nothing about how a pad reaches it);
   4. (2026-10-19, six layers) the GND reference planes In1.Cu and In4.Cu carry no other net's
      track: exits 1 if they do, since a split plane under a fast net is the failure this guards.
+     (2026-11-06) nor a slot where vias' clearance holes merge: the longest hole is reported, and
+     one longer than PLANE_SLOT_MM is a FAIL.
 """
 import argparse
 import collections
@@ -141,6 +143,8 @@ PATHS["brain"] = dict({"VBAT_IN": [[("J2", "1")], [("F1", "1")]],
                       PORTB_5V=[[("U7", "6"), ("U7", "7")], [("J18", "45"), ("J18", "46"), ("J18", "47"),
                                                              ("J18", "48"), ("J18", "49")]])
 DT_LIMIT = 20.0      # K rise allowed for continuous current
+PLANE_SLOT_MM = 5.0  # a GND plane's longest allowed hole. The autorouter's own via clusters reach 4.2 mm; 2026-11-06's first
+#                      version of brain/power_route.py cut one of 7 mm across the buck's output loop, and nothing noticed
 RHO_CU = 1.72e-5       # ohm mm, copper at 20 C
 CU_OUTER_MM = 0.035    # 1 oz
 VIA_PLATING_MM = 0.018   # JLCPCB's stated minimum via-wall plating; the barrel is rated as an outer conductor
@@ -417,6 +421,45 @@ def check_current(board, lay, pcb):
               f"worst {worst[1]} mm on {worst[2]} -> {shown} K near {worst[3]}  [{status}]" + (f" pour on {zl}" if zl else ""))
 
 
+def plane_holes(lay, layer, h=0.05):
+    """Holes in a layer's GND fill, longest first: (length, width, height, x, y, nets of the vias in it). The pour's own
+    outline doesn't count."""
+    import numpy as np
+    from scipy import ndimage
+    x0, y0, x1, y1 = lay.board_bbox()
+    nx, ny = int((x1 - x0) / h) + 1, int((y1 - y0) / h) + 1
+    mask = np.zeros((ny, nx), dtype=bool)
+    for z in lay.zones:
+        if z["net"] != "GND":
+            continue
+        for lay_name, pts in z.get("filled", []):
+            if lay_name != layer:
+                continue
+            P = np.array(pts)
+            xa, ya = P[:, 0], P[:, 1]
+            xb, yb = np.roll(xa, -1), np.roll(ya, -1)
+            for j in range(ny):
+                yc = y0 + j * h
+                hit = (ya > yc) != (yb > yc)
+                if not hit.any():
+                    continue
+                c = np.sort(xa[hit] + (yc - ya[hit]) * (xb[hit] - xa[hit]) / (yb[hit] - ya[hit]))
+                for s, e in zip(c[0::2], c[1::2]):
+                    i0, i1 = int(math.ceil((s - x0) / h)), int(math.floor((e - x0) / h))
+                    if i1 >= i0:
+                        mask[j, max(i0, 0):min(i1 + 1, nx)] = True
+    lab, _ = ndimage.label(~mask)
+    rows = []
+    for sl in ndimage.find_objects(lab):
+        ys, xs = sl
+        hx0, hx1, hy0, hy1 = x0 + xs.start * h, x0 + xs.stop * h, y0 + ys.start * h, y0 + ys.stop * h
+        if hx0 < x0 + 0.2 or hy0 < y0 + 0.2 or hx1 > x1 - 0.2 or hy1 > y1 - 0.2:
+            continue
+        nets = sorted({v["net"] for v in lay.vias if hx0 <= v["x"] <= hx1 and hy0 <= v["y"] <= hy1})
+        rows.append((max(hx1 - hx0, hy1 - hy0), hx1 - hx0, hy1 - hy0, hx0, hy0, nets))
+    return sorted(rows, reverse=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("board", choices=tuple(CFG))
@@ -494,6 +537,10 @@ def main():
         bad += len(foreign)
         print(f"      {layer}: GND tracks {per.get('GND', 0.0):.1f} mm, other nets "
               + (", ".join(f"{n} {v:.1f} mm" for n, v in sorted(foreign.items())) if foreign else "none"))
+        holes = plane_holes(lay, layer)
+        if holes:
+            ln, w, ht, hx, hy, nets = holes[0]
+            print(f"        longest hole {w:.1f} x {ht:.1f} mm at ({hx:.1f}, {hy:.1f}), vias of {nets[:5]}  [{'FAIL' if ln > PLANE_SLOT_MM else 'ok'}]")
     if bad:
         raise SystemExit(f"FAIL: {bad} non-GND net(s) routed on a plane layer")
 

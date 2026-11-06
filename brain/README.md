@@ -39,8 +39,8 @@ guard tracks where the socket has a ground pin between pairs and no length
 difference inside a pair. The autorouter is fenced out of both corridors.
 
 The copper that carries the 5 V rail's real current is planned as well
-(`power_route.py`): L1 and the output capacitors onto a bar with five vias into
-the In3 pour, J1's supply pins onto a bar with three, two at each port switch,
+(`power_route.py`): L1 and the output capacitors onto a bar with four vias into
+the In3 pour, J1's supply pins onto a bar with two, two at each port switch,
 a wide SW_5V, and U2's PGND pins to the input capacitors and their own GND vias.
 The rest of +5V carries milliamps and stays autorouted. `route_board.py` runs
 `../review/power_sheet.py` on each route, which solves the net with its pours as

@@ -425,27 +425,28 @@ Solved on the routed copper by `review/power_sheet.py`, at the Alfa's peak unles
 
 | | before | after |
 |---|---|---|
-| worst +5V track, IPC-2221 | 1021 K, 5.7 A in 0.2 mm | 2.1 K, 2 A in 2 mm |
-| worst +5V via | 234 K, 5.7 A in one 0.3 mm drill | 3.1 K, 1.24 A in a 0.5 mm drill |
+| worst +5V track, IPC-2221 | 1021 K, 5.7 A in 0.2 mm | 2.7 K, 1.75 A in 1.42 mm |
+| worst +5V via | 234 K, 5.7 A in one 0.3 mm drill | 4.3 K, 1.43 A in a 0.5 mm drill |
 | largest drop from L1 to a load | 284 mV, at J1 | 13 mV |
-| loss in the +5V copper | 1170 mW | 47 mW |
+| loss in the +5V copper | 1170 mW | 48 mW |
 | SW_5V, U2 to L1, at the buck's 6 A | 1.1 mm at 0.2 mm | 1.5 mm for about 0.3 mm between U2's PGND pads, then 2.4 mm: 19 K |
 | U2's PGND pins | 0.2 mm stubs | 0.7 mm on F.Cu to the input capacitors and 3 or 4 GND vias a side |
 | battery path and port copper under-width (`layout_checks.py`) | 3.4 mm, worst 88 K | none, worst 18 K |
 
 **What changed on the board.** Same 193 parts in the same places, same outline. `brain/power_route.py` plans the copper that carries current, the way `fan_route.py` and `usb_route.py` plan the pairs, and fences it from the autorouter:
 
-* L1 pad 2 and the three output capacitors onto one bar in the 1.4 mm gap between them, with five 1.0/0.5 mm vias into In3 (no via in a pad).
-* J1 pins 251-259 onto a bar with three vias into In3.
+* L1 pad 2 and the three output capacitors onto one bar in the 1.4 mm gap between them, with four 1.0/0.5 mm vias into In3 (no via in a pad).
+* J1 pins 251-259 onto a bar with two vias into In3.
 * U6, U7 and U11's IN pins and capacitors onto a bar with two vias each.
 * U16, right under the buck, on a direct F.Cu run from the bar, which carries on past C89 to two more vias below U16, because In3 is busiest round U16.
+* Vias on one bar stay at least 1.7 mm apart. Each cuts a 1.4 mm hole in the GND planes, and closer than 1.6 mm the holes merge: the first version, five vias at 1.4 mm, cut a 7 mm slot in In1 and In4 across the output loop's return, the longest on the board. The Alfa session's second read caught that.
 * SW_5V as above. U2's PGND pins to the input capacitors' GND pads and GND vias, which also shortens the input loop TI asks to keep short (SNVSB70). One large via for each output capacitor's GND pad.
 * In3 keeps signals out of the pour right round those vias, between the buck and J1, down to the bottom edge, along it to U6 and up to the top edge from U7. Everywhere else signals may still cut it up, so the solve below gates every route.
 * The other 20 +5V pads carry milliamps and stay autorouted at 0.2 mm, tied in at J1 pin 259. In the solve none of those tracks carries more than 0.10 A in any case.
 
 Two things came along with the re-route. `route_board.py` widens in rounds, as `gauges/route_board.py` has since 2026-11-04, which is most of why the battery path has no neck left. And a 0.3 mm fence along each board edge holds the autorouter's copper to the 0.5 mm the board setup and the fab gate want: one route ran +1V8 0.35 mm from the bottom edge, and `real_unconnected_count()` didn't count that as a failure until now.
 
-**What changed in the checks.** `review/power_sheet.py` builds the net's real copper as a resistor network, pours as resistive sheets, and solves six cases: the Alfa and the Mustang at their peaks (`thermal_derating.py` table A2), and each port switch at its current limit with the total held to the buck's 6 A. It rates each piece of track at the current it really carries, each via, the sheet against IPC-2221 for the width of copper at each spot, and the drop to each load. `layout_checks.py` runs it, and a pour-carried net that nothing has solved is now a FAIL. `route_board.py` counts a route it fails as a failed attempt, and `fab/build_fab.py` won't package a board that fails it. On the old board it fails at once, and it found the 234 K via, which nobody had reported. Eight deliberate breakages of the new board (the vias gone or shrunk, the bars and SW_5V thinned to 0.2 mm, the pour's fill gone) were all caught. `layout_checks.py` also tied a track to a pad by a circle as wide as the pad's long side, which on L1 reached 2.35 mm past the pad and could end a path short of the copper carrying it: it now uses the pad's real shape. panel-tsd/, solved the same way at 1.0 A, passes: worst track 19.5 K, drop 25 mV.
+**What changed in the checks.** `review/power_sheet.py` builds the net's real copper as a resistor network, pours as resistive sheets, and solves six cases: the Alfa and the Mustang at their peaks (`thermal_derating.py` table A2), and each port switch at its current limit with the total held to the buck's 6 A. It rates each piece of track at the current it really carries, each via, the sheet against IPC-2221 for the width of copper at each spot, and the drop to each load. `layout_checks.py` runs it, and a pour-carried net that nothing has solved is now a FAIL. `route_board.py` counts a route it fails as a failed attempt, and `fab/build_fab.py` won't package a board that fails it. On the old board it fails at once, and it found the 234 K via, which nobody had reported. Eight deliberate breakages of the new board (the vias gone or shrunk, the bars and SW_5V thinned to 0.2 mm, the pour's fill gone) were all caught. `layout_checks.py` now also reports the longest hole in each GND plane and fails one over 5 mm: the autorouter's via clusters reach 4.2 mm, and the longest hole on this board is a 3.8 mm mounting hole. It also tied a track to a pad by a circle as wide as the pad's long side, which on L1 reached 2.35 mm past the pad and could end a path short of the copper carrying it: it now uses the pad's real shape. panel-tsd/, solved the same way at 1.0 A, passes: worst track 19.5 K, drop 25 mV.
 
 **Still open, none of it blocking:**
 

@@ -469,7 +469,7 @@ The owner's point: a lot of dead space. On 184.8 x 104.9 mm the parts' courtyard
 |---|---|---|
 | outline | 184.8 x 104.9 mm, 194 cm2 | **127.5 x 95.3 mm, 122 cm2, 37 % less** |
 | parts' courtyards | 33 % of the board | 52 % |
-| largest rectangles with no parts | 151 x 10, 39 x 32, 8 x 90, 88 x 8 mm | under the module; 31 x 17 and 34 x 14 mm behind the two ribbon connectors, which stay clear for the ribbons; nothing else over 19 x 8 mm |
+| largest rectangles with no parts | 151 x 10, 39 x 32, 8 x 90, 88 x 8 mm | under the module; 31 x 17 and 34 x 14 mm behind the two ribbon connectors, which stay clear for the ribbons; the 95 x 3 mm via strip below the socket, as before; 19 x 8 mm at the bottom left |
 
 **The floorplan** (`floorplan.py`). Margins only as wide as the edge needs. Port A, the bench headers, the USB-C cell, the buck and the second USB-C port are the same chain along the bottom edge, in the same places relative to the socket, so J4, J13, J17, J18 and J19 didn't move against J1. The right column now runs top to bottom in the order the current flows: J2, fuse, TVS, Q2, Q1, sense resistor, buck. Small cells went into the two corners of the module's keep-out that the module doesn't reach (Design Guide figure 114 only forbids parts under the module itself, and the socket's courtyard stops 14 mm short of the far edge). The four M3 holes keep their corners, 3.6 mm in, and the router is fenced from under each 5.5 mm screw head.
 

@@ -36,7 +36,7 @@ So the carrier with the module and heatsink is about 1.6 + 7.0 + fins deep, the 
 
 - display/ is now **178.2 x 105.0 mm** (2026-10-18: larger module keepout for the Verdin standoffs). Its 105.0 mm height uses almost all of the 105.54 mm inner opening, so it must sit behind the faceplate with its long side across the car, or the housing must allow for it.
 - brain/, which replaced display/, is **127.5 x 95.3 mm** (2026-11-06).
-- gauges/ is **447.1 x 65.6 mm** (63.4 mm before the 2026-10-28 fit fixes, `dash-assembly.md`). Its four screen connectors now sit at +/-118 and +/-197 mm from the centre (owner photos). The inner modules (50.2 mm across) end 92.9 mm from the centre; display/ reaches 89.1 mm either side of its own centre. If both boards sit in one plane they overlap in height (105 + 63 > 116.7 mm), so they stack in depth: the likely arrangement is display/ directly behind the centre panel and gauges/ behind or below it, with the four small screens on FPC tails forward to the faceplate. **Not decided; needs the housing drawing.**
+- gauges/ is **447.1 x 61.0 mm** (since J1 moved to the top edge on 2026-11-06, 65.9 mm until then, `dash-assembly.md`). Its four screen connectors now sit at +/-118 and +/-197 mm from the centre (owner photos). The inner modules (50.2 mm across) end 92.9 mm from the centre; display/ reaches 89.1 mm either side of its own centre. If both boards sit in one plane they overlap in height (105 + 63 > 116.7 mm), so they stack in depth: the likely arrangement is display/ directly behind the centre panel and gauges/ behind or below it, with the four small screens on FPC tails forward to the faceplate. **Not decided; needs the housing drawing.**
 
 ## Radios
 

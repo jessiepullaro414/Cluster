@@ -540,6 +540,13 @@ for disp_ref, cluster_refs in LOCAL_CLUSTERS.items():
 # now packed first (as their INPUT cell, cells.py), along the top edge of the POWER zone, and the rest
 # of the zone below them.
 PIN_TOP = {"POWER": ["@INPUT"]}
+# G-39, 2026-11-06: J1 is turned so its wire mouth looks at the top edge (cells.py), and it sits at that edge instead of the
+# zone's top margin. The mouth is J1_MOUTH_REACH from its pad row (KiCad's 3D model). The inset keeps the footprint's pin 1 mark,
+# which points out of the mouth side, on the board. The zone packs up behind J1, so the board gets shorter from the top (see
+# BOARD_HEIGHT_MIN), and that gives the wires room in the housing. Nothing moves against the screens: the height is measured up from the display row.
+J1_MOUTH_REACH = 4.6
+J1_MOUTH_INSET = 0.8
+CORE_TOP_MARGIN = BOARD_MARGIN + MARGIN
 # Review 2026-11-03: the LM74930's new VS diode, dV/dt network and input capacitor made the FRONT cell 5.5 mm taller and the
 # POWER zone (the tallest, so the board) grew from 65.6 to 71.1 mm; a wider POWER zone keeps the outline the dash assembly
 # (mech/build_assembly.py) was checked with. The other zones keep 46 mm.
@@ -551,6 +558,10 @@ for name, refs in CORE_ZONES:
     top_refs = PIN_TOP.get(name, [])
     if top_refs:
         t_placed, t_rot, t_w, t_h = best_skyline_pack(top_refs, max_width=zone_w, margin=MARGIN)
+        assert top_refs == ["@INPUT"] and not t_rot, "only the INPUT cell rides up to the edge, and it mustn't turn sideways"
+        _j1_row = J1_MOUTH_INSET + J1_MOUTH_REACH - CORE_TOP_MARGIN      # J1's pad row in this zone's frame
+        t_placed["@INPUT"] = (t_placed["@INPUT"][0], _j1_row)
+        t_h = _j1_row + VIRTUAL["@INPUT"][3]
         z_placed, z_rot, z_w, z_h = best_skyline_pack([r for r in pack_refs if r not in top_refs], max_width=zone_w,
                                                       margin=MARGIN, initial_skyline=[(0.0, zone_w, t_h + MARGIN)])
         z_placed.update(t_placed)
@@ -575,7 +586,6 @@ for name, refs in CORE_ZONES:
     zone_packed.append((name, refs, z_placed, z_w, z_h))
     print(f"  core zone {name}: {len(refs)} parts, {z_w:.1f}x{z_h:.1f}mm")
 
-CORE_TOP_MARGIN = BOARD_MARGIN + MARGIN
 CORE_LOCAL_GAP = 6.0        # breathing room between core zones and local clusters
 # 2026-10-28: the connectors sit on the bottom edge (courtyard 0.1 mm inside it), cable entry facing down.
 # The Raystar FPC leaves the module 21.6 mm below its centre with 18.3 mm of free tail and folds back
@@ -594,6 +604,11 @@ display_h = max(_disp_h.values())
 # report how much smaller this really is - never used to inflate it.
 board_height = (CORE_TOP_MARGIN + core_max_h + CORE_LOCAL_GAP + local_max_h +
                 LOCAL_GAP + display_h + DISPLAY_ROW_BOTTOM_MARGIN)
+# G-39, 2026-11-06: with J1 turned and D1 beside the fuse the POWER zone stopped being the tallest, and the packed height
+# fell to 53.6 mm. The turn LEDs are pinned to their windows, TURN_ABOVE_SCREEN above the screen centres, so a shorter board
+# brings them up into the zones along the top edge: below about 60.6 mm D27's column lands on the CAN0 zone's U5.
+BOARD_HEIGHT_MIN = 61.0
+board_height = max(board_height, BOARD_HEIGHT_MIN)
 print(f"Real minimal board height: {board_height:.1f}mm (vs the "
       f"{TARGET_H:.1f}mm dash-opening inner dimension this board doesn't "
       f"need to fill - the opening's real height was never a target, "
@@ -645,9 +660,12 @@ zone_gap = max(zone_gap, 8.0)  # real minimum breathing room even if this
                                 # somehow left less than 8mm between zones
 zone_x = zone_gap
 zone_gap_centers = [zone_x / 2]   # center of the gap before the first zone
+# G-39, 2026-11-06: on the shorter board D27's column rises into the slot between the CAN0 cell's R88 and its U5 and C13, which is
+# 0.4 mm too narrow for it where it stood. The column can't move, the arrow window is over it. (It doesn't shift the zones after it.)
+ZONE_NUDGE = {"CAN0": 1.0}
 for name, refs, z_placed, z_w, z_h in zone_packed:
     for ref, (x, y) in z_placed.items():
-        placed_rel[ref] = (x + zone_x, y + CORE_TOP_MARGIN)
+        placed_rel[ref] = (x + zone_x + ZONE_NUDGE.get(name, 0.0), y + CORE_TOP_MARGIN)
     zone_x += z_w + zone_gap
     zone_gap_centers.append(zone_x - zone_gap / 2)
 
@@ -707,8 +725,10 @@ for ref, info in parts.items():
     lx0, ly0, lx1, ly1 = footprint_bbox(fp)
     # Reference label just above the part as seen on the board; the property
     # offset is in the footprint's own rotated frame.
-    _, _ry0, _, _ = _rot_bbox((lx0, ly0, lx1, ly1), angle)
+    _rx0, _ry0, _, _ = _rot_bbox((lx0, ly0, lx1, ly1), angle)
     _lx, _ly = _rot_xy(0.0, _ry0 - 0.5, (-angle) % 360)
+    if ref == "J1":     # above J1 is off the board now its mouth is at the edge, so its label goes on its free end
+        _lx, _ly = _rot_xy(_rx0 - 1.2, 0.0, (-angle) % 360)
     ref_label_pos[ref] = (round(_lx, 2), round(_ly, 2))
     for item in fp.graphicItems:
         if getattr(item, "type", None) == "reference":
@@ -1095,7 +1115,8 @@ TRUNK_WIDTH_LADDER = [0.6, 0.5, 0.4, 0.3]
 # REVIEW FIX 2026-10-17: the fused battery side (VIN_FUSED, the LM74930 common-source node COMMON) and the +5V trunk were
 # routed at 0.2 mm; on a 0.5 oz inner layer 0.2 mm carries about 0.23 A for a 10 K rise against a 0.30 A (UVLO edge) to
 # 0.45 A budget (review/layout_checks.py), so they are widened like VIN_PROT wherever there is room.
-TRUNK_NETS = ["VIN_PROT", "VIN_FUSED", "COMMON", "SENSE_HI", "+5V"]
+# G-39, 2026-11-06: VIN, J1 to the fuse, was left out, so it routed at 0.2 mm: on In3 that's 37 K at 0.40 A. It's the same current.
+TRUNK_NETS = ["VIN", "VIN_PROT", "VIN_FUSED", "COMMON", "SENSE_HI", "+5V"]
 
 board.to_file(PCB)
 print("Wrote", PCB)

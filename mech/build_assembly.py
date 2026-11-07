@@ -112,6 +112,12 @@ RFA_FPC_FREE = RFA_TOP_TO_TAIL - RFA_LENS_D / 2 - RFA_BOND_R   # about 18.3 mm o
 F32Q_BODY = 4.5                       # Amphenol F32Q body depth, cable entry to back (KiCad footprint F.Fab)
 F32Q_MIN_INSERT = 3.0                 # ASSUMED: seated when the tail is 3 mm past the entry edge
 
+# gauges/ J1, Phoenix MKDS 1,5/3-5,08, and its wires (2026-11-06, G-39). From KiCad's 3D model: the funnel opens 4.6 mm from the pad
+# row, its centre 3.5 mm above the board. The wires are docs/harness.md's 20 AWG GXL; their 2.2 mm is ASSUMED (not read off SAE J1128)
+# and so is a bend of 3 x OD. The stub is how far a ferrule's 8 mm sleeve stands out of the 6.6 mm funnel, ASSUMED.
+J1_MOUTH_REACH, J1_MOUTH_H = 4.6, 3.5
+J1_WIRE_OD, J1_WIRE_BEND, J1_WIRE_STUB = 2.2, 6.6, 1.5
+
 # Verdin module, socket and heatsink (Toradex Carrier Board Design Guide V1.2, mechanical-stackup.md)
 VERDIN_L, VERDIN_W, VERDIN_T = 69.6, 31.0, 1.2
 VERDIN_GAP = 2.62                     # carrier top to module bottom, nominal
@@ -219,6 +225,14 @@ def strip(points, width, th=0.15):
         seg = cq.Workplane("XY").add(cq.Shape.cast(box.wrapped.Moved(TopLoc_Location(t.Inverted()))))
         out = seg if out is None else out.union(seg)
     return out
+
+
+def round_wire(x, y0, z0, stub, r, z1, od):
+    """A round wire at height z0, running up (+Y) from y0, bending back to run toward the rear (-Z), and on to z1."""
+    s45 = r * math.sqrt(0.5)
+    path = (cq.Workplane("YZ", origin=(x, 0, 0)).moveTo(y0, z0).lineTo(y0 + stub, z0)
+            .threePointArc((y0 + stub + s45, z0 - r + s45), (y0 + stub + r, z0 - r)).lineTo(y0 + stub + r, z1))
+    return cq.Workplane("XZ", origin=(x, y0, z0)).circle(od / 2).sweep(path)
 
 
 def path_len(points):
@@ -553,6 +567,22 @@ ffc_pts = [(p1[0], p1[1] + 3.0, Z_PANEL_BARE - PCB_T - 0.6), (p1[0], p1[1] + 6.0
            (b4[0], y_top, z_brain_rear), (b4[0], b4[1] + 5.0, z_brain_rear), (b4[0], b4[1] + 3.0, Z_BRAIN_BARE - PCB_T - 0.6)]
 add("screen-port FFC, 40-way 0.5 mm", "cables", strip(ffc_pts, 21.0), (0.9, 0.9, 0.86))
 
+# gauges/ J1's three wires: out of the mouths at the board's top edge, bent back past that edge, and on down the tub to its back,
+# where they'd leave through a hole nobody has drawn yet. A wire that doesn't fit shows up in the clash list against the tub.
+assert lay["gauges"].fp["J1"][2] % 360 == 180, "gauges/ J1's mouth no longer faces the top edge; the wires below assume it does"
+j1_wires = {}
+for pin, col, what in (("1", (0.75, 0.08, 0.08), "battery"), ("2", (0.05, 0.05, 0.05), "ground"), ("3", (0.85, 0.65, 0.1), "ignition")):
+    jp = lay["gauges"].pads[("J1", pin)][0]
+    wx, wy, wz = kpt(T["gauges"], jp["x"], jp["y"] - J1_MOUTH_REACH, J1_MOUTH_H)
+    add(f"J1 wire pin {pin}, {what} (20 AWG GXL, ASSUMED 2.2 mm)", "cables",
+        round_wire(wx, wy, wz, J1_WIRE_STUB, J1_WIRE_BEND, TUB_BACK_Z + 2.1, J1_WIRE_OD), col)
+    j1_wires = dict(x=round(wx, 1), mouth_y=round(wy, 2), wire_z=round(wz, 2))
+_tub_wall_y = TUB_OUT[1] / 2 - TUB_WALL
+_top_edge_y = kpt(T["gauges"], lay["gauges"].fp["J1"][0], lay["gauges"].board_bbox()[1], 0)[1]
+j1_wires.update(top_edge_y=round(_top_edge_y, 2), tub_wall_y=round(_tub_wall_y, 2), mouth_to_wall_mm=round(_tub_wall_y - j1_wires["mouth_y"], 2),
+                needs_mm=round(J1_WIRE_STUB + J1_WIRE_BEND + J1_WIRE_OD / 2, 2), od_mm=J1_WIRE_OD, bend_radius_mm=J1_WIRE_BEND, stub_mm=J1_WIRE_STUB)
+j1_wires["spare_mm"] = round(j1_wires["mouth_to_wall_mm"] - j1_wires["needs_mm"], 2)
+
 # Gauges/ standoffs to the faceplate (top-row holes) and M3 screw heads on the others
 for ref in ("MH1", "MH2", "MH5", "MH6", "MH3", "MH4"):
     x, y, _, _ = lay["gauges"].fp[ref]
@@ -634,9 +664,9 @@ for ref, x in GAUGE_X.items():
 
 depth = dict(faceplate_front=0.0, rim_crown=round(12.0 * RIM_SCALE, 1), pod_front=POD_FRONT,
              trim_back_top=round(dash_z(60.0), 1), trim_back_bottom=round(dash_z(-60.0), 1),
-             deepest_part=round(min(d["bb"][2] for d in solids if d["group"] not in ("housing", "dash", "clash")), 1),
+             deepest_part=round(min(d["bb"][2] for d in solids if d["group"] not in ("housing", "dash", "clash") and not d["name"].startswith("J1 wire")), 1),
              tub_back=TUB_BACK_Z)
-report = dict(clashes=clashes, under_small_screens_mm=under, small_fpc=fpc_report,
+report = dict(clashes=clashes, under_small_screens_mm=under, small_fpc=fpc_report, j1_wires=j1_wires,
               tsd_fpc=dict(length_mm=TSD_FPC_LEN, path_mm=round(tsd_need, 1), spare_mm=round(TSD_FPC_LEN - tsd_need, 1)),
               ffc_mm=round(path_len(ffc_pts) + 6, 1), opening_fit=fit, depth_mm=depth, view_angle_deg=view_angle,
               brain_at=dict(x=BRAIN_X, y=BRAIN_Y),
@@ -678,4 +708,4 @@ with open(os.path.join(VIEWER, "model-count.js"), "w") as f:
     f.write("window.DASH_FACES = " + json.dumps(dict(tsd_z=round(Z_GLASS, 2), small_z=round(Z_SMALL_FRONT, 2),
                                                       small_x=[GAUGE_X[r] for r in SCREEN_REFS])) + ";\n")
 
-print(json.dumps({k: report[k] for k in ("clashes", "under_small_screens_mm", "small_fpc", "tsd_fpc", "ffc_mm", "opening_fit", "depth_mm", "view_angle_deg")}, indent=1))
+print(json.dumps({k: report[k] for k in ("clashes", "under_small_screens_mm", "small_fpc", "j1_wires", "tsd_fpc", "ffc_mm", "opening_fit", "depth_mm", "view_angle_deg")}, indent=1))

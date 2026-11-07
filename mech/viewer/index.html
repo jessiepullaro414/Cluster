@@ -114,7 +114,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       <h2>Fixed on gauges/ since v1</h2>
       <div class="finding ok go" tabindex="0" data-go="fuel">
         <p class="ft">The fuel screen no longer hits anything <span class="tag">fixed</span></p>
-        <p class="fd">J1 (power terminal block, 13.8 mm) and F1 (fuse holder, 7.4 mm) moved to the top edge of the board, above the screens: 15.6 mm and 12.2 mm clear of the fuel screen now. The tallest part under any screen is 2.3 mm, with 4 mm of room.</p>
+        <p class="fd">J1 (power terminal block, 13.8 mm) and F1 (fuse holder, 7.4 mm) moved to the top edge of the board, above the screens: 11.5 mm and 14.6 mm clear of the fuel screen now, with J1's wire mouth facing the edge. The tallest part under any screen is 2 mm, with 4 mm of room.</p>
       </div>
       <div class="finding ok go" tabindex="0" data-go="fpc">
         <p class="ft">All four screen cables reach <span class="tag">fixed</span></p>
@@ -130,7 +130,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
       <h2>Still open</h2>
       <div class="finding warn" tabindex="0" data-go="right">
         <p class="ft">gauges/ is wider than the inner opening</p>
-        <p class="fd">447.1 mm against the 441.09 mm inner opening (it is 65.6 mm tall now). The housing needs 456.6 mm across, 0.3 mm a side inside the 457.2 mm outer opening.</p>
+        <p class="fd">447.1 mm against the 441.09 mm inner opening (it is 61.0 mm tall now). The housing needs 456.6 mm across, 0.3 mm a side inside the 457.2 mm outer opening.</p>
         <p class="fix"><b>Check:</b> how deep the 457.2 mm outer step is on the real dash. If it is shallower than 20 mm the board needs trimming to 441 mm.</p>
       </div>
       <div class="finding ok">
@@ -208,6 +208,7 @@ td.n { text-align: right; font-family: var(--mono); white-space: nowrap; padding
     if (/TSD.*FPC/.test(name)) return { cls: "cables", dz: -40 };
     if (/FPC/.test(name)) return { cls: "cables", dz: 50 };
     if (/FFC/.test(name)) return { cls: "cables", dz: -70 };
+    if (/J1.wire/.test(name)) return { cls: "cables", dz: 0 };
     if (/^TSD/.test(name)) return { cls: "screens", dz: 80 };
     if (/Raystar/.test(name)) return { cls: "screens", dz: 50 };
     if (/screen holder|gauges MH/.test(name)) return { cls: "gauges", dz: 20 };

@@ -16,7 +16,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
-from cellplace import pull, plan_cells as _plan_cells  # noqa: E402
+from cellplace import pull, plan_cells as _plan_cells, rotate_cell  # noqa: E402
 
 NET_WEIGHT = {
     "GND": 0.15, "+5V": 0.4, "+3V3": 0.3, "VIN_PROT": 0.4, "VIN_FUSED": 0.5,
@@ -49,7 +49,7 @@ CELLS = {
     "FRONT": dict(
         anchor="U3",
         order=["Q1", "Q3", "C47", "R49", "R48", "C48", "C49", "D34", "R89", "C61", "R50", "R51", "R52",
-               "R53", "R54", "C62", "D1"],
+               "R53", "R54", "C62"],
         pulls={
             "R49": {"SENSE_TAP": pull("U3", [18], 3), "CS_MINUS": pull("U3", [19], 3)},   # review 2026-11-03: Kelvin taps at the IC
             "R48": {"CS_PLUS": pull("U3", [20], 4), "SENSE_TAP": pull("R49", [3], 4)},
@@ -143,8 +143,14 @@ CELLS = {
                            "R106": {"DIM_LOAD_B": pull("Q4", [1], 4)},
                            "R105": {"DIM_LOAD_C": pull("Q4", [3], 4)},
                            "D37": {"DIM_LOAD": pull("R105", [1], 4)}}),
-    "INPUT": dict(anchor="J1", order=["F1"],
-                  pulls={"F1": {"VIN": pull("J1", [1], 6)}}),
+    # G-39, 2026-11-06: J1's wire mouth is on its footprint's +y side (read off KiCad's 3D model), and it used to look down the
+    # board at C59. plan_cells() below turns this finished cell half a turn, so the mouth looks at the top edge and F1 keeps its
+    # place at pin 1, which is now J1's right-hand end. The TVS comes along from the FRONT cell: F1's far end now points at the
+    # first FET, and D1, left at the far end of FRONT, would have been 43 mm back the other way. The keep-in holds both to J1's height.
+    "INPUT": dict(anchor="J1", order=["F1", "D1"],
+                  pulls={"F1": {"VIN": pull("J1", [1], 6)},
+                         "D1": {"VIN_FUSED": pull("F1", [2], 6)}},
+                  keepin=(-40.0, -5.71, 14.0, 5.33)),
     "LDO": dict(anchor="U4", order=["C3", "C58"],
                 pulls={"C3": {"+3V3": pull("U4", [5], 4)},
                        "C58": {"+5V": pull("U4", [1], 5), "GND": pull("U4", [2], 4)}}),
@@ -152,4 +158,6 @@ CELLS = {
 
 
 def plan_cells(parts):
-    return _plan_cells(parts, CELLS, NET_WEIGHT)
+    res, used = _plan_cells(parts, CELLS, NET_WEIGHT)
+    res["INPUT"] = rotate_cell(*res["INPUT"], 180)     # J1's mouth to the top edge: see the cell's comment
+    return res, used

@@ -102,7 +102,7 @@ def seg_dist(a1, a2, b1, b2):
 # brain: thermal_derating.py table A2, the Alfa's 28.5 W peak on +5V, 90 % efficient, is 2.64 A at 12 V. Lower supplies are
 # short: 5.28 A at the 6 V cranking edge would trip the 4.96 A breaker first, which is a restart, not damage.
 NEEDS = {
-    "gauges": {"VIN_FUSED": 0.40, "VIN_PROT": 0.40, "COMMON": 0.40, "SENSE_HI": 0.40, "+5V": 0.45, "+3V3": 0.15, "AUX_VLED_RTN": 0.07,
+    "gauges": {"VIN": 0.40, "VIN_FUSED": 0.40, "VIN_PROT": 0.40, "COMMON": 0.40, "SENSE_HI": 0.40, "+5V": 0.45, "+3V3": 0.15, "AUX_VLED_RTN": 0.07,
                "VPULL": 0.15},   # review 2026-11-03: U12's 148 mA current limit
     "display": {"VBAT_IN": 2.6, "VBAT_F": 2.6, "+12V_PROT": 2.6, "COMMON": 2.6, "SENSE_OUT": 2.6, "SENSE_HI": 2.6, "+5V": 3.0, "+1V8": 0.1,
                 "PANEL_BL_LEDA": 0.2, "PANEL_VSP": 0.15, "PANEL_VSN": 0.15},
@@ -147,7 +147,7 @@ PATHS["brain"] = dict({"VBAT_IN": [[("J2", "1")], [("F1", "1")]],
                                                              ("J18", "48"), ("J18", "49")]])
 DT_LIMIT = 20.0      # K rise allowed for continuous current
 WIRE_MOUTHS = {"brain": {"J2": 4.6}, "gauges": {"J1": 4.6}}     # terminal -> pad row to the body's mouth, mm
-KNOWN_MOUTHS = {"gauges": {"J1": "G-39"}}   # known and open: printed, not failed. gauges/route_board.py treats a FAIL as a failed route
+KNOWN_MOUTHS = {}    # {board: {ref: finding}}: known and open, printed but not failed. gauges/ J1 (G-39) came off this on 2026-11-06
 MOUTH_MAX_MM = 12.0  # mouth to the edge it faces: past this a wire has to cross the board
 PLANE_SLOT_MM = 5.0  # a GND plane's longest allowed hole. The autorouter's own via clusters reach 4.2 mm; 2026-11-06's first
 #                      version of brain/power_route.py cut one of 7 mm across the buck's output loop, and nothing noticed
@@ -522,7 +522,7 @@ def main():
     check_current(a.board, lay, a.pcb or cfg["pcb"])
     check_kelvin(a.board, nl, lay)
     print("\n    power-net track widths (mm) by layer:")
-    for net in sorted({"+5V", "+3V3", "VIN_PROT", "VIN_FUSED", "+12V_PROT", "VBAT_F", "VBAT_IN", "COMMON", "SENSE_OUT", "SENSE_HI"} & set(nl.nets)):
+    for net in sorted({"+5V", "+3V3", "VIN", "VIN_PROT", "VIN_FUSED", "+12V_PROT", "VBAT_F", "VBAT_IN", "COMMON", "SENSE_OUT", "SENSE_HI"} & set(nl.nets)):
         w = collections.defaultdict(lambda: collections.defaultdict(float))
         for t in lay.tracks:
             if t["net"] == net:

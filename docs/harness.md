@@ -16,7 +16,7 @@
 
 | Ref | Board side | Pigtail / cable | Wire | Pins |
 |---|---|---|---|---|
-| **J1** battery, ground, ignition | Phoenix MKDS 1,5/3-5,08, 3-position screw terminal | wire ferruled into the terminal; **DTM06-3S** + WM-3S | 20 AWG GXL | 1 VIN, 2 GND, 3 IGN |
+| **J1** battery, ground, ignition. On the board's top edge since 2026-11-06, wire mouth facing out; pin 1 is the end next to the fuse | Phoenix MKDS 1,5/3-5,08, 3-position screw terminal | wire in a bare ferrule (an insulated one's collar leaves no room to bend in the housing, `electrical-review.md` 9.5d); **DTM06-3S** + WM-3S | 20 AWG GXL | 1 VIN, 2 GND, 3 IGN |
 | **J7** car CAN + three senders | Molex KK 254 22-27-2051, 5-circuit | **DTM06-6S** + WM-6S (**no 5-way DTM exists**: DTM comes in 2, 3, 4, 6, 8 and 12 ways, so one cavity takes a sealing plug) | 22 AWG GXL; CAN H and L as a twisted pair | 1 CAN0 H, 2 CAN0 L, 3 fuel sender, 4 oil sender, 5 coolant sender |
 | **J9** Hall speed | Molex KK 254 22-27-2031, 3-circuit | **DTM06-3S** + WM-3S | 22 AWG GXL | 1 signal, 2 GND, 3 switched 12 V for the sender (VPULL: on only while the board is awake, 148 mA current limit; review 2026-11-03) |
 | **J10** lamps and dimmer | Molex KK 254 22-27-2081, 8-circuit | **DTM06-08SA** + WM-8S | 22 AWG GXL | 1 left turn, 2 right turn, 3 high beam, 4 brake, 5 alternator, 6 oil, 7 GND, 8 dimmer feed |

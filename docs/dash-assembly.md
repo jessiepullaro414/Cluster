@@ -2,8 +2,8 @@
 
 `mech/build_assembly.py` puts the three routed boards (brain/, panel-tsd/, gauges/, from their
 `kicad-cli pcb export step` models) into a housing drawn after the stock 1966 five-dial cluster,
-adds all five screens, the Verdin module and heatsink and the flat cables, and checks every pair
-of solids for overlap. Run `python mech/build_assembly.py` (about 40 s). It writes, under
+adds all five screens, the Verdin module and heatsink, the flat cables and J1's wires, and checks
+every pair of solids for overlap. Run `python mech/build_assembly.py` (about 40 s). It writes, under
 `mech/out/` (not committed, regenerated):
 
 - `dash_assembly.step`: the whole assembly, about 70 MB, for FreeCAD, Fusion or Onshape
@@ -74,15 +74,20 @@ v1 found two problems on gauges/; both are fixed in the board (`gauges/build_pcb
 0 unconnected, DRC only the accepted silkscreen and library warnings):
 
 1. **Fuel screen vs J1 and F1: fixed.** The INPUT cell (J1 terminal block, 13.8 mm, and F1 fuse
-   holder, 7.4 mm) is packed first, along the top edge of the POWER zone, above every screen: 15.6 mm
-   and 12.2 mm clear of the fuel screen. The tallest part under any screen is now D1 at 2.3 mm,
-   with 4 mm of room.
+   holder, 7.4 mm) is packed first, along the top edge of the board, above every screen: 11.5 mm and
+   14.6 mm clear of the fuel screen's lens, 9.6 and 12.7 mm of its cup. The tallest part under any
+   screen is now the screen's own connector at 2.0 mm (a stand-in box), with 4 mm of room.
 2. **Small-screen FPC reach: fixed.** U6 to U9 sit on the bottom edge of the board, 11 mm below their
    screen centres, cable entry facing down. The 18.3 mm Raystar tail folds back under the module
    and goes 3.25 mm into the 4.5 mm F32Q body (seated at 3 mm or more, ASSUMED). No screen rotation
-   or MADCTL flip. The board grew from 63.4 to 65.6 mm tall.
+   or MADCTL flip. The board grew from 63.4 to 65.6 mm tall, and is 61.0 mm since 2026-11-06.
 3. The turn LEDs moved up to the factory window height (29 mm above the small-gauge centres), the
    clamp and resistor in a column below each.
+4. **J1's wires (2026-11-06, `electrical-review.md` G-39).** J1's wire mouth now faces the top edge of
+   gauges/, 0.8 mm in from it, and the board's top edge came down 4.9 mm against the screens. The
+   three wires are in the clash check: out of the mouths toward the tub's top wall, a bend back past
+   the board's edge, and on to the tub's back. Mouth to wall is 9.7 mm against the 9.2 mm they need
+   (`clearance.json`, `j1_wires`). On the old outline it would have been 4.8 mm.
 
 Still open:
 
@@ -91,12 +96,16 @@ Still open:
   opening. Check how deep the outer step is on the real dash.
 - Fits: the TSD's 69.8 mm FPC reaches panel-tsd/ J4 with 8.6 mm spare; the screen-port FFC is
   about 91 mm since brain/ shrank (buy 100 mm and check).
+- **No way out of the tub is drawn** for J1's wires or any other connector's. The model takes J1's
+  wires to the tub's back. A slot in the tub's top wall right in front of the mouth would need no
+  bend at all, and the 0.5 mm spare above stops mattering.
 
 ## Assumed, not measured
 
 The trim's bottom width, end radius and rim section, the dash's lean, the cup depth, the bezel
 collars and throat flare, panel thickness, the cups that carry the small screens,
-the light pipes, the pod depth, tub walls, panel-tsd/ and brain/ positions, heatsink fin height
+the light pipes, the pod depth, tub walls, J1's wires (2.2 mm, a 6.6 mm bend, a 1.5 mm ferrule stub),
+panel-tsd/ and brain/ positions, heatsink fin height
 (Toradex datasheet not retrieved), the TSD tab width and FPC exit side, the F32Q seating depth, and
 stand-in boxes for parts with no library 3D model: the four FFC connectors on gauges/ (2.0 mm), the
 SODIMM socket (5.2 mm), and several small ICs and FETs (1.2 mm). The ring, cup and gauge spacing

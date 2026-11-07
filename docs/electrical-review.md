@@ -22,7 +22,9 @@ netlist (`kicad-cli sch export netlist`) and the `.kicad_pcb`.
 
 ## 0. Summary
 
-**2026-11-06, last:** gauges/ J1 turned round so its wire mouth faces the top edge, and moved to that edge (G-39), with the input TVS beside the fuse. The board is 61.0 mm tall now, from 65.9, and that's what gives J1's wires room in the housing. Section 9.5d.
+**2026-11-06, last:** the Verdin heatsink, from Toradex's own documents at last. Buy Type 1 V1.1B, because V1.1A's thermal pad can bend the module. Its real T-shaped outline clears the shrunk brain/. With it the chip runs about 52 C above the air round the heatsink at an assumed 5 W, against a 105 C limit, so expect the centre screen to throttle in a hot dash. Estimates, nothing measured. Section 9.5e.
+
+**2026-11-06, later still:** gauges/ J1 turned round so its wire mouth faces the top edge, and moved to that edge (G-39), with the input TVS beside the fuse. The board is 61.0 mm tall now, from 65.9, and that's what gives J1's wires room in the housing. Section 9.5d.
 
 **2026-11-06, later:** brain/ shrunk from 184.8 x 104.9 mm to 127.5 x 95.3 mm, with a choke on each USB-C pair and the battery path on planned copper. Its power terminal J2 turned out to have its wire mouth facing the Verdin module (B-05, fixed); gauges/ J1 had the same fault (G-39, section 9.5d). Section 9.5c.
 
@@ -257,7 +259,7 @@ A second pass looked for anything that would stop the boards becoming a product 
 | P-02 | High | display | The module keepout was centred on the socket, but the module is not: it reaches 35 mm from the socket pegs on the latch side (Fig 110/113). The 8 mm under its far edge, where S1/S2 go, was open to carrier parts; C12 had a pad there | `floorplan.py` now places the keepout from the module's real extent (`j1_local_x_hi`); only S1/S2 sit under the module now. The board grew to 178.2 x 105.0 mm |
 | P-03 | High | display | CarPlay could not work: LIVI (and any CarPlay receiver) needs Apple's coprocessor on I2C with its power switched from a GPIO; J16 was four bare pads with no supply | J16 is a 1x6 2.54 mm daughterboard header: I2C_1 (1.8 V), MFI_RST_N, GND, MFI_5V (switched by U15, a TPS22918-Q1 on Verdin GPIO_3, held off by R74 in reset) and +1V8. The coprocessor, its regulator and level shifting go on the daughterboard because Apple's pinout and supply are under NDA |
 | P-04 | Medium | gauges | The inner small gauges sat at +/-98.5 mm from the centre; the owner's cluster measures about +/-118 mm (photos, 2026-10-08), and at 98.5 mm the inner modules overlapped display/'s width | `INNER_GAUGE_OFFSET_MM = 118` in `gauges/build_pcb.py`; the turn-arrow LEDs now sit midway between each side's two gauges. Replace 118 with a caliper reading |
-| P-05 | Medium | display | No heat path for the Verdin module (5 W typical, 10 W peak assumed) in a closed dash | S3/S4 make the Verdin Industrial Heatsink possible; its fin height and thermal resistance, and whether it suffices at 85 C, are asked in `rfq-drafts.md` section 2. See `mechanical-stackup.md` |
+| P-05 | Medium | display | No heat path for the Verdin module (5 W typical, 10 W peak assumed) in a closed dash | S3/S4 make the Verdin Industrial Heatsink possible. **2026-11-06:** its datasheet gives about 52 C from die to air at the assumed 5 W against a 105 C junction limit, so it throttles in a hot dash, and at 85 C air it can only hold about 2 W (section 9.5e, estimates). What's still open is in `rfq-drafts.md` section 2, questions 5 and 7. See `mechanical-stackup.md` |
 | P-07 | Low | gauges | After the re-route for P-04 and the new front-end parts, IGN_RAW (the ignition sense line, 56 k series and 10 nF filtered) crosses under the buck's SW node on In1 (`layout_checks.py gauges`); the 2026-10-17 route had no track near SW. +5V also has more 0.2 mm escape length on In1 (31 mm against 14 mm), VIN_PROT less (10 mm against 41 mm) | Accepted for the prototype (a slow, heavily filtered input); fence In1 under the buck cell for the autorouter, or hand-route IGN_RAW, before production |
 | P-06 | Medium | display | Supply: the Verdin iMX95 WB IT is in sample status (Toradex PCN 118589; Mouser no stock, 34-week lead) | Noted in the BOM; question 6 in `rfq-drafts.md` section 2 |
 
@@ -415,6 +417,7 @@ Use a current-limited bench supply (1 A at first), no Verdin module, no screens,
 6b. **Dash dimmer (G-38):** key on, 14.4 V bench supply through 0, 3, 6 and 12 ohm (at least 1 W) to J10 pin 8: `DashDimmerPct` about 100, 78, 52 and 0, and the same at 12.6 V. On a scope at pin 8, 40 mA-sized dips of 10 ms, four a second; with the supply off, none. Then the real switch, and read its ohms for `IM_DIM_RHEO_FULL_OHM`.
 7. **Fit the module (brain):** confirm it boots at key-on, that CTRL_PWR_EN_MOCI stays high in suspend, that a falling edge on CTRL_WAKE1_MICO# wakes it, that the RTC alarm wakes it, and that software power-off with the key off drops the board to the step 3 figure (`software/linux/README.md`, L6). Measure suspend current.
 8. **Screens one at a time**, then the surge tests from section 8 (pulse 1 and 2a) and the sender-short test (G-08). In the car: compare the tach against a timing light.
+9. **Module heat (section 9.5e):** heatsink on, screens and ports loaded. Log the SoC's own temperature sensor and the input power, on the bench and then in the housing. That replaces the assumed 5 W and the estimated 10.5 C/W with measurements, and shows where it starts to throttle.
 
 ### 9.5a Second USB-C port on brain/, 2026-11-06
 
@@ -565,7 +568,52 @@ Read from the routed boards, or by IPC-2221 where it gives a rise. Nothing is bu
 * F1's 3D model is the holder alone, so a fuse standing in it isn't in the clash check. That predates this change: F1's height against the panels hasn't moved.
 * D1's return to ground is still a 0.2 mm stub, 2.7 mm long, to one small via, the same kind of thing brain/ fixed with planned copper in 9.5c. It was 3.7 mm before.
 
+### 9.5e The Verdin heatsink and socket, from the makers' documents, 2026-11-06
+
+Until now the 3D model and `mechanical-stackup.md` guessed at the heatsink. These figures come from its datasheet Rev 1.3, errata HAR-13572, Toradex's change notices (PCNs) of 13 July 2026 and the Verdin iMX95 datasheet Rev 0.7, and the socket's from TE's drawing 2309409 rev 6. No board changes, and nothing here is measured.
+
+**Which one to buy**
+
+| Revision | Part number | Status | Use |
+|---|---|---|---|
+| Type 1 V1.1B | 23111101 | Samples now, volume September 2026 (PCN). The developer page lists it for Q3 2026 | **Order this one.** Check the shop actually has it |
+| Type 1 V1.1A | 23111100 | "DO NOT ORDER": supply stopped, no last-time buy | Errata HAR-13572: its thermal pad is too hard and can bend the module's PCB, with solder joint fatigue under thermal cycling |
+| Type 1 V1.0B | 23111001 | Last-time buy 31 December 2026 | A bench fallback at best. The errata and the developer page allow it for iMX95 evaluation, but the V1.1A PCN says it only suits the iMX8M Mini and Plus. Asked in `rfq-drafts.md` question 7 |
+
+The datasheet stops at V1.1A. V1.1B changes the thermal pad's material, so the outline should hold, but its pad thickness isn't confirmed: the PCN says V1.1A's size change "applies partially".
+
+**Its shape.** A T, not a rectangle: 85.6 x 38.0 mm over its ears, with holes 80.0 mm apart on S3/S4 and 65.2 mm apart on S1/S2, 31.0 mm between the rows. All four land on brain/'s standoffs. Measured from J1's origin it runs from y +10.93 to y -27.07. The body's width isn't dimensioned, but it scales off the drawing at 69.6 mm, the module's own width, and the ears are only at the socket end. It's 14.27 mm from its feet, which sit on the module, to the fin tips: the plate's underside is 7.0 mm above brain/ and the fin tips 17.97 mm (2.5 + 1.2 + 14.27).
+
+**Against the shrunk brain/.** No part overlaps its outline in plan view, and the parts moved beside the module's far end in 9.5c are outside it. J9 is closest: its plastic is 1.35 mm from the fins, so a plug of the same width fits. The 3D model used to draw the module and heatsink as 69.6 x 31 mm boxes, up to 8 mm out of place, so its earlier "0 clashes" never tested this. It draws the real shape now, with S1 to S4 and the latch arms, and still finds 0 clashes. Its plate, feet and fins are read off Toradex's drawing.
+
+**The socket's latch arms.** TE's drawing has the arms ending 20.85 mm from the peg line and opening to 78 mm at most. KiCad's footprint agrees: its fab outline stops at the same place and its courtyard is 79 mm wide, so DRC's courtyard check does cover them. The nearest part, C65, is about 2.1 mm from where an open arm's tip can reach. J1's rows, 3.5 x 4.6 mm latch pads at 67.60 mm, and 1.60 and 1.10 mm pegs at 68.80 mm match TE's recommended layout; its signal pads are 1.70 mm long against TE's 1.75 mm. TE's terms only allow downloads for personal, non-commercial use and no reproduction, so the drawing isn't in this repo, and the owner may want TE's OK for a product.
+
+**The module's heat.** This is separate from the buck's 25 / 45 C/W in 9.5c, and the shrink doesn't change it.
+
+| Step | C/W | Source |
+|---|---|---|
+| Chip die to its case top | 0.98 | Verdin iMX95 datasheet, table 49 |
+| Module to aluminium | about 2, "estimated" | Heatsink datasheet, table 2, for V1.1A's TGP5000 pad |
+| Aluminium to the air | about 7.5, "estimated", no airflow stated | Same table |
+| **Die to air** | **about 10.5** | Assuming table 2's "module" means the chip's top, which it doesn't say |
+
+`thermal_derating.py` table A3, at the 5 W we assume because Toradex publishes no power figures yet:
+
+| Air round the heatsink | Die at 5 W | Power that reaches 105 C |
+|---|---|---|
+| 25 C | 77 C | 7.6 W |
+| 40 C | 92 C | 6.2 W |
+| 50 C | 102 C | 5.2 W |
+| 60 C | 112 C | 4.3 W |
+| 85 C | 137 C | 1.9 W |
+
+The hard limit is the chip's 105 C junction. The module's datasheet, section 6.6, says it throttles as it heats and shuts down at its threshold, but not where throttling starts. The module's 85 C operating figure is footnoted "Depends on the cooling solution", so it isn't a fixed air limit. At 5 W the die reaches 105 C with the air at about 52.6 C, so on a hot day expect the centre screen to slow down rather than be damaged, and to shut off if it reaches the threshold. How hot the air gets in the Mustang's vented tub is unknown: the model leaves 3.4 mm between the fin tips and the tub's inner back. The Alfa's sealed box is harder, and its session keeps its own sum in `alfa-gtv-cluster`.
+
+**Still open.** The 5 W; table 2's 2 C/W, which may move with V1.1B's TGP3500ULM pad; and where throttling starts (`rfq-drafts.md` questions 5 and 7). The module's storage limit is 85 C, set by its flash, which matters to a car parked in the sun. Its Wi-Fi is only validated from -30 C so far, and its datasheet is still marked preliminary. Step 9 of 9.5 measures the heat.
+
 ### 9.6 Verification run for this section
+
+**2026-11-06, the heatsink (9.5e):** No copper changed: `fab/build_fab.py brain` passes with the same gerbers and DRC findings, and 76 BOM lines with the heatsink. `mech/build_assembly.py` with the real T, S1 to S4 and the latch arms: 0 clashes, deepest part -50.6. Viewed from behind in `mech/viewer`, no console errors. `thermal_derating.py` table A3 gives the heat figures. Estimates from Toradex's documents, nothing measured.
 
 **2026-11-06, gauges/ J1 (9.5d):** Real `kicad-cli` DRC 0 unconnected, findings only in `fab/build_fab.py`'s accepted categories (lib_footprint_mismatch x11, solder_mask_bridge x2 on JP1 and JP2, and silk_edge_clearance x4, silk_over_copper x3 and silk_overlap x2 from the screen circles), fewer than before. `review_netlist.py gauges` 74 PASS, 0 FAIL, 0 WARN. `layout_checks.py gauges`: exit 0, no FAIL on any line, no track on In1 or In4, J1 faces the top edge, 0.8 mm from it, 0 parts in the wires' way. `connector_audit.py gauges`: J1's pins as before. `mech/build_assembly.py`: 0 clashes, with J1's wires in the check. `fab/build_fab.py gauges` passes its gate. J1's mouth read off its solid in the new `mech/out/ClusterGauges.step`: a plan section 3.5 mm above the board shows all three funnels open toward the top edge. Deliberate breakages on scratch copies were all caught: J1 turned back (FAIL, exit 1), J1 moved 15 mm down the board still facing the edge (FAIL, exit 1), a wire 0.6 mm nearer the tub's wall and one on the old 65.9 mm board (in the tub's wall, 2.1 and 5.7 mm3). The schematic didn't change. Nothing is built or measured.
 

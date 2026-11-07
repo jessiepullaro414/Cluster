@@ -65,7 +65,7 @@ boards and the tub are all square to the driver. (v2.2 to v2.4 tilted the trim's
 | panel-tsd/ bare side, parts facing back, 25 mm low | -22.4 | its J4 faces down, the panel FPC comes up from under gauges/ |
 | Dash surface at the trim's bottom edge | -23.1 | the dash leans 9.5 degrees (ASSUMED) |
 | brain/ bare side, Verdin and heatsink facing back | -31.0 | screen-port FFC goes over its top edge to J4. Since it shrank to 127.5 x 95.3 mm (2026-11-06) its centre is at X +17.7, Y -3: J4 lines up with panel-tsd/ J1, so the ribbon has no sideways run, and panel-tsd/'s lower standoffs still land on it |
-| Heatsink fins | -51.6 | fin height assumed (9 mm) |
+| Heatsink fins | -50.6 | 17.97 mm above brain/, from Toradex's drawing (`electrical-review.md` section 9.5e) |
 | Tub back, vented | -56.0 | stock cluster about 60 mm deep |
 
 ## Results (v2: no clashes)
@@ -105,8 +105,8 @@ Still open:
 The trim's bottom width, end radius and rim section, the dash's lean, the cup depth, the bezel
 collars and throat flare, panel thickness, the cups that carry the small screens,
 the light pipes, the pod depth, tub walls, J1's wires (2.2 mm, a 6.6 mm bend, a 1.5 mm ferrule stub),
-panel-tsd/ and brain/ positions, heatsink fin height
-(Toradex datasheet not retrieved), the TSD tab width and FPC exit side, the F32Q seating depth, and
+panel-tsd/ and brain/ positions, the heatsink's plate, feet and fins (read off Toradex's drawing,
+which only dimensions the outline and overall height), the TSD tab width and FPC exit side, the F32Q seating depth, and
 stand-in boxes for parts with no library 3D model: the four FFC connectors on gauges/ (2.0 mm), the
 SODIMM socket (5.2 mm), and several small ICs and FETs (1.2 mm). The ring, cup and gauge spacing
 come from the owner's photos and calipers.

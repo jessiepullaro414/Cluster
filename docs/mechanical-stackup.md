@@ -26,11 +26,11 @@ The owner is making a new housing, so the stock depths are a guide to what the d
 | Board to module gap (SODIMM 5.2 mm socket) | 2.0 to 3.0 (2.62 nominal) | Toradex Verdin Carrier Board Design Guide V1.2, Fig 112 |
 | Verdin module PCB | 1.20 | same, Fig 112 |
 | Module top-side components | **unknown**: use Toradex's maximum-height 3D model | Toradex developer site |
-| Heatsink base, on the 7.0 mm S3/S4 standoffs | 7.0 above the carrier | design guide 4.4.1 |
-| Verdin Industrial Heatsink fins | **unknown** (datasheet not retrieved; its thermal pad is 26 x 22 x 3.175 mm) | Toradex accessory page; asked in `rfq-drafts.md` section 2 |
+| Heatsink plate underside, on the 7.0 mm S3/S4 standoffs | 7.0 above the carrier | design guide 4.4.1 |
+| Verdin Industrial Heatsink | A T, 85.6 x 38.0 mm over its ears, 14.27 from its feet to the fin tips. The feet sit on the module, so the fin tips are 17.97 above the carrier (2.5 + 1.2 + 14.27). Thermal pad 26 x 22 x 3.175 mm on V1.1A | Heatsink datasheet Rev 1.3, figure 1; `electrical-review.md` section 9.5e |
 | Tallest carrier parts on the other side | J17 and J19 USB-C receptacles, J2 / J11 / J14 / J15 headers: heights **unknown** here (read them from the footprint 3D models) | |
 
-So the carrier with the module and heatsink is about 1.6 + 7.0 + fins deep, the panel is 7.8 deep, and the cable fitting depth of the stock cluster (about 113 mm) is far more than that needs. The real constraints are the ones still unknown: the heatsink fin height, the FPC bend between panel and carrier, and where air can reach the heatsink in a closed dash.
+So the carrier with the module and heatsink is about 1.6 + 18.0 = 19.6 deep, the panel is 7.8 deep, and the cable fitting depth of the stock cluster (about 113 mm) is far more than that needs. The real constraints are the ones still unknown: the FPC bend between panel and carrier, and how hot the air gets round the heatsink in a closed dash, which decides how hard the module throttles (`electrical-review.md` section 9.5e).
 
 ## Side by side
 

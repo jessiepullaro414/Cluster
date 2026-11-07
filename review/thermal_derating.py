@@ -259,6 +259,16 @@ def display(sch=None, pcb=None):
             a2.append([car, label, f"{typ:.1f} typ / {pk:.1f} peak", "OVER" if pk > rating_a else "ok", f"{loss:.2f} W",
                        f"{85 + 25.0 * loss:.0f} / {85 + 45.0 * loss:.0f} C", f"{(pk * 5.0) / 0.9 / 12.0:.1f} A at 12 V, {(pk * 5.0) / 0.9 / 9.0:.1f} A at 9 V"])
     tab(a2, ["car", "second port", "+5V, A", "against 6 A", "buck loss at typ", "TJ at TA 85 C, RthJA 25 (TI's EVM) / 45 (this board, estimate)", "input at peak, 90 % efficient (F1 5 A)"])
+    # The module itself with the Verdin Industrial Heatsink (docs/electrical-review.md section 9.5e). Die to case top 0.98 C/W and the 105 C
+    # junction limit: Verdin iMX95 datasheet Rev 0.7 table 49. Module to aluminium about 2 and aluminium to ambient about 7.5 C/W: heatsink
+    # datasheet Rev 1.3 table 2, for V1.1A's pad, "estimated", no airflow stated. Assumes its "module" means the chip's top.
+    rth_die_air, tj_soc = 0.98 + 2.0 + 7.5, 105.0
+    print(f"\nA3. Verdin die with the Verdin Industrial Heatsink, about {rth_die_air:.1f} C/W to the air, against its {tj_soc:.0f} C junction limit (estimates; power ASSUMED)")
+    a3 = []
+    for air in (25.0, 40.0, 50.0, 60.0, 85.0):
+        a3.append([f"{air:.0f} C", f"{air + rth_die_air * p_verdin_typ:.0f} C", f"{air + rth_die_air * p_verdin_pk:.0f} C", f"{(tj_soc - air) / rth_die_air:.1f} W"])
+    tab(a3, ["air round the heatsink", f"die at {p_verdin_typ:.0f} W", f"die at {p_verdin_pk:.0f} W", f"power that reaches {tj_soc:.0f} C"])
+    print(f"  {p_verdin_typ:.0f} W reaches {tj_soc:.0f} C with the air at {tj_soc - rth_die_air * p_verdin_typ:.1f} C.")
     rows = []
     print("\nB. Dissipation (TA 85 C)")
     # LM61460: DS fig 10-3 at 2.1 MHz, RthJA 25 C/W EVM allows 4 A at 105 C ambient -> ~1.8 W; use P = 0.30 W + (Iout/4)^2 x 1.5 W

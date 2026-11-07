@@ -118,12 +118,20 @@ F32Q_MIN_INSERT = 3.0                 # ASSUMED: seated when the tail is 3 mm pa
 J1_MOUTH_REACH, J1_MOUTH_H = 4.6, 3.5
 J1_WIRE_OD, J1_WIRE_BEND, J1_WIRE_STUB = 2.2, 6.6, 1.5
 
-# Verdin module, socket and heatsink (Toradex Carrier Board Design Guide V1.2, mechanical-stackup.md)
-VERDIN_L, VERDIN_W, VERDIN_T = 69.6, 31.0, 1.2
-VERDIN_GAP = 2.62                     # carrier top to module bottom, nominal
+# Verdin module, socket and heatsink (Toradex Carrier Board Design Guide V1.2, Verdin iMX95 datasheet table 5, mechanical-stackup.md)
+VERDIN_L, VERDIN_W, VERDIN_T = 69.6, 35.0, 1.2
+VERDIN_GAP = 2.5                      # carrier top to module bottom: S1/S2 hold it here (the socket alone is 2.62 nominal)
 VERDIN_TOP_PARTS = 2.4                # ASSUMED: tallest part on the module top side
-HEATSINK_BASE_Z, HEATSINK_BASE_T, HEATSINK_FIN_H = 7.0, 3.0, 9.0   # base on the 7.0 mm standoffs; fins ASSUMED
-SOCKET_H, SOCKET_D, SOCKET_L = 5.2, 6.0, 79.0                       # ASSUMED stand-in for the missing socket model
+# Verdin Industrial Heatsink datasheet Rev 1.3 figure 1: a T, 85.6 x 38.0 mm over its ears, 14.27 mm from its feet to the fin tips, the
+# near edge 3.0 mm past the S3/S4 line. Feet on the module, plate on the 7.0 mm S3/S4 standoffs. Read off the drawing, not dimensioned:
+# body as wide as the module, ears 6.2 mm deep, plate 2.9 mm, feet 4.4 mm across, 12 fins 0.8 mm thick.
+HS_W, HS_D, HS_H, HS_NEAR = 85.6, 38.0, 14.27, 3.0
+HS_EAR_D, HS_PLATE_Z, HS_PLATE_T, HS_FOOT, HS_FINS, HS_FIN_T = 6.2, 7.0, 2.9, 4.4, 12, 0.8
+HS_BLUE = (0.10, 0.24, 0.55)          # blue anodized, datasheet table 2
+# The library has no model of the socket. Stand-in from TE's drawing 2309409 rev 6: housing 73.0 long, 5.2 high, 5.0 behind the peg line,
+# latch arms to 20.85 in front of it and 71.96 across when locked. KiCad's fab outline agrees, and gives the housing's 3.84 in front of the line.
+SOCKET_H, SOCKET_L, SOCKET_BACK, SOCKET_FRONT, SOCKET_ARM, SOCKET_ARMS_W = 5.2, 73.0, 5.0, 3.84, 20.85, 71.96
+STANDOFF_D = 4.3                      # S1 to S4, ASSUMED (part numbers not chosen yet)
 
 # ---------------------------------------------------------------------------
 # Our stack-up (ASSUMED: the design this file proposes; change here and re-run)
@@ -332,8 +340,9 @@ for k, L in lay.items():
 # Verdin socket, module, heatsink in brain/ board coordinates
 bx = lay["brain"].fp
 s1, s2, s3, s4 = (bx[r][:2] for r in ("S1", "S2", "S3", "S4"))
-mod_x0, mod_x1 = (s3[0] + s4[0]) / 2 - VERDIN_L / 2, (s3[0] + s4[0]) / 2 + VERDIN_L / 2
-mod_y_edge = lay["brain"].fp["J1"][1]                 # socket line (the module's gold fingers)
+mod_xc = (s3[0] + s4[0]) / 2
+mod_x0, mod_x1 = mod_xc - VERDIN_L / 2, mod_xc + VERDIN_L / 2
+mod_y_edge = s3[1]                                    # the peg line, where the module's gold fingers end; S3/S4 sit on it
 mod_y_far = mod_y_edge - VERDIN_W
 
 
@@ -345,21 +354,34 @@ def brain_box(kx0, ky0, kx1, ky1, kz0, kz1):
     return cq.Workplane("XY").box(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2], centered=False).translate(tuple(lo))
 
 
-add("brain:J1 SODIMM socket (stand-in)", "verdin", brain_box(bx["J1"][0] - SOCKET_L / 2, mod_y_edge - 1.0,
-                                                             bx["J1"][0] + SOCKET_L / 2, mod_y_edge + SOCKET_D - 1.0, 0, SOCKET_H),
+add("brain:J1 SODIMM socket (stand-in)", "verdin", brain_box(mod_xc - SOCKET_L / 2, mod_y_edge - SOCKET_FRONT,
+                                                             mod_xc + SOCKET_L / 2, mod_y_edge + SOCKET_BACK, 0, SOCKET_H),
     (0.15, 0.15, 0.15))
+for side, lab in ((-1, "left"), (1, "right")):
+    x_a, x_b = sorted((mod_xc + side * (VERDIN_L / 2 + 0.1), mod_xc + side * SOCKET_ARMS_W / 2))
+    add(f"brain:J1 SODIMM latch arm {lab} (stand-in)", "verdin",
+        brain_box(x_a, mod_y_edge - SOCKET_ARM, x_b, mod_y_edge - SOCKET_FRONT, 0, SOCKET_H), (0.15, 0.15, 0.15))
+for r, s, h in (("S1", s1, VERDIN_GAP), ("S2", s2, VERDIN_GAP), ("S3", s3, HS_PLATE_Z), ("S4", s4, HS_PLATE_Z)):
+    X, Y, Z0 = kpt(T["brain"], s[0], s[1], 0)
+    Z1 = kpt(T["brain"], s[0], s[1], h)[2]
+    add(f"brain {r} standoff to the Verdin", "verdin", cyl(STANDOFF_D, min(Z0, Z1), max(Z0, Z1), X, Y), (0.7, 0.71, 0.74))
 add("Verdin iMX95 module", "verdin", brain_box(mod_x0, mod_y_far, mod_x1, mod_y_edge, VERDIN_GAP, VERDIN_GAP + VERDIN_T),
     (0.05, 0.3, 0.15))
 add("Verdin module parts (ASSUMED 2.4 mm)", "verdin",
     brain_box(mod_x0 + 4, mod_y_far + 2, mod_x1 - 8, mod_y_edge - 3, VERDIN_GAP + VERDIN_T, VERDIN_GAP + VERDIN_T + VERDIN_TOP_PARTS),
     (0.1, 0.1, 0.1))
-add("Verdin heatsink base", "verdin", brain_box(mod_x0, mod_y_far, mod_x1, mod_y_edge, HEATSINK_BASE_Z, HEATSINK_BASE_Z + HEATSINK_BASE_T),
-    (0.75, 0.76, 0.8))
-for i in range(12):
-    fx = mod_x0 + 2 + i * (VERDIN_L - 4) / 11
-    add(f"Verdin heatsink fin {i + 1} (ASSUMED height)", "verdin",
-        brain_box(fx - 0.6, mod_y_far, fx + 0.6, mod_y_edge, HEATSINK_BASE_Z + HEATSINK_BASE_T,
-                  HEATSINK_BASE_Z + HEATSINK_BASE_T + HEATSINK_FIN_H), (0.75, 0.76, 0.8))
+hs_near, hs_far = mod_y_edge + HS_NEAR, mod_y_edge + HS_NEAR - HS_D
+hs_top = VERDIN_GAP + VERDIN_T + HS_H                 # 17.97 mm above the board
+add("Verdin heatsink plate", "verdin", brain_box(mod_x0, hs_far, mod_x1, hs_near, HS_PLATE_Z, HS_PLATE_Z + HS_PLATE_T), HS_BLUE)
+add("Verdin heatsink ears", "verdin", brain_box(mod_xc - HS_W / 2, hs_near - HS_EAR_D, mod_xc + HS_W / 2, hs_near,
+                                                HS_PLATE_Z, HS_PLATE_Z + HS_PLATE_T), HS_BLUE)
+for r, s in (("S1", s1), ("S2", s2)):
+    add(f"Verdin heatsink foot at {r}", "verdin", brain_box(s[0] - HS_FOOT / 2, s[1] - HS_FOOT / 2, s[0] + HS_FOOT / 2, s[1] + HS_FOOT / 2,
+                                                            VERDIN_GAP + VERDIN_T, HS_PLATE_Z), HS_BLUE)
+for i in range(HS_FINS):
+    fx = mod_x0 + HS_FIN_T / 2 + i * (VERDIN_L - HS_FIN_T) / (HS_FINS - 1)
+    add(f"Verdin heatsink fin {i + 1}", "verdin",
+        brain_box(fx - HS_FIN_T / 2, hs_far, fx + HS_FIN_T / 2, hs_near, HS_PLATE_Z + HS_PLATE_T, hs_top), HS_BLUE)
 
 # ---------------------------------------------------------------------------
 # 2. Housing: faceplate, bezels, cups, pod, tub, dash

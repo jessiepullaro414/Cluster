@@ -384,6 +384,15 @@ def build():
                   "2 x 7.0 mm for S3/S4 (Toradex carrier design guide 4.3-4.5; part numbers not chosen yet)",
                   "SoM (companion)", 1, "plugs into J1", "-"))
     lines.append(("Companion parts (ordered separately)",
+                  "Verdin Industrial Heatsink Type 1 V1.1B (Toradex product no. 23111101)", "Toradex",
+                  "The module's heatsink, with its four M2 x 10 mm screws, on standoffs S1-S4: a T, 85.6 x 38.0 mm over its ears, "
+                  "14.27 mm from its feet to the fin tips (docs.toradex.com/109465-verdin_industrial_heatsink_datasheet.pdf, which stops at V1.1A). "
+                  "Order V1.1B. Toradex's PCN of 2026-07-13: V1.1A (23111100) is DO NOT ORDER, supply stopped, because its thermal pad can bend "
+                  "the module (errata HAR-13572); V1.1B has samples now, volume September 2026 - check the shop has it. V1.0B (23111001, last "
+                  "time buy 2026-12-31) is a bench fallback at best: the errata and developer page allow it for iMX95 evaluation, the PCN says it "
+                  "only suits the iMX8M modules. docs/electrical-review.md section 9.5e",
+                  "heatsink (companion)", 1, "screws to S1-S4", "-"))
+    lines.append(("Companion parts (ordered separately)",
                   "(momentary push switch - part not chosen yet)", "(not yet specified)",
                   "The dial's click: a normally-open momentary switch wired to J11 pins 3 and 4 (the PSC-360 has no "
                   "push action). Any panel-mount automotive switch works; contact current is microamps",

@@ -80,12 +80,14 @@ The owner, working on the Alfa: "it would expand the addons a lot. make the chan
 
 **The 5 V sum** (`review/thermal_derating.py`, table A2, which also counts J17 for the first time). Verdin 5 W typical and 10 W peak are assumed (Toradex's datasheet doesn't publish them), a panel is 4 W by estimate, the rest 0.5 W. The buck is rated 6 A.
 
-| Car | Second port | +5V, typical / peak | Against 6 A | Buck junction at 85 C ambient (estimate, RthJA 25) | Input at peak, 12 V / 9 V |
+| Car | Second port | +5V, typical / peak | Against 6 A | Buck junction at 85 C ambient (estimate, RthJA 25 / 45) | Input at peak, 12 V / 9 V |
 |---|---|---|---|---|---|
-| Mustang, 1 panel | **0.5 A, as built** | 3.9 / 4.9 A | fits | 128 C | 2.3 / 3.0 A |
-| Mustang, 1 panel | 1.5 A | 4.9 / 5.9 A | fits, just | 149 C | 2.7 / 3.6 A |
-| Alfa, 2 panels | **0.5 A, as built** | 4.7 / 5.7 A | fits | 145 C | 2.6 / 3.5 A |
-| Alfa, 2 panels | 1.5 A | 5.7 / 6.7 A | **over** | 169 C, over the 150 C limit | 3.1 / 4.1 A |
+| Mustang, 1 panel | **0.5 A, as built** | 3.9 / 4.9 A | fits | 128 / 163 C | 2.3 / 3.0 A |
+| Mustang, 1 panel | 1.5 A | 4.9 / 5.9 A | fits, just | 149 / 200 C | 2.7 / 3.6 A |
+| Alfa, 2 panels | **0.5 A, as built** | 4.7 / 5.7 A | fits | 145 / 192 C | 2.6 / 3.5 A |
+| Alfa, 2 panels | 1.5 A | 5.7 / 6.7 A | **over** | 169 / 236 C | 3.1 / 4.1 A |
+
+The junction figures are at typical load. 25 C/W is TI's figure for its 100 x 80 mm four-layer board, and 45 C/W is `thermal_derating.py`'s estimate for this one. **At 45 C/W the rows as built are over the buck's 150 C limit at 85 C ambient.** Neither figure is measured, and 85 C is the extreme. Which one holds is the question for the thermal camera at bring-up, with the ports loaded.
 
 The 5 A fuse and 4.96 A breaker have room in every row. At the 6 V cranking edge the Alfa's peak would need 5.3 A, so the breaker would trip and the board restart. These are at what the ports advertise. A device that ignores Rp and takes U16's full 1.27 A puts the Alfa at 6.5 A peak. That's over the rating, for an assumed module peak, and the failure would be a reset, not damage: measure the real module before relaxing this.
 

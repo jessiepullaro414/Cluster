@@ -257,8 +257,8 @@ def display(sch=None, pcb=None):
             pk = (p_verdin_pk + p_misc + panels * p_panel + usb_w) / 5.0
             loss = 0.30 + (typ / 4.0) ** 2 * 1.5
             a2.append([car, label, f"{typ:.1f} typ / {pk:.1f} peak", "OVER" if pk > rating_a else "ok", f"{loss:.2f} W",
-                       f"{85 + 25.0 * loss:.0f} C", f"{(pk * 5.0) / 0.9 / 12.0:.1f} A at 12 V, {(pk * 5.0) / 0.9 / 9.0:.1f} A at 9 V"])
-    tab(a2, ["car", "second port", "+5V, A", "against 6 A", "buck loss at typ", "TJ at TA 85 C, RthJA 25", "input at peak, 90 % efficient (F1 5 A)"])
+                       f"{85 + 25.0 * loss:.0f} / {85 + 45.0 * loss:.0f} C", f"{(pk * 5.0) / 0.9 / 12.0:.1f} A at 12 V, {(pk * 5.0) / 0.9 / 9.0:.1f} A at 9 V"])
+    tab(a2, ["car", "second port", "+5V, A", "against 6 A", "buck loss at typ", "TJ at TA 85 C, RthJA 25 (TI's EVM) / 45 (this board, estimate)", "input at peak, 90 % efficient (F1 5 A)"])
     rows = []
     print("\nB. Dissipation (TA 85 C)")
     # LM61460: DS fig 10-3 at 2.1 MHz, RthJA 25 C/W EVM allows 4 A at 105 C ambient -> ~1.8 W; use P = 0.30 W + (Iout/4)^2 x 1.5 W

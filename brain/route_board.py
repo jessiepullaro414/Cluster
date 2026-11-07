@@ -158,6 +158,10 @@ BATTERY_PATH_NETS += ["PORTA_5V", "PORTB_5V"]
 # 2026-11-06: the USB-C ports' VBUS too. J17's had never been rated: at 0.2 mm near the
 # receptacle layout_checks.py put it at 92 K for U11's 1.98 A limit, and J19's at 34 K for 1.27 A.
 BATTERY_PATH_NETS += ["USB2_VBUS", "USB1_VBUS"]
+# 2026-11-06: since the shrink the battery path proper is planned copper (power_route.py), and all the router still connects on those
+# nets is milliamps: U1's sense pins, D9, C86. Held to the wide class they had nowhere to go in the front end, 1.0 mm vias and two
+# layers, and stayed open on all 12 attempts. The screen ports' 5 V is planned as well. VBUS still routes in it.
+WIDE_ROUTE_NETS = ["USB2_VBUS", "USB1_VBUS"]
 BATTERY_PATH_LAYERS = ["F.Cu", "B.Cu"]
 BATTERY_ROUTE_WIDTH_UM = 300
 BATTERY_VIA = (1000, 500)             # pad, drill (um)
@@ -277,7 +281,7 @@ if ok:
     _close = txt.rindex(")", 0, txt.index("(wiring"))
     txt = (txt[:_close] + "  (class gnd_plane GND (circuit " + _via + ") (rule (width " + _wv
            + ") (clearance " + _clv + ")))" + chr(10) + "  " + txt[_close:])
-    _bat = {BATTERY_PATH_NETS!r}
+    _bat = {WIDE_ROUTE_NETS!r}
     _c = txt.index("(class kicad_default")
     _k = txt.index("(circuit", _c)
     _toks = txt[_c:_k].split()
@@ -466,12 +470,14 @@ board = pcbnew.LoadBoard({PCB!r})
 mm = pcbnew.FromMM
 
 
-def pad(ref, number):
+def pad(ref, number, which=None):
     fp = board.FindFootprintByReference(ref)
     hits = [p for p in fp.Pads() if p.GetNumber() == str(number)]
-    assert len(hits) == 1, (ref, number, len(hits))
-    bb = hits[0].GetBoundingBox()
-    c = hits[0].GetPosition()
+    assert which is not None or len(hits) == 1, (ref, number, len(hits))
+    hits.sort(key=lambda q: (q.GetPosition().y, q.GetPosition().x))      # build_pcb.py counts the same way
+    hit = hits[which or 0]
+    bb = hit.GetBoundingBox()
+    c = hit.GetPosition()
     return pcbnew.ToMM(c.x), pcbnew.ToMM(c.y), pcbnew.ToMM(bb.GetHeight()) / 2
 
 

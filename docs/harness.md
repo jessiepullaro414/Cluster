@@ -8,7 +8,7 @@
 
 | Ref | Board side (already on the board) | Pigtail / cable | Wire | Pins |
 |---|---|---|---|---|
-| **J2** battery, ground, ignition | Phoenix MKDS 1,5/3-5,08 (1715734), 3-position screw terminal | wire ferruled into the terminal; **DTM06-3S** plug + WM-3S on the car end | 20 AWG GXL | 1 VBAT, 2 GND, 3 IGN sense |
+| **J2** battery, ground, ignition. On brain/'s right edge since 2026-11-06, wire mouth facing out | Phoenix MKDS 1,5/3-5,08 (1715734), 3-position screw terminal | wire ferruled into the terminal; **DTM06-3S** plug + WM-3S on the car end | 20 AWG GXL | 1 VBAT, 2 GND, 3 IGN sense |
 | **J3** private CAN link | Molex KK 254 22-27-2031, 3-circuit | Molex KK 254 housing 22-01-3037 with crimps at **both ends**, no DTM | 22 AWG twisted pair + ground | to gauges/ J8, same part: 1 CAN H, 2 CAN L, 3 GND |
 | **J8**, **J9** (and J12, J13) | Samtec 0.1 in headers | none: bench only | | JTAG; power/recovery/reset buttons (J12 console UART, J13 USB) |
 

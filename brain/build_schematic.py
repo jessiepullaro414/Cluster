@@ -1454,6 +1454,14 @@ def build_usb_host(x0, y0, usable_h):
     ESD: a TPD4E05U06-Q1 array covers D+, D- and both CC pins. The shield
     goes straight to ground.
 
+    CHOKE (2026-11-06, the owner's yes to the footprint): each port's pair runs through
+    a common-mode choke, L2 and L3, between the module and the ESD array, as Verdin
+    Carrier Board Design Guide V1.2 figure 35 has it. 2.4.3.1.3: external USB needs one to
+    pass EMI testing. It's fitted, not left empty: an empty footprint would leave the pair
+    open, and its lines are only 0.5 mm apart, too close for two 0402 links side by side.
+    If a port misbehaves at bring-up, swap it for two wire links.
+    The connector side of each pair has a net of its own, USB2_C_* and USB1_C_*.
+
     The GCT USB4105 receptacle has D+ on both A6 and B6 and D- on both A7 and
     B7 (a 16-pin USB 2.0 part), so those pairs are tied together.
 
@@ -1494,6 +1502,7 @@ def build_usb_host(x0, y0, usable_h):
     usbc_pins.append(("SH", "SHIELD", "passive"))
     conn_usb = build_generic_symbol(f"{LIB}:CONN_USBC", "J", "USB-C host",
                                     usbc_pins)
+    cmc = build_generic_symbol(f"{LIB}:CMC_USB", "L", "744230900", parts.WE_CNSW_0603)
 
     COL_W, ROW_H = 80.0, 26.0
     cur = {"col": 0, "y": y0}
@@ -1525,8 +1534,10 @@ def build_usb_host(x0, y0, usable_h):
     flow(tvs, "D8", "SMAJ5.0A VBUS TVS", {"1": "USB2_VBUS", "2": "GND"})
     flow(r, "R71", "22k Rp CC1 (1.5 A, +/-5 percent or better)", {"1": "USB2_CC1", "2": "+5V"})
     flow(r, "R72", "22k Rp CC2 (1.5 A, +/-5 percent or better)", {"1": "USB2_CC2", "2": "+5V"})
+    flow(cmc, "L2", "744230900 USB_2 common-mode choke", {
+        "C_P": "USB2_C_DP", "M_P": "USB2_DP", "M_N": "USB2_DN", "C_N": "USB2_C_DN"})
     flow(u_esd, "U14", "TPD4E05U06-Q1 USB ESD", {
-        "CH1": "USB2_DP", "CH2": "USB2_DN", "CH3": "USB2_CC1", "CH4": "USB2_CC2",
+        "CH1": "USB2_C_DP", "CH2": "USB2_C_DN", "CH3": "USB2_CC1", "CH4": "USB2_CC2",
         "GND1": "GND", "GND2": "GND",
         "NC1": None, "NC2": None, "NC3": None, "NC4": None})
     flow(conn_usb, "J17", "GCT USB4105-GF-A USB-C 2.0 host receptacle", {
@@ -1540,10 +1551,10 @@ def build_usb_host(x0, y0, usable_h):
         # sits on its own net (USB2_VBUS_L) because its two pads share one spot,
         # and two netless overlapping pads are a DRC clearance error.
         "A1_GND": "GND", "A4_VBUS": "USB2_VBUS_L", "A5_CC1": "USB2_CC1",
-        "A6_DP": "USB2_DP", "A7_DN": "USB2_DN", "A8_SBU1": None,
+        "A6_DP": "USB2_C_DP", "A7_DN": "USB2_C_DN", "A8_SBU1": None,
         "A9_VBUS": "USB2_VBUS", "A12_GND": "GND",
         "B1_GND": "GND", "B4_VBUS": "USB2_VBUS", "B5_CC2": "USB2_CC2",
-        "B6_DP": "USB2_DP", "B7_DN": "USB2_DN", "B8_SBU2": None,
+        "B6_DP": "USB2_C_DP", "B7_DN": "USB2_C_DN", "B8_SBU2": None,
         "B9_VBUS": "USB2_VBUS_L", "B12_GND": "GND", "SHIELD": "GND"})
 
     # --- J19, on USB_1 (2026-11-06, see the docstring) ---------------------
@@ -1565,18 +1576,20 @@ def build_usb_host(x0, y0, usable_h):
     flow(r, "R95", "56k Rp CC2 (default USB current, +/-20 percent or better)", {"1": "USB1_CC2", "2": "+5V"})
     flow(r, "R96", "1k USB_1_VBUS sense series", {"1": "USB1_VBUS", "2": "USB_VBUS"})
     flow(c, "C91", "100n USB_1_VBUS sense filter", {"1": "USB_VBUS", "2": "GND"})
-    # The pair runs straight over the package, on TI's NC pins (brain/usb_route.py).
+    # After the choke the pair runs straight over the package, on TI's NC pins (brain/usb_route.py).
+    flow(cmc, "L3", "744230900 USB_1 common-mode choke", {
+        "C_P": "USB1_C_DP", "M_P": "USB_DP", "M_N": "USB_DN", "C_N": "USB1_C_DN"})
     flow(u_esd_thru, "U17", "TPD4E05U06-Q1 USB ESD", {
-        "CH1": "USB_DP", "CH2": "USB_DN", "CH3": "USB1_CC1", "CH4": "USB1_CC2",
+        "CH1": "USB1_C_DP", "CH2": "USB1_C_DN", "CH3": "USB1_CC1", "CH4": "USB1_CC2",
         "GND1": "GND", "GND2": "GND",
-        "CH1_THRU": "USB_DP", "CH2_THRU": "USB_DN", "CH3_THRU": "USB1_CC1", "CH4_THRU": "USB1_CC2"})
+        "CH1_THRU": "USB1_C_DP", "CH2_THRU": "USB1_C_DN", "CH3_THRU": "USB1_CC1", "CH4_THRU": "USB1_CC2"})
     flow(conn_usb, "J19", "GCT USB4105-GF-A USB-C 2.0 host receptacle", {
         # Only the A9/B4 VBUS pair is wired, as on J17: 0.5 A advertised, 1.27 A at most.
         "A1_GND": "GND", "A4_VBUS": "USB1_VBUS_L", "A5_CC1": "USB1_CC1",
-        "A6_DP": "USB_DP", "A7_DN": "USB_DN", "A8_SBU1": None,
+        "A6_DP": "USB1_C_DP", "A7_DN": "USB1_C_DN", "A8_SBU1": None,
         "A9_VBUS": "USB1_VBUS", "A12_GND": "GND",
         "B1_GND": "GND", "B4_VBUS": "USB1_VBUS", "B5_CC2": "USB1_CC2",
-        "B6_DP": "USB_DP", "B7_DN": "USB_DN", "B8_SBU2": None,
+        "B6_DP": "USB1_C_DP", "B7_DN": "USB1_C_DN", "B8_SBU2": None,
         "B9_VBUS": "USB1_VBUS_L", "B12_GND": "GND", "SHIELD": "GND"})
 
 

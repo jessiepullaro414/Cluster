@@ -42,7 +42,8 @@ The copper that carries the 5 V rail's real current is planned as well
 (`power_route.py`): L1 and the output capacitors onto a bar with four vias into
 the In3 pour, J1's supply pins onto a bar with two, two at each port switch,
 a wide SW_5V, and U2's PGND pins to the input capacitors and their own GND vias.
-The rest of +5V carries milliamps and stays autorouted. `route_board.py` runs
+So does the battery path, J2 to both of the buck's input pins, and each screen
+port's 5 V. The rest of +5V carries milliamps and stays autorouted. `route_board.py` runs
 `../review/power_sheet.py` on each route, which solves the net with its pours as
 copper sheets, and counts a failure as a failed attempt (2026-11-06,
 [electrical review](../docs/electrical-review.md) section 9.5b).
@@ -50,8 +51,12 @@ copper sheets, and counts a failure as a failed attempt (2026-11-06,
 Build: `python build_schematic.py`, `python build_pcb.py`, `python route_board.py`,
 `python ../run_drc.py ClusterBrain.kicad_pcb`, `python build_bom.py`,
 `python ../review/layout_checks.py brain`, `python ../review/review_netlist.py brain`,
-`python ../review/usb1_topology.py`. The autorouter's power-track widths vary from run to run,
-so check `layout_checks.py` after each route: 2026-11-06's board is the best of six clean routes.
+`python ../review/usb1_topology.py`. The autorouter varies from run to run, so check
+`layout_checks.py` after each route.
+
+127.5 x 95.3 mm since the shrink of 2026-11-06 (section 9.5c of the electrical review). The empty
+strips behind J4 and J18 are for the ribbons. `floorplan.py` checks every part against every other,
+the corner holes and the module's keep-out.
 
 Not known yet: whether the Verdin iMX95 drives DSI and LVDS as two independent
 screens at once (the i.MX 95 itself can; question 9 in `docs/rfq-drafts.md`

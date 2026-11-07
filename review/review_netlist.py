@@ -324,9 +324,17 @@ def derived_brain(nl):
     tau = v("R96") * v("C91")
     add("PASS" if tau >= 50e-6 else "FAIL", "J1", f"USB_1_VBUS sense filter {tau * 1e6:.0f} us (R96, C91)",
         "keeps hot-plug ringing off a pin with a 5.5 V absolute maximum; the TVS starts at 6.4 V")
-    add("PASS" if nl.net_of("J19", "A6") == nl.net_of("J13", "3") == nl.net_of("J1", "165") == "USB_DP" and
-        nl.net_of("J19", "A7") == nl.net_of("J13", "2") == nl.net_of("J1", "163") == "USB_DN" else "FAIL",
-        "J19", "USB_1 pair reaches J1, J13 and J19", "Design Guide 2.4.3.2.1 and 2.20")
+    add("PASS" if nl.net_of("J13", "3") == nl.net_of("J1", "165") == nl.net_of("L3", "2") == "USB_DP" and
+        nl.net_of("J13", "2") == nl.net_of("J1", "163") == nl.net_of("L3", "3") == "USB_DN" else "FAIL",
+        "J19", "USB_1 pair reaches J1, J13 and its choke L3", "Design Guide 2.4.3.2.1 and 2.20")
+    # 2026-11-06: choke between the module and the ESD array, line P through winding 1-2 and line N through 4-3, dots together
+    for choke, port, esd, dp, dn in (("L3", "J19", "U17", "USB1_C_DP", "USB1_C_DN"), ("L2", "J17", "U14", "USB2_C_DP", "USB2_C_DN")):
+        ok = (nl.net_of(choke, "1") == nl.net_of(port, "A6") == nl.net_of(port, "B6") == nl.net_of(esd, "1") == dp and
+              nl.net_of(choke, "4") == nl.net_of(port, "A7") == nl.net_of(port, "B7") == nl.net_of(esd, "2") == dn)
+        add("PASS" if ok else "FAIL", choke, f"common-mode choke between the module and {esd}, {port}",
+            "Design Guide figure 35; external USB needs one to pass EMI testing (2.4.3.1.3)")
+    add("PASS" if nl.net_of("L2", "2") == nl.net_of("J1", "183") == "USB2_DP" and nl.net_of("L2", "3") == nl.net_of("J1", "181") == "USB2_DN" else "FAIL",
+        "L2", "USB_2 pair reaches J1 and its choke L2", "X1 pins 181 D-, 183 D+")
 
 
 def derived_panel_tsd(nl):

@@ -342,6 +342,20 @@ TPD4E05U06_Q1_THRU = [p for p in TPD4E05U06_Q1 if p[0] not in (6, 7, 9, 10)] + [
 
 
 # ---------------------------------------------------------------------------
+# Wurth WE-CNSW 744230900 - AEC-Q200 Grade 2 common-mode choke for USB 2.0, 90 ohm at
+# 100 MHz, 550 mA, 0.145 ohm per line (datasheet rev 002.010, page 1). Two windings, 1-2
+# and 4-3, dots at 1 and 4. Verdin Carrier Board Design Guide V1.2 2.4.3.1.3: external USB
+# needs a choke to pass EMI testing; figure 35 puts it between the module and the ESD array.
+# ---------------------------------------------------------------------------
+WE_CNSW_0603 = [
+    (1, "C_P", "passive"),      # connector side of line P
+    (2, "M_P", "passive"),      # module side of line P
+    (3, "M_N", "passive"),      # module side of line N
+    (4, "C_N", "passive"),      # connector side of line N
+]
+
+
+# ---------------------------------------------------------------------------
 # TPS2557-Q1 - automotive adjustable current-limited power-distribution
 # switch. Source: TI SLVSC97B (March 2014, revised September 2020),
 # S-PVSON-8 (DRB), Table "Terminal Functions".
@@ -562,4 +576,5 @@ FOOTPRINTS = {
     # GCT USB4105 USB-C 2.0 receptacle (KiCad's footprint carries the
     # datasheet geometry; PCB edge is 3.1 mm below the footprint origin).
     "CONN_USBC": "Connector_USB:USB_C_Receptacle_GCT_USB4105-xx-A_16P_TopMnt_Horizontal",
+    "CMC_USB": "Wurth_CMC:L_CommonMode_Wurth_WE-CNSW-0603",
 }

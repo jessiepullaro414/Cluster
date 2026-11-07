@@ -249,14 +249,6 @@ def pack_sized_blocks(blocks, max_width, margin, initial_skyline=None, optimize=
     return best_result
 
 
-# Real, not the family's usual 3.0mm: this board's content is packed
-# tight to its own real size (no big external constraint leaving slack
-# in the corners the way gauges/'s dash-width-driven layout does), so
-# BOARD_MARGIN also has to clear the real M3 mounting holes placed at
-# MOUNTING_HOLE_INSET (7mm) plus their own real keepout (~3.2mm hole +
-# annular ring) - a real M3-vs-U4 corner collision at BOARD_MARGIN=3.0
-# is what caught this before it became a first-run fluke.
-BOARD_MARGIN = 8.0
 
 # --- Real dash-opening hard limit (same real user-supplied dimension
 # every sibling board checks against) - a sanity ceiling here, not a
@@ -379,7 +371,7 @@ PORTA_DROP_MM = 0.0
 # The module's long axis runs left-right now, so the keepout is 82 wide x 38 tall.
 _fplan = _floorplan.floorplan(_cell_parts, _cell_res, _conn_bbox["J1"], _j1_dsi_y,
                               keep_w=MODULE_KEEPOUT_H, keep_h=MODULE_KEEPOUT_W,
-                              margin=BOARD_MARGIN, porta_pads=_PORTA_FAN,
+                              porta_pads=_PORTA_FAN,
                               j1_local_x_hi=J1_LOCAL_X_HI, j1_lvds_y=_j1_lvds_y,
                               portb_pads=_PORTB_FAN, porta_drop=PORTA_DROP_MM)
 placed_rel.update({ref: (x, y) for ref, (x, y, a) in _fplan["placed"].items()})
@@ -445,6 +437,8 @@ for ref, info in parts.items():
     # convert "just above the rotated bbox" back through the inverse rotation.
     _, _ry0, _, _ = _rot_bbox((lx0, ly0, lx1, ly1), angle)
     _lx, _ly = _rot_xy(0.0, _ry0 - 0.5, (-angle) % 360)
+    # These two have a neighbour's pads just above them, so their labels go on their own bodies, between their pins
+    _lx, _ly = {"F1": (4.96, 1.7), "J15": (2.5, 1.9)}.get(ref, (_lx, _ly))
     ref_label_pos[ref] = (round(_lx, 2), round(_ly, 2))
     for item in fp.graphicItems:
         if getattr(item, "type", None) == "reference":
@@ -471,16 +465,11 @@ for ref, info in parts.items():
 # 5b. Standoff/mounting holes. Same real bundled part every sibling
 #     board uses (MountingHole_3.2mm_M3). 4 corners - this board is
 #     compact (not long/thin like gauges/), so 4 real support points is
-#     enough, no extra holes needed.
+#     enough, no extra holes needed. floorplan.py keeps the corners free.
 # ---------------------------------------------------------------------------
 MOUNTING_HOLE_FP = "MountingHole:MountingHole_3.2mm_M3"
-MOUNTING_HOLE_INSET = 5.0
-_mh_positions = [
-    ("MH1", BOARD_OFFSET_X + MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
-    ("MH2", BOARD_OFFSET_X + board_width - MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + MOUNTING_HOLE_INSET),
-    ("MH3", BOARD_OFFSET_X + MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + board_height - MOUNTING_HOLE_INSET),
-    ("MH4", BOARD_OFFSET_X + board_width - MOUNTING_HOLE_INSET, BOARD_OFFSET_Y + board_height - MOUNTING_HOLE_INSET),
-]
+MOUNTING_HOLE_INSET = _floorplan.HOLE_INSET
+_mh_positions = [(r, BOARD_OFFSET_X + x, BOARD_OFFSET_Y + y) for r, x, y in _fplan["holes"]]
 for mh_ref, mh_x, mh_y in _mh_positions:
     mh_fp = load_footprint(MOUNTING_HOLE_FP)
     mh_fp.position = Position(round(mh_x, 3), round(mh_y, 3), 0)
@@ -535,11 +524,14 @@ print(f"Added Verdin standoffs S1-S4 (Toradex design guide 4.3-4.5): "
 #      (display/ had a planned crossing here instead, dsi_route.py: its panel FPC
 #      listed each pair P then N.)
 # ---------------------------------------------------------------------------
-def _pad_by_number(ref, number):
+def _pad_by_number(ref, number, which=None):
+    """which picks among pads that share a number, top to bottom and then left to right on the board: route_board.py's
+    pad() counts the same way, and pcbnew lists them in another order from the footprint file."""
     fp = next(f for f in board.footprints if f.properties.get("Reference") == ref)
     hits = [p for p in fp.pads if str(p.number) == str(number)]
-    assert len(hits) == 1, (ref, number, len(hits))
-    p = hits[0]
+    assert which is not None or len(hits) == 1, (ref, number, len(hits))
+    hits.sort(key=lambda q: tuple(reversed(_rot_xy(q.position.X, q.position.Y, fp.position.angle or 0))))
+    p = hits[which or 0]
     rx, ry = _rot_xy(p.position.X, p.position.Y, fp.position.angle or 0)
     a = (p.position.angle or 0) % 180
     hh = (p.size.Y if a == 0 else p.size.X) / 2
@@ -559,6 +551,7 @@ _fan_dropped = list(_fan_dropped) + list(_usb_dropped)
 # 2026-11-06: and the copper that carries the 5 V rail's real current (power_route.py).
 import power_route as _power_route
 _pwr_items, _pwr_report, _pwr_corridors, _pwr_dropped, _pwr_nets = _power_route.plan(_pad_by_number)
+_pwr_lone = set(_power_route.LONE_NETS)
 _fan_corridors.update(_pwr_corridors)
 _fan_dropped = list(_fan_dropped) + list(_pwr_dropped)
 for _pair, (_ln, _lp) in sorted(_fan_report.items()):
@@ -605,6 +598,12 @@ for _name, (_a, _b, _c, _d) in {"EDGE_T_VIAS": (_ex0, _ey0, _ex1, _ey0 + _EDGE_F
                                 "EDGE_L_VIAS": (_ex0, _ey0, _ex0 + _EDGE_FENCE, _ey1), "EDGE_R_VIAS": (_ex1 - _EDGE_FENCE, _ey0, _ex1, _ey1)}.items():
     _fan_corridors[_name] = [(_a, _b), (_c, _b), (_c, _d), (_a, _d)]
     _pwr_nets[_name] = []
+# 2026-11-06: the holes now sit among the parts, so nothing runs under a screw head or standoff (5.5 mm across, mech/build_assembly.py)
+_MH_FENCE = 3.0
+for _r, _mx, _my in _mh_positions:
+    _fan_corridors[_r + "_VIAS"] = [(_mx + _MH_FENCE * math.cos(math.radians(22.5 + 45 * _k)) / math.cos(math.radians(22.5)),
+                                     _my + _MH_FENCE * math.sin(math.radians(22.5 + 45 * _k)) / math.cos(math.radians(22.5))) for _k in range(8)]
+    _pwr_nets[_r + "_VIAS"] = []
 json.dump({"fan_corridors_mm": {k: [list(p) for p in v] for k, v in _fan_corridors.items()},
            "fan_dropped_pins": [list(x) for x in _fan_dropped],
            "fan_planned_nets": _fan_route.planned_nets() + _usb_route.planned_nets(),
@@ -612,7 +611,7 @@ json.dump({"fan_corridors_mm": {k: [list(p) for p in v] for k, v in _fan_corrido
            "in1_report_rects_mm": _report_rects},
           open(os.path.join(HERE, "plane_keepouts.json"), "w"), indent=1)
 for _g, _c in _fan_corridors.items():
-    if not _g.startswith(("PWR", "EDGE")):
+    if not _g.startswith(("PWR", "EDGE", "MH")):
         print(f"{_g} corridor (mm):", [(round(x, 2), round(y, 2)) for x, y in _c])
 print(f"power_route: {len(_pwr_corridors)} fences, {len(_pwr_dropped)} pads planned")
 # A pad under a fence can't be reached by the router, so everything under a power fence must be
@@ -621,12 +620,12 @@ _dropped_set = {(r, str(n).split("@")[0]) for r, n in _fan_dropped}
 for _fp in board.footprints:
     _r = _fp.properties.get("Reference")
     for _p in _fp.pads:
-        if (_r, str(_p.number)) in _dropped_set or not str(_p.number) or not _p.net or not _p.net.name:
+        if (_r, str(_p.number)) in _dropped_set or not str(_p.number) or not _p.net or not _p.net.name or _p.net.name in _pwr_lone:
             continue
         _rx, _ry = _rot_xy(_p.position.X, _p.position.Y, _fp.position.angle or 0)
         _px, _py = _fp.position.X + _rx, _fp.position.Y + _ry
         for _g, _c in _pwr_corridors.items():
-            if not _g.endswith("_IN3") and _fan_route.inside(_c, _px, _py):
+            if not _g.endswith(("_IN3", "_BCU")) and _fan_route.inside(_c, _px, _py):
                 raise SystemExit(f"power_route: {_r} pad {_p.number} ({_p.net.name}) is under the fence {_g}, and it isn't planned")
 
 print(f"Board outline: {board_width:.1f} x {board_height:.1f} mm, "
@@ -780,7 +779,7 @@ def _widest_corridor(boxes, left, right, top, bottom):
 # whose whole stack (gauge + wordmark, about 2R + 34 mm tall, 2R + 12 mm wide)
 # fits in a window with no through-hole pad, on a 1 mm grid.
 def _find_art_window():
-    for rr in range(int(min(40.0, safe_h * 0.30)), 11, -1):
+    for rr in range(int(min(40.0, safe_h * 0.30)), 7, -1):
         w, h = 2 * rr + 12.0, 2 * rr + 8.0 + 26.0
         if w > SAFE_RIGHT - SAFE_LEFT or h > SAFE_BOTTOM - SAFE_TOP:
             continue
@@ -938,6 +937,11 @@ assert len(board.footprints) == len(parts) + MECHANICAL_FOOTPRINT_COUNT, \
 boxes = []
 for fp in board.footprints:
     x0, y0, x1, y1 = footprint_bbox(fp)
+    if fp.properties.get("Reference") == "J1":
+        # Only the socket's courtyard. Its bounding box also takes in the hatching for the module above it,
+        # and floorplan.py checks that keepout itself, with the corners the module doesn't reach.
+        _crt = [p for it in fp.graphicItems if getattr(it, "layer", "") == "F.CrtYd" and hasattr(it, "start") for p in (it.start, it.end)]
+        x0, y0, x1, y1 = min(p.X for p in _crt), min(p.Y for p in _crt), max(p.X for p in _crt), max(p.Y for p in _crt)
     if fp.position.angle:
         x0, y0, x1, y1 = _rot_bbox((x0, y0, x1, y1), fp.position.angle)
     boxes.append((fp.properties.get("Reference", fp.path), fp.position.X + x0, fp.position.Y + y0,
@@ -1015,8 +1019,9 @@ TRUNK_WIDTH_LADDER = [1.5, 1.2, 1.0, 0.8, 0.6, 0.5, 0.4, 0.3]
 # Brain board (2026-10-20): the panel converters' switch nodes left with the
 # panel; each screen port's switched 5 V (up to the TPS2557-Q1's 1.98 A limit)
 # is widened instead.
-TRUNK_NETS = ["+12V_PROT", "VBAT_IN", "VBAT_F", "SENSE_HI", "COMMON", "SW_5V", "PORTA_5V", "PORTB_5V",
-              "USB2_VBUS", "USB1_VBUS"]
+# 2026-11-06: the battery path and SW_5V are now planned copper (power_route.py). What the router connects on those nets carries milliamps
+# and needs no widening: on In2 and In3 it only cut the +5V pour up.
+TRUNK_NETS = ["USB2_VBUS", "USB1_VBUS"]
 
 board.to_file(PCB)
 print("Wrote", PCB)
@@ -1030,7 +1035,7 @@ for ref, (dx, dy) in ref_label_pos.items():
     # the assembly drawing and the BOM, just not printed on the board).
     # The tiny TVS arrays and the USB switch sit among 0603s with no room for
     # a printed label either (2026-10-16).
-    label_layer = "F.SilkS" if (ref[0] in "UJF" and ref not in ("U11", "U12", "U13", "U14", "U16", "U17")) else "F.Fab"
+    label_layer = "F.SilkS" if (ref[0] in "UJF" and ref not in ("U11", "U12", "U13", "U14", "U15", "U16", "U17")) else "F.Fab"
     new = (f'(property "Reference" "{ref}" (at {dx} {dy} 0) (layer "{label_layer}") '
            f'(effects (font (size 1.0 1.0) (thickness 0.15))))')
     count = text.count(old)

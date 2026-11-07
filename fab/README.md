@@ -25,7 +25,7 @@ Checked against JLCPCB's published multilayer capabilities (min trace/space 0.09
 
 ## Board sizes
 
-- brain/: 184.8 x 104.9 mm.
+- brain/: 127.5 x 95.3 mm (184.8 x 104.9 mm until 2026-11-06). Parts sit 1.2 mm from its edges and the USB-C mouths overhang the bottom one, so ask for edge rails or a panel if the board house assembles it.
 - panel-tsd/: 75.4 x 52.3 mm.
 - gauges/: 447.1 x 65.9 mm. Check the board house's maximum length for your chosen service (the long side is under 500 mm).
 

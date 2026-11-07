@@ -64,7 +64,7 @@ boards and the tub are all square to the driver. (v2.2 to v2.4 tilted the trim's
 | gauges/ component side, facing forward | -17.8 | J1 (13.8 mm) stops 1 mm behind the panels |
 | panel-tsd/ bare side, parts facing back, 25 mm low | -22.4 | its J4 faces down, the panel FPC comes up from under gauges/ |
 | Dash surface at the trim's bottom edge | -23.1 | the dash leans 9.5 degrees (ASSUMED) |
-| brain/ bare side, Verdin and heatsink facing back | -31.0 | screen-port FFC goes over its top edge to J4 |
+| brain/ bare side, Verdin and heatsink facing back | -31.0 | screen-port FFC goes over its top edge to J4. Since it shrank to 127.5 x 95.3 mm (2026-11-06) its centre is at X +17.7, Y -3: J4 lines up with panel-tsd/ J1, so the ribbon has no sideways run, and panel-tsd/'s lower standoffs still land on it |
 | Heatsink fins | -51.6 | fin height assumed (9 mm) |
 | Tub back, vented | -56.0 | stock cluster about 60 mm deep |
 
@@ -90,7 +90,7 @@ Still open:
   centre is 3 mm right of the speedometer centre, so the tub needs nearly the full 457.2 mm outer
   opening. Check how deep the outer step is on the real dash.
 - Fits: the TSD's 69.8 mm FPC reaches panel-tsd/ J4 with 8.6 mm spare; the screen-port FFC is
-  about 106 mm (buy 100 or 120 mm and check).
+  about 91 mm since brain/ shrank (buy 100 mm and check).
 
 ## Assumed, not measured
 

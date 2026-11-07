@@ -14,6 +14,10 @@ recovery port.
   a 0.31 mm gap over 0.0994 mm of 3313 prepreg comes to 90.3 ohm differential
   (review/dsi_impedance.py's field solve).
 * Two left bends and two right bends, so the bends' length differences cancel.
+* The common-mode choke L3 sits on the run south, between the module and the ESD array as
+  the Design Guide's figure 35 has it. Its two lines are 0.5 mm apart like the tracks, so the
+  tracks run straight into its pads and straight out of them. From there on the pair is on
+  nets of its own, USB1_C_DP and USB1_C_DN.
 * The ESD array U17 is turned so its channels line up with the tracks, which run
   straight over pins 2 and 9 and pins 1 and 10: TI SLVSCO7C keeps those NC pins for this.
   Its layout guidance also asks for the array close to the connector, with the protected
@@ -21,7 +25,8 @@ recovery port.
 * At J19, D- on B7 and D+ on A6 go straight in. A6 joins B6 over the top of the pad row
   and B7 joins A7 under it, as the autorouter did on J17, on F.Cu with no vias.
 * The bench header J13 is a branch near J1 on B.Cu over In4 GND, the same stack-up mirrored,
-  through one via per track. With J13 empty that branch is the only stub on the pair.
+  through one via per track, on the module's side of the choke. With J13 empty that branch is
+  the only stub on the pair.
 
 Everything planned is fenced from the autorouter (F.Cu corridors, with vias, and B.Cu along
 the branch), and every far end of the pair is dropped from its input.
@@ -42,6 +47,7 @@ CHANNEL_LEFT_OF_J19 = 5.3   # the run south, between the USBC cell and the buck 
 ESD_ABOVE_J19 = 7.53     # U17's centre above J19's origin (floorplan.py uses this too)
 U17_X_FROM_J19 = -1.25   # U17's centre from J19's origin: pin 2 over B7 (-0.75), pin 1 over A6 (-0.25)
 RUN_ABOVE_ESD = 2.6      # the second run east, above U17's centre
+L3_BELOW_J1 = 22.6       # the choke L3's centre below J1's origin (floorplan.py uses this too), halfway along the run south
 # The J13 branch, its vias beside the main run
 VIA_OFF = 0.6            # via centre to its track's centre
 VIA_Y_DN, VIA_Y_DP = 2.82, 3.42   # via centres below J1's pad centres. Stepped so the two branches don't cross
@@ -111,6 +117,14 @@ def _with_points(line, ys):
     return head + [(x, y) for y in sorted(ys) if last[1] < y < tail[1]] + [tail]
 
 
+def _split_at(line, x, y0, y1):
+    """line runs south past (x, y0) and (x, y1) on one straight leg: the part down to y0, and the part from y1 on."""
+    for i, (a, b) in enumerate(zip(line, line[1:])):
+        if abs(a[0] - x) < 1e-3 and abs(b[0] - x) < 1e-3 and a[1] <= y0 and y1 <= b[1]:
+            return line[:i + 1] + [(x, y0)], [(x, y1)] + line[i + 1:]
+    raise RuntimeError(f"usb_route: no straight leg at x {x:.3f} from y {y0:.3f} to {y1:.3f}: the choke L3 isn't on the pair")
+
+
 def plan(pad):
     """pad(ref, number) -> (x, y, half_y) in board coordinates. Returns (items, report,
     corridors, dropped), as fan_route.plan() does: items are ("seg", layer, net, width,
@@ -152,12 +166,20 @@ def plan(pad):
     head_p = [dp[0], (dp[0][0], y_via_dp)] + dp[1:]
     head_n = _with_points(head_n, [yu_top, yu_bot])
     head_p = _with_points(head_p, [yu_top, yu_bot, y_tee])
+    # The choke: module side pads 3 (N) and 2 (P), connector side 4 and 1
+    xl_n, yl_m, _ = pad("L3", "3")
+    _, yl_c, _ = pad("L3", "4")
+    xl_p = pad("L3", "2")[0]
+    assert abs(xl_n - (x_chan - PITCH / 2)) < 1e-3 and abs(xl_p - (x_chan + PITCH / 2)) < 1e-3 and yl_m < yl_c, "L3 isn't lined up with the pair"
+    mod_n, con_n = _split_at(head_n, xl_n, yl_m, yl_c)
+    mod_p, con_p = _split_at(head_p, xl_p, yl_m, yl_c)
 
-    items = [("seg", "F.Cu", "USB_DN", W, head_n), ("seg", "F.Cu", "USB_DP", W, head_p)]
+    items = [("seg", "F.Cu", "USB_DN", W, mod_n), ("seg", "F.Cu", "USB_DP", W, mod_p),
+             ("seg", "F.Cu", "USB1_C_DN", W, con_n), ("seg", "F.Cu", "USB1_C_DP", W, con_p)]
     # A6 to B6 over the pad row, B7 to A7 under it
     c = LINK_CHAMFER
-    items.append(("seg", "F.Cu", "USB_DP", W, [(xa6, y_tee), (xa6 + c, y_arch), (xb6 - c, y_arch), (xb6, y_tee), (xb6, top + PAD_IN)]))
-    items.append(("seg", "F.Cu", "USB_DN", W, [(xb7, bottom - PAD_IN), (xb7, y_loop - c), (xb7 + c, y_loop), (xa7 - c, y_loop), (xa7, y_loop - c), (xa7, bottom - PAD_IN)]))
+    items.append(("seg", "F.Cu", "USB1_C_DP", W, [(xa6, y_tee), (xa6 + c, y_arch), (xb6 - c, y_arch), (xb6, y_tee), (xb6, top + PAD_IN)]))
+    items.append(("seg", "F.Cu", "USB1_C_DN", W, [(xb7, bottom - PAD_IN), (xb7, y_loop - c), (xb7 + c, y_loop), (xa7 - c, y_loop), (xa7, y_loop - c), (xa7, bottom - PAD_IN)]))
 
     # The J13 branch: one via beside each track, then B.Cu at 45 degrees to the header's pads
     vn = (xn - VIA_OFF, y_via_dn)
@@ -189,10 +211,11 @@ def plan(pad):
         "USB1N_BCU": _band(branch_n, h_br),
         "USB1P_BCU": _band(branch_p, h_br),
     }
+    # L3 pads 1 and 4 stay in the router's input, each its net's only pin there, with nothing to connect
     dropped = [("J13", "2"), ("J13", "3"), ("U17", "1"), ("U17", "2"), ("U17", "9"), ("U17", "10"),
-               ("J19", "A6"), ("J19", "B6"), ("J19", "A7"), ("J19", "B7")]
+               ("J19", "A6"), ("J19", "B6"), ("J19", "A7"), ("J19", "B7"), ("L3", "2"), ("L3", "3")]
     return items, report, corridors, dropped
 
 
 def planned_nets():
-    return ["USB_DP", "USB_DN"]
+    return ["USB_DP", "USB_DN", "USB1_C_DP", "USB1_C_DN"]

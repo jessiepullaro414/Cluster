@@ -116,12 +116,13 @@ class Netlist:
         return res
 
     def other_net(self, ref, net):
-        """For a 2-pin part, the net on its other pin."""
-        nets = [self.pinnet.get((ref, p)) for p in ("1", "2")]
-        if nets[0] == net and nets[1] != net:
-            return nets[1]
-        if nets[1] == net and nets[0] != net:
-            return nets[0]
+        """For a 2-pin part, the net on its other pin. A 4-pin common-mode choke is two windings, 1-2 and 3-4."""
+        for pins in (("1", "2"), ("3", "4")):
+            nets = [self.pinnet.get((ref, p)) for p in pins]
+            if nets[0] == net and nets[1] != net:
+                return nets[1]
+            if nets[1] == net and nets[0] != net:
+                return nets[0]
         return None
 
 

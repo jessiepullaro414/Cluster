@@ -258,10 +258,14 @@ SCREEN_REFS = ["U6", "U7", "U8", "U9"]                                    # left
 g_row_x = (_circles[1][0] + _circles[2][0]) / 2                           # speedometer centre on gauges/
 g_row_y = _circles[0][1]
 GAUGE_X = {r: round(c[0] - g_row_x, 2) for r, c in zip(SCREEN_REFS, _circles)}
+# brain/ needn't sit on the speedometer's centre line (2026-11-06, when it shrank to 127.5 x 95.3 mm). X: its port A lines up with
+# panel-tsd/'s J1, so the ribbon has no sideways run. Y: low enough that panel-tsd/'s lower standoffs still land on it.
+BRAIN_X = round((lay["panel"].fp["J1"][0] - centre["panel"][0]) - (lay["brain"].fp["J4"][0] - centre["brain"][0]), 1)
+BRAIN_Y = -3.0                       # ASSUMED, our choice: panel-tsd's lowest standoff edge is at Y -49.8
 T = {
     "gauges": trsf_board((g_row_x, g_row_y), (0, 0), Z_GAUGES_FRONT, False),
     "panel": trsf_board(centre["panel"][:2], (0, PANEL_Y), Z_PANEL_BARE, True),
-    "brain": trsf_board(centre["brain"][:2], (0, 0), Z_BRAIN_BARE, True),
+    "brain": trsf_board(centre["brain"][:2], (BRAIN_X, BRAIN_Y), Z_BRAIN_BARE, True),
 }
 
 COLOR_PREFIX = [("J", (0.92, 0.92, 0.88)), ("U", (0.08, 0.08, 0.09)), ("Q", (0.08, 0.08, 0.09)),
@@ -540,7 +544,7 @@ pj1 = lay["panel"].fp["J1"]
 bj4 = lay["brain"].fp["J4"]
 p1 = kpt(T["panel"], pj1[0], pj1[1], 0)
 b4 = kpt(T["brain"], bj4[0], bj4[1], 0)
-y_top = centre["brain"][3] / 2 + 1.5
+y_top = BRAIN_Y + centre["brain"][3] / 2 + 1.5
 z_pr = Z_PANEL_BARE - PCB_T - band_height("panel", p1[0] - 11, p1[0] + 11, p1[1] + 3, PANEL_Y + centre["panel"][3] / 2) - 0.4
 z_mid = Z_BRAIN_BARE + 2.4 + 0.6                     # just clear of brain/'s front-side screw heads
 z_brain_rear = Z_BRAIN_BARE - PCB_T - band_height("brain", b4[0] - 11, b4[0] + 11, b4[1] + 3, y_top) - 0.4
@@ -635,6 +639,7 @@ depth = dict(faceplate_front=0.0, rim_crown=round(12.0 * RIM_SCALE, 1), pod_fron
 report = dict(clashes=clashes, under_small_screens_mm=under, small_fpc=fpc_report,
               tsd_fpc=dict(length_mm=TSD_FPC_LEN, path_mm=round(tsd_need, 1), spare_mm=round(TSD_FPC_LEN - tsd_need, 1)),
               ffc_mm=round(path_len(ffc_pts) + 6, 1), opening_fit=fit, depth_mm=depth, view_angle_deg=view_angle,
+              brain_at=dict(x=BRAIN_X, y=BRAIN_Y),
               stack=dict(Z_FACE_BACK=Z_FACE_BACK, Z_SMALL_FRONT=Z_SMALL_FRONT, Z_SMALL_BACK=Z_SMALL_BACK,
                          Z_GAUGES_FRONT=Z_GAUGES_FRONT, Z_TSD_BACK=Z_TSD_BACK, Z_PANEL_BARE=Z_PANEL_BARE,
                          Z_BRAIN_BARE=Z_BRAIN_BARE, PANEL_Y=PANEL_Y))

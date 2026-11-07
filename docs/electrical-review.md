@@ -22,6 +22,8 @@ netlist (`kicad-cli sch export netlist`) and the `.kicad_pcb`.
 
 ## 0. Summary
 
+**2026-11-06, later:** brain/ shrunk from 184.8 x 104.9 mm to 127.5 x 95.3 mm, with a choke on each USB-C pair and the battery path on planned copper. Its power terminal J2 turned out to have its wire mouth facing the Verdin module (B-05, fixed); gauges/ J1 has the same fault (G-39, open). Section 9.5c.
+
 **2026-11-06:** brain/'s 5 V copper couldn't carry the buck's output: 1021 K by IPC-2221 on one 0.2 mm track at the Alfa's peak. Fixed on the board and in the checks that had let it through (B-04, section 9.5b).
 
 **2026-11-03: section 9 is the latest pass** (a product review before fabrication): both boards' 12 V input stages rewired to TI's
@@ -352,6 +354,8 @@ wiring on the inputs. Nothing has been built; every number below is a datasheet 
 | B-01 | High | brain | **The centre screen could not be restarted with the key, and never switched off.** The LM74930's EN was tied to the battery, so the 5 V buck ran whenever the battery was connected. The Verdin starts by itself only when VCC appears; once software powered it off (a deliberate shutdown, a low-battery policy, a crash that ends in power-off) only the bench button J9 or disconnecting the battery would start it again, and the key did nothing. And it could only suspend with the car parked: tens of mA (the module's suspend current is not published), a flat battery within weeks for a car that sits | **Ignition power latch**: EN = ignition (100 k / 33 k, R88/R89, filtered by C87) OR the module's CTRL_PWR_EN_MOCI, through one BAV99-Q section each (D10, D11), 100 k pull-down (R90). Ignition switches the board on and the module boots; the module holds the board on while it is on or suspended; when software powers it off with the key off the board falls to the LM74930's 2.5 uA shutdown current. Software decides how long to stay suspended (9.3). Datasheet: EN rising 0.8-1.05 V, falling 0.41-0.7 V, rated 0-65 V; 1.8 V minus a diode is 1.2-1.3 V, 12 V ignition gives 3.0 V, 6 V gives 1.5 V, a 100 V spike 25 V. The Verdin Carrier Board Design Guide confirms the module side: CTRL_PWR_EN_MOCI "remains high during sleep modes" (table 41), is low with no VCC, and every module boots when VCC is applied (3.2). The guide's own kill signal, CTRL_FORCE_OFF_MOCI#, was passed over: it is open-drain and undefined as VCC collapses, so its pull-up could re-enable EN and restart the module in a loop; the guide's own use of it needs a latching button IC. A software reboot with the key off drops CTRL_PWR_EN_MOCI during the cold reset, so it may end in power-off instead: run updates with the key on | fixed (measure sleep current on the first module) |
 | B-03 | High | brain | **The module might never have started.** R44-R46 were 10 k "pull-ups" on CTRL_PWR_BTN_MICO#, CTRL_RECOVERY_MICO# and CTRL_RESET_MICO# to +1V8, which U3 only turns on after the module raises CTRL_PWR_EN_MOCI. Verdin Carrier Board Design Guide table 41: these are open-drain inputs with 100 k, 10 k and 100 k pull-ups on the module's own 1.8 V RTC rail; 2.20.3: "No external pull-up resistor is allowed on the carrier board" (recovery). With +1V8 still off the 10 k resistors overpower those pull-ups and hold all three low: reset is asserted, and a module in cold reset holds CTRL_PWR_EN_MOCI low (3.2, 3.3.3), so +1V8 never comes up: a possible deadlock at every power-on. In the off state they would also read as a held power button (over 5 s forces the module off, 3.2) | R44-R46 removed; the J8/J9 bench headers still short the lines to ground. R47 on CTRL_RESET_MOCI# stays (an output the guide says may be pulled up). Earlier checks compared these pins' names with the datasheet, not what the module expects on them | fixed |
 | B-04 | High | brain | **The buck's output couldn't get onto the board** (found 2026-11-06). All of it left L1 pad 2 on one 0.2 mm track, then one 0.6/0.3 mm via into the In3 pour: 1021 K and 234 K by IPC-2221 at the Alfa's 5.7 A, 284 mV down at J1. `layout_checks.py` printed "pour-carried?" for a net with a pour, so nothing rated it | Planned copper at every place that carries real current (`brain/power_route.py`), and a solve of the net as copper sheets that gates each route and the fab package (`review/power_sheet.py`). Section 9.5b | fixed |
+| B-05 | High | brain | **J2's wire mouth faced the Verdin module** (found 2026-11-06 in the shrink). J2 is a horizontal screw terminal, and `floorplan.py`'s comment said its entry was "checked on the render". KiCad's 3D model has the mouth on the footprint's +y side, so at the 270 degrees it was placed the wires had to come in over the socket's end, with under 4 mm to the keepout and 39 mm of board behind the terminal doing nothing | Turned 90 degrees and put on the right edge, body flush. `layout_checks.py` now reports which way each screw terminal faces and how far it is from the edge | fixed |
+| G-39 | Medium | gauges | **J1's wire mouth faces into the board, the same fault as B-05.** It's at 0 degrees, so the mouth looks down the board with C59 9.6 mm in front of it and 50.6 mm of board to the edge; the top edge is 10.7 mm behind it with nothing in the way. Read from KiCad's 3D model (`mech/out/ClusterGauges.step`) | Turn it 180 degrees so the mouth faces the top edge. Needs a re-route of gauges/. `layout_checks.py gauges` prints it as open | **open** |
 | B-02 | Medium | brain | CVS was 100 nF; TI 8.2.2.1: "a minimum of 1-uF CVS capacitance is required" (fixed on gauges as G-17 on 2026-10-18, never carried over) | C2 = 1 uF 50 V 0805 on the new LM_VS node | fixed |
 | G-30 | High | gauges | **Sender readings ruined by ground offset.** The senders return through the engine block (oil, coolant) and the tank and body (fuel); this board's ground is wherever J1's ground wire lands. The body-to-engine strap carries every body load's return current, so the two grounds commonly sit 10-500 mV apart (15-25 A of lights and blower through a few to tens of milliohms of strap and joints). The front end put 3.3 mA through the sender (1 k from 3.3 V), so a 10 ohm sender was only 33 mV: with the engine block 50 mV below the board's ground a hot engine, a full tank or high oil pressure read about -17 mV, which the firmware called a shorted sender (dashes on the gauge exactly when overheating matters). The stock gauges did not suffer this: their 5 V regulator drove the sender and gauge coil at 60-220 mA | Each sender's 1 k pull-up now hangs off SENDER_EXC, switched by U11 (TPS22918-Q1, the same part as brain U8/U15), and each ADC pin gets a 6.8 k bias resistor to SENDER_BIAS (MCU output PTE6). Firmware reads all three channels with the excitation on, then off: both readings carry the same ground offset, which cancels; the bias lifts the ADC pin 0.42 V so an offset down to about -0.48 V stays readable (a larger one is reported, not misread). The model, its algebra and the test: `software/gauges-fw/inc/senders.h`, `src/senders.c`, `test/test_inputs.c` (10 ohm read to 0.4 ohm with -50 mV; 40/73/300 ohm read to 0.6/0.6/2.5 ohm with offsets of +120, -300 and -420 mV) | fixed (firmware host-tested; first board: compare against a decade box with an offset supply) |
 | G-31 | Medium | gauges | **Key-off drain through the senders.** The pull-ups were tied to +3V3, which stays up in VLPS: about 3 mA through each sender to ground with the car parked, about 9 mA on the 3.3 V rail, roughly 5 mA from the battery (3.5 Ah a month), three times the rest of the board. G-16's 1.4-1.8 mA key-off figure left it out | U11 and SENDER_BIAS are off in VLPS (`power_hw_s32k.c`) | fixed |
@@ -457,7 +461,63 @@ Two things came along with the re-route. `route_board.py` widens in rounds, as `
 
 **Added to first power-up, with the module fitted:** a load on J17 at 1.5 A and J19 at 0.5 A, then +5V at C54 pad 1 against J1's vias and U11's vias on a meter: under about 25 mV. Thermal camera on L1, U2 and the via bars.
 
+### 9.5c brain/ shrunk, 2026-11-06
+
+The owner's point: a lot of dead space. On 184.8 x 104.9 mm the parts' courtyards covered 33 % of the board, the module's keep-out 7 %, and 60 % had no parts on it: an 8 mm margin all round for the corner holes, a 39 x 32 mm hole on the right, and the front end laid out along the bottom row, which set the width.
+
+| | before | now |
+|---|---|---|
+| outline | 184.8 x 104.9 mm, 194 cm2 | **127.5 x 95.3 mm, 122 cm2, 37 % less** |
+| parts' courtyards | 33 % of the board | 52 % |
+| largest rectangles with no parts | 151 x 10, 39 x 32, 8 x 90, 88 x 8 mm | under the module; 31 x 17 and 34 x 14 mm behind the two ribbon connectors, which stay clear for the ribbons; nothing else over 19 x 8 mm |
+
+**The floorplan** (`floorplan.py`). Margins only as wide as the edge needs. Port A, the bench headers, the USB-C cell, the buck and the second USB-C port are the same chain along the bottom edge, in the same places relative to the socket, so J4, J13, J17, J18 and J19 didn't move against J1. The right column now runs top to bottom in the order the current flows: J2, fuse, TVS, Q2, Q1, sense resistor, buck. Small cells went into the two corners of the module's keep-out that the module doesn't reach (Design Guide figure 114 only forbids parts under the module itself, and the socket's courtyard stops 14 mm short of the far edge). The four M3 holes keep their corners, 3.6 mm in, and the router is fenced from under each 5.5 mm screw head.
+
+**Planned copper, because the shrink moved the front end.** On the first routes of the smaller board the autorouter left the battery path 0.3 mm necks, 92 K at 2.65 A, and the screen ports' 5 V 0.4 mm ones, where a track hugged a pad and the widening step couldn't move it. `power_route.py` now plans all of it, on F.Cu:
+
+* J2 to the fuse to the TVS, a 2.4 mm strap past the TVS's GND pad to Q2's tab. Q2 and Q1 face each other, so COMMON is about 2 mm long. Q1's tab goes straight into R1, R1 to a bus over C55 and C57, with a branch to C1.
+* The buck's lower input pin gets the bulk supply over a 1.5 mm strap on B.Cu, straight under the buck, through two 1.0/0.5 mm vias at each end. A strap between L1's pads fits on F.Cu, but it boxes in U16's enable pin.
+* The TVS, C1 and C55 get GND vias of their own. Until now D1's surge return was a 0.2 mm stub to one small via.
+* R9 moved right over U2's pins 13 and 14, and C7's SW branch leaves pin 10 between pins 12 and 13. Each had been a source of open connections.
+* The screen ports' 5 V, switch to connector.
+
+With that copper planned, those nets carry only milliamps through the router, so they left the wide routing class. Held to it, with 1.0 mm vias on two layers, those branches stayed open on all 12 attempts. `widen_trunks()` now only touches VBUS: on In2 and In3 it was only cutting the +5V pour up. On the final setup two of three workers came back clean, in one and two attempts.
+
+Solved on the routed copper, calculated, nothing measured:
+
+| net, at its rated current | before the shrink | now |
+|---|---|---|
+| VBAT_IN, 2.65 A | 6 K | 1 K, 2 mm with its pour |
+| VBAT_F, 2.65 A | 6 K | 4 K, 2 mm |
+| COMMON, 2.65 A | 13 K | 1 K |
+| SENSE_HI, 2.65 A | 18 K | 1 K |
+| +12V_PROT, 2.65 A | 15 K | 15 K, 0.91 mm at C57 |
+| PORTA_5V / PORTB_5V, 1.98 A | 5 K / 8 K | 4 K / 5 K |
+| USB2_VBUS, 1.98 A | 7 K | 7 K |
+| USB1_VBUS, 1.27 A | 4 K | 17 K, 0.3 mm near (249.7, 188.2), under the 20 K limit |
+| SW_5V, 6 A | 19 K | 19 K |
+
+| +5V case | loss | largest drop | worst track | worst via | In3, of what IPC-2221 allows |
+|---|---|---|---|---|---|
+| Alfa, 2 panels, 5.7 A | 48 mW | 14 mV | 2.3 K | 4.7 K | 55 % |
+| Mustang, 1 panel, 4.9 A | 32 mW | 11 mV | 2.1 K | 3.3 K | 47 % |
+| U6 at 1.98 A, 6 A total | 74 mW | 23 mV | 2.4 K | 5.4 K | 93 % |
+| U7 at 1.98 A, 6 A total | 72 mW | 22 mV | 2.3 K | 5.4 K | 96 % |
+| U11 at 1.98 A, 6 A total | 52 mW | 14 mV | 2.6 K | 5.3 K | 58 % |
+| U16 at 1.27 A, 6 A total | 46 mW | 13 mV | 3.5 K | 4.7 K | 53 % |
+
+**Chokes.** Each USB-C pair now goes through a Wurth 744230900 between the module and the ESD array, as the Design Guide's figure 35 has it: `docs/audio-and-usb.md`.
+
+**Not checked by any of this:**
+
+* Heat. The buck's 45 C/W in `thermal_derating.py` is an estimate that this board's copper now has 37 % less area to back up, though 122 cm2 is still more than the 100 x 80 mm board TI quotes its 25 C/W on. Thermal camera at bring-up, as before.
+* Assembly. Parts now sit 1.2 mm from the edges, and the USB-C mouths overhang as before: ask the board house for edge rails or a panel.
+* Both cars' housings: `mech/build_assembly.py` has no clashes with brain/ moved to fit (`dash-assembly.md`). The Alfa's model reads the new outline when it's next built.
+
 ### 9.6 Verification run for this section
+
+**2026-11-06, the shrink (9.5c):** ERC 0. Real `kicad-cli` DRC 0 unconnected, findings only in `fab/build_fab.py`'s accepted categories (hole_clearance x8, lib_footprint_mismatch x24, silk_edge_clearance x2 on J2, silk_overlap x1). `review_netlist.py brain` 52 PASS, 0 FAIL, the same 5 WARN. `layout_checks.py brain`: no FAIL on any net, no track on In1 or In4, longest hole in a GND plane a 3.8 mm mounting hole, J2 flush with the right edge. `power_sheet.py brain` and `panel-tsd`: ok. `mech/build_assembly.py`: 0 clashes. `fab/build_fab.py brain` passes its gate. J2's mouth read off its 3D model in the new STEP: open toward the right edge. Seventeen deliberate breakages on scratch copies were all caught: the buck's and J1's vias removed or shrunk, each planned net thinned with its fill gone, the In3 fill gone, the B.Cu feed's vias gone, J2 turned round.
+
 
 **2026-11-06, brain/ 5 V copper (9.5b):** ERC 0. Real `kicad-cli` DRC 0 unconnected, findings only in `fab/build_fab.py`'s accepted categories. `review_netlist.py brain` 49 PASS, 0 FAIL, the same 5 WARN. `layout_checks.py brain`: no FAIL on any net, and no track on In1 or In4. `power_sheet.py brain` and `panel-tsd`: ok. `connector_audit.py`, `usb1_topology.py`, `dsi_impedance.py` as before. `mech/build_assembly.py`: 0 clashes. `fab/build_fab.py brain` passes its gate, which now includes the solve. Every part in the same place as before, by comparing the two board files.
 

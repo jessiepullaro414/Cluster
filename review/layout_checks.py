@@ -17,6 +17,8 @@ layout_checks.py - routed-copper checks that need the .kicad_pcb.
      track: exits 1 if they do, since a split plane under a fast net is the failure this guards.
      (2026-11-06) nor a slot where vias' clearance holes merge: the longest hole is reported, and
      one longer than PLANE_SLOT_MM is a FAIL.
+  5. (2026-11-06) a screw terminal's wire mouth faces the board edge and sits at it. brain/'s J2 faced the Verdin
+     module for weeks: nothing looks at which way a part faces. Its 3D model has the mouth on the footprint's +y side.
 """
 import argparse
 import collections
@@ -63,7 +65,8 @@ CFG["brain"] = dict(CFG["display"],
                     switch=["SW_5V", "BOOT_C", "BOOT_R"],
                     own={"SW_5V", "BOOT_C", "BOOT_R", "+5V", "GND", "+12V_PROT", "VCC_LDO", "FB_5V"},
                     fast=["DSI_D0_P", "DSI_D0_N", "DSI_CLK_P", "LVDS0_CLK_P", "LVDS0_CLK_N",
-                          "LVDS1_D3_P", "USB2_DP", "USB2_DN", "USB_DP", "USB_DN", "CAN1_H", "CAN1_L"])
+                          "LVDS1_D3_P", "USB2_DP", "USB2_DN", "USB2_C_DP", "USB2_C_DN", "USB_DP", "USB_DN",
+                          "USB1_C_DP", "USB1_C_DN", "CAN1_H", "CAN1_L"])
 # the TSD panel board (2026-10-20): display/'s panel bias and backlight converters
 CFG["panel-tsd"] = dict(
     pcb=os.path.join(ROOT, "panel-tsd", "ClusterPanelTSD.kicad_pcb"),
@@ -143,6 +146,9 @@ PATHS["brain"] = dict({"VBAT_IN": [[("J2", "1")], [("F1", "1")]],
                       PORTB_5V=[[("U7", "6"), ("U7", "7")], [("J18", "45"), ("J18", "46"), ("J18", "47"),
                                                              ("J18", "48"), ("J18", "49")]])
 DT_LIMIT = 20.0      # K rise allowed for continuous current
+WIRE_MOUTHS = {"brain": {"J2": 4.6}, "gauges": {"J1": 4.6}}     # terminal -> pad row to the body's mouth, mm
+KNOWN_MOUTHS = {"gauges": {"J1": "G-39"}}   # known and open: printed, not failed. gauges/route_board.py treats a FAIL as a failed route
+MOUTH_MAX_MM = 12.0  # mouth to the edge it faces: past this a wire has to cross the board
 PLANE_SLOT_MM = 5.0  # a GND plane's longest allowed hole. The autorouter's own via clusters reach 4.2 mm; 2026-11-06's first
 #                      version of brain/power_route.py cut one of 7 mm across the buck's output loop, and nothing noticed
 RHO_CU = 1.72e-5       # ohm mm, copper at 20 C
@@ -541,8 +547,29 @@ def main():
         if holes:
             ln, w, ht, hx, hy, nets = holes[0]
             print(f"        longest hole {w:.1f} x {ht:.1f} mm at ({hx:.1f}, {hy:.1f}), vias of {nets[:5]}  [{'FAIL' if ln > PLANE_SLOT_MM else 'ok'}]")
+    print("\n    Screw terminals' wire mouths:")
+    x0, y0, x1, y1 = lay.board_bbox()
+    for ref, reach in WIRE_MOUTHS.get(a.board, {}).items():
+        fx, fy, ang, _ = lay.fp[ref]
+        t = math.radians(ang)
+        dx, dy = round(math.sin(t)), round(math.cos(t))      # the footprint's +y on the board
+        pads = [p for (r, _n), pl in lay.pads.items() if r == ref for p in pl]
+        px = sum(p["x"] for p in pads) / len(pads)
+        py = sum(p["y"] for p in pads) / len(pads)
+        gap = (x1 - (px + reach) if dx > 0 else (px - reach) - x0 if dx < 0 else
+               y1 - (py + reach) if dy > 0 else (py - reach) - y0)
+        side = {(1, 0): "right", (-1, 0): "left", (0, 1): "bottom", (0, -1): "top"}[(dx, dy)]
+        over = [q for q in lay.fp if q != ref and q != "J1" and not q.startswith(("MH", "S"))
+                and ((dx > 0 and lay.fp[q][0] > px + reach) or (dx < 0 and lay.fp[q][0] < px - reach)
+                     or (dy > 0 and lay.fp[q][1] > py + reach) or (dy < 0 and lay.fp[q][1] < py - reach))
+                and (abs(lay.fp[q][1] - py) < 8.0 if dx else abs(lay.fp[q][0] - px) < 8.0)]
+        known = KNOWN_MOUTHS.get(a.board, {}).get(ref)
+        wrong = gap > MOUTH_MAX_MM or bool(over)
+        print(f"      {ref} faces the {side} edge, {gap:.1f} mm from it, {len(over)} part(s) in the wires' way  [{(f'open, {known}' if known else 'FAIL') if wrong else 'ok'}]")
+        if wrong and not known:
+            bad += 1
     if bad:
-        raise SystemExit(f"FAIL: {bad} non-GND net(s) routed on a plane layer")
+        raise SystemExit(f"FAIL: {bad} non-GND net(s) routed on a plane layer, or a wire mouth facing into the board")
 
 
 if __name__ == "__main__":

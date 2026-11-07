@@ -33,13 +33,34 @@ NET_WEIGHT = {
 }
 
 
+# The front end's power parts, whose copper is planned (power_route.py). In the finished board's frame, U1 at the origin
+# (floorplan.py turns the whole cell 180 degrees): the two FETs one above the other with their source pins facing, so COMMON
+# is about 2 mm long, and the sense resistor right under Q1, its Kelvin taps toward U1.
+FET_X = -7.38            # the FETs' centre line: their courtyards end 1.2 mm from U1's, for U1's pin escapes
+FET_Y = 3.89             # half a FET's courtyard: their courtyards all but touch
+R1_Y = 2 * FET_Y + 0.1 + 2.28
+FRONT_LEFT, FRONT_RIGHT, FRONT_TOP, FRONT_BOTTOM = FET_X - 3.38, 5.24, -18.2, 11.2    # U1 frame; floorplan.py keeps to these
+TOP_OF_D1 = FRONT_TOP - 0.1
+
+
+def _turned(x, y, rot):
+    """A place given in the finished board's frame, in the cell's frame."""
+    return (-x, -y, (rot + 180) % 360)
+
+
 # name -> dict(anchor, order, pulls, rot) . pulls: ref -> {net: (target, pads, w)}
 CELLS = {
     "BUCK": dict(
         anchor="U2",
-        # SW inductor first (largest, claims its side), then the HF input caps
-        order=["L1", "C56", "C57", "C5", "C55", "C7", "R9", "C6", "C54", "C59",
-               "C8", "R10", "R11", "C58", "R12", "R13", "R14", "R16"],
+        # 2026-11-06: frozen where the placer last put them, since most of this cell's copper is planned round them (power_route.py), and
+        # the placer rearranges the lot if one part moves. The one change is R9, now right over pins 13 and 14: on the shrunk board's
+        # first routes the router left its link to pin 13 open again and again, past C7 and over the other boot traces.
+        fixed={"L1": (7.1, 0.0, 0), "C56": (1.0, 4.6, 0), "C57": (1.0, -5.0, 0), "C5": (1.0, 6.9, 0), "C55": (5.2, -5.4, 0),
+               "C7": (-2.4, -5.0, 0), "R9": (-2.065, -3.4, 180), "C6": (-5.3, 2.0, 270), "C54": (12.8, -0.1, 0),
+               "C59": (12.8, -2.8, 0), "C8": (12.8, 2.6, 0), "R10": (-2.4, 5.3, 90), "R11": (-4.3, 5.4, 270),
+               "C58": (-7.9, 0.4, 0), "R12": (-7.9, 2.3, 180), "R13": (4.4, 5.3, 90), "R14": (-6.9, 4.6, 180),
+               "R16": (-7.9, -1.5, 180)},
+        order=[],
         pulls={
             "L1": {"SW_5V": pull("U2", [10], 10)},
             "C56": {"+12V_PROT": pull("U2", [8], 6), "GND": pull("U2", [9], 6)},
@@ -47,7 +68,6 @@ CELLS = {
             "C5": {"+12V_PROT": pull("U2", [8], 4), "GND": pull("U2", [9], 4)},
             "C55": {"+12V_PROT": pull("U2", [12], 4), "GND": pull("U2", [11], 4)},
             "C7": {"BOOT_C": pull("U2", [14], 5), "SW_5V": pull("U2", [10], 5)},
-            "R9": {"BOOT_R": pull("U2", [13], 5), "BOOT_C": pull("U2", [14], 3)},
             "C6": {"VCC_LDO": pull("U2", [2], 5), "GND": pull("U2", [3], 4)},
             "C54": {"+5V": pull("L1", [2], 3)},
             "C59": {"+5V": pull("L1", [2], 3)},
@@ -65,12 +85,12 @@ CELLS = {
         # (review 2026-11-03: the input TVS D1 moved to the INPUT cell, beside the fuse it follows, and so did the
         # 100 uF hold-up capacitor C1 (bulk on +12V_PROT: the buck keeps its own ceramics at its pins), so the
         # keep-in below fits the front end alone and the bottom row keeps its height)
-        order=["Q1", "Q2", "R1", "C3", "R2", "C4", "C2", "D9", "R87", "C85", "D10", "D11", "R90",
+        fixed={"Q2": _turned(FET_X, -FET_Y, 90), "Q1": _turned(FET_X, FET_Y, 270), "R1": _turned(FET_X, R1_Y, 270)},
+        order=["C3", "R2", "C4", "C2", "D9", "R87", "C85", "D10", "D11", "R90",
                "R3", "R4", "R5", "R6", "R7", "R8", "R15", "C86"],
         pulls={
             # 2026-10-20: R2's far end to R1's top pad (the Kelvin point RSET wants anyway). Since the review of
             # 2026-11-03 R1 sits on the output side (SENSE_HI -> +12V_PROT), so that end is SENSE_HI now.
-            "R1": {"SENSE_TAP": pull("U1", [18], 3), "CS_MINUS": pull("U1", [19], 3)},
             "R2": {"CS_PLUS": pull("U1", [20], 4), "SENSE_TAP": pull("R1", [3], 6)},
             # C3 between CAP (pin 23) and VS (pin 22)
             "C3": {"CAP_CP": pull("U1", [23], 4), "LM_VS": pull("U1", [22], 4)},
@@ -95,8 +115,13 @@ CELLS = {
         },
         # review 2026-11-03: with the seven new front-end parts (VS diode and CVS, the HGATE dV/dt network, the
         # latch diodes and pull-down, the input capacitor) the free placement stacked the cell to 33 mm and the
-        # board to 120 mm, over the dash opening's 116.7 mm; a flat keep-in lays it out along the bottom row.
-        keepin=(-20.0, -9.0, 20.0, 9.0)),
+        # board to 120 mm, over the dash opening's 116.7 mm; a flat keep-in laid it out along the bottom row.
+        # 2026-11-06: it now stands in the column right of the module, under the fuse and the TVS. The blocked box is D1 and
+        # the planned copper beside it.
+        keepin=(-FRONT_RIGHT, -FRONT_BOTTOM, -FRONT_LEFT, -FRONT_TOP),
+        anchor_gap=1.3,
+        grid=0.2,
+        blocked=[(4.0, 7.85, -FRONT_LEFT + 0.1, -TOP_OF_D1)]),
     "LDO": dict(
         anchor="U3",
         order=["C9", "C10", "R17", "R18"],
@@ -115,7 +140,8 @@ CELLS = {
             "R19": {"CAN1_H": pull("U4", [7], 4)},
             "R20": {"CAN1_L": pull("U4", [6], 4)},
             "R21": {"CAN1_STB": pull("U4", [8], 3)},
-        }),
+        },
+        keepin=(-5.0, -6.0, 19.0, 6.0)),
     # Harness power input: terminal block and fuse holder, kept together at a
     # board edge; the protected path then runs to the FRONT cell.
     "INPUT": dict(
@@ -128,7 +154,8 @@ CELLS = {
         order=["R52", "C53", "R51", "D5", "R53", "R88", "R89", "C87"],
         # review 2026-11-03: the ignition side of the power latch (100 k / 33 k / 10 nF) sits with the wake network
         pulls={"R88": {"IGN_SENSE": pull("R51", [1], 3)}, "R89": {"IGN_EN_DIV": pull("R88", [2], 3)},
-               "C87": {"IGN_EN_DIV": pull("R88", [2], 3)}}),
+               "C87": {"IGN_EN_DIV": pull("R88", [2], 3)}},
+        keepin=(-3.5, -20.0, 4.5, 3.0)),
     "DIAL": dict(
         anchor="U8",
         order=["C60", "C63", "R54", "R58", "R55", "C61", "D6", "R56", "R57",
@@ -136,7 +163,8 @@ CELLS = {
         pulls={
             "C60": {"+5V": pull("U8", [1], 4)},
             "C63": {"DIAL_5V": pull("U8", [6], 4)},
-        }),
+        },
+        keepin=(-9.0, -7.4, 7.0, 15.0)),
     # Screen ports (brain board, 2026-10-20). Each FH12 connector is a cell of
     # its own, so nothing sits in the fan where the planned DSI / LVDS pairs
     # arrive (fan_route.py); its 5 V switch and the control-line pulls are a
@@ -182,7 +210,9 @@ CELLS = {
     "JTAG": dict(
         anchor="J8",
         order=["R48"],
-        pulls={}),
+        pulls={},
+        keepin=(-1.8, -2.0, 3.8, 20.0),
+        anchor_gap=0.35),
     "BUTTONS": dict(
         anchor="J9",
         order=["R47"],
@@ -213,6 +243,7 @@ CELLS = {
         order=["C66", "C67", "C68", "C69", "C70", "C71", "C72", "C73",
                "R63", "C74", "C75", "R64", "R61", "R62",
                "R65", "R66", "R67", "R68", "C76", "C77", "C78", "C79"],
+        keepin=(-11.0, -11.0, 11.0, 12.0),
         pulls={
             "C66": {"+3V3": pull("U9", [31], 4)},
             "C67": {"+3V3": pull("U9", [31], 4)},
@@ -260,8 +291,8 @@ CELLS = {
         keepin=(-13.0, -26.0, 13.0, 2.6),
         anchor_gap=3.5,
         pulls={
-            "U14": {"USB2_DP": pull("J17", ["A6", "B6"], 4),
-                    "USB2_DN": pull("J17", ["A7", "B7"], 4),
+            "U14": {"USB2_C_DP": pull("J17", ["A6", "B6"], 4),
+                    "USB2_C_DN": pull("J17", ["A7", "B7"], 4),
                     "USB2_CC1": pull("J17", ["A5"], 3),
                     "USB2_CC2": pull("J17", ["B5"], 3)},
             "D8": {"USB2_VBUS": pull("J17", ["A9", "B4"], 3)},
@@ -291,6 +322,9 @@ CELLS = {
             "R95": {"USB1_CC2": pull("J19", ["B5"], 2)},
         }),
     "USBC2_ESD": dict(anchor="U17", order=[], pulls={}),
+    # The chokes (Design Guide figure 35: module, choke, ESD array, connector). floorplan.py places them, L3 on the planned pair.
+    "USBC_CMC": dict(anchor="L2", order=[], pulls={}),
+    "USBC2_CMC": dict(anchor="L3", order=[], pulls={}),
     # J19 is off the -x side and C90's VBUS pad faces it. The keep-in's top edge is C8's
     # lower edge and its right edge is R8's left edge. The blocked box is C5 and R13: the
     # strip is lower to the left of C90 than above it. Positions in floorplan.py.

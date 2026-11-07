@@ -62,7 +62,7 @@ class Part:
 
 
 def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
-               allowed_rot=None, verbose=False, keepin=None, anchor_gap=None, blocked=None):
+               allowed_rot=None, verbose=False, keepin=None, anchor_gap=None, blocked=None, fixed=None, grid=GRID):
     """parts: ref -> Part. anchor: ref placed at the origin. order: refs in
     placement order. net_weight: net -> weight (nets not listed use
     default_weight; GND-like nets should be listed low). pulls:
@@ -76,6 +76,9 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
     for a fine-pitch part or connector that needs escape room for its wiring.
     blocked: optional [(x0, y0, x1, y1)] in the cell frame where nothing may go, for a
     cell fitted into a space that isn't a rectangle.
+    fixed: optional {ref: (x, y, rot)} in the cell frame, placed before the others, for parts
+    whose copper is planned and whose places are therefore decided by hand.
+    grid: the coarse search step, finer for a cell with little room to spare.
     Returns {ref: (ox, oy, rot)} and the cell bbox."""
     pulls = pulls or {}
     a_gap = ANCHOR_GAP if anchor_gap is None else anchor_gap
@@ -99,6 +102,10 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
 
     add_box(anchor)
     boxes.extend(blocked or [])
+    for ref, where in (fixed or {}).items():
+        placed[ref] = where
+        add_pads(ref)
+        add_box(ref)
 
     def cost_grid(ref, a, xs, ys):
         """Cost over a grid of origin positions xs (n,) x ys (m,) -> (m, n)."""
@@ -140,8 +147,8 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
         part = parts[ref]
         best = None
         for a in (allowed_rot.get(ref) or ROTATIONS):
-            xs = np.arange(-SEARCH, SEARCH + 1e-9, GRID)
-            ys = np.arange(-SEARCH, SEARCH + 1e-9, GRID)
+            xs = np.arange(-SEARCH, SEARCH + 1e-9, grid)
+            ys = np.arange(-SEARCH, SEARCH + 1e-9, grid)
             c = cost_grid(ref, a, xs, ys)
             c = np.where(free_mask(ref, a, xs, ys), c, np.inf)
             i = np.unravel_index(np.argmin(c), c.shape)
@@ -151,8 +158,8 @@ def place_cell(parts, anchor, order, net_weight, pulls=None, default_weight=1.0,
             raise RuntimeError(f"cell placer: nowhere to put {ref}")
         _, a, cx, cy = best
         # refine around the coarse optimum on a finer grid
-        xs = np.arange(cx - GRID, cx + GRID + 1e-9, FINE)
-        ys = np.arange(cy - GRID, cy + GRID + 1e-9, FINE)
+        xs = np.arange(cx - grid, cx + grid + 1e-9, FINE)
+        ys = np.arange(cy - grid, cy + grid + 1e-9, FINE)
         c = cost_grid(ref, a, xs, ys)
         c = np.where(free_mask(ref, a, xs, ys), c, np.inf)
         i = np.unravel_index(np.argmin(c), c.shape)
@@ -203,14 +210,14 @@ def plan_cells(parts, cells, net_weight):
     bbox)}, set of every ref used). Each ref may appear in only one cell."""
     seen, result = set(), {}
     for name, c in cells.items():
-        for m in [c["anchor"]] + c["order"]:
+        for m in [c["anchor"]] + c["order"] + list(c.get("fixed", ())):
             assert m not in seen, f"{m} is in two cells"
             assert m in parts, f"{m} in cell {name} is not a schematic part"
             seen.add(m)
         result[name] = place_cell(parts, c["anchor"], c["order"], net_weight,
                                   pulls=c["pulls"], allowed_rot=c.get("rot"),
                                   keepin=c.get("keepin"), anchor_gap=c.get("anchor_gap"),
-                                  blocked=c.get("blocked"))
+                                  blocked=c.get("blocked"), fixed=c.get("fixed"), grid=c.get("grid", GRID))
     return result, seen
 
 

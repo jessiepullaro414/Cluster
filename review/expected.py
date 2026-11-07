@@ -559,12 +559,16 @@ _pins = dict(DISPLAY["U11"]["pins"])
 _pins.update({6: ("OUT", [("net", "USB1_VBUS")]), 7: ("OUT", [("net", "USB1_VBUS")])})
 BRAIN["U16"] = dict(DISPLAY["U11"], ds="TI SLVSC97B (Sep 2020) terminal functions, 7.1, IOS table (100 k -> 0.945-1.27 A)", pins=_pins)
 _pins = dict(DISPLAY["U14"]["pins"])
-_pins.update({1: ("CH1", [("net", "USB_DP")]), 2: ("CH2", [("net", "USB_DN")]),
+_pins.update({1: ("CH1", [("net", "USB1_C_DP")]), 2: ("CH2", [("net", "USB1_C_DN")]),
               4: ("CH3", [("net", "USB1_CC1")]), 5: ("CH4", [("net", "USB1_CC2")]),
               # SLVSCO7C: NC pins are kept for optional straight-through routing, each facing a channel pin
               6: ("CH4_THRU", [("net", "USB1_CC2")]), 7: ("CH3_THRU", [("net", "USB1_CC1")]),
-              9: ("CH2_THRU", [("net", "USB_DN")]), 10: ("CH1_THRU", [("net", "USB_DP")])})
+              9: ("CH2_THRU", [("net", "USB1_C_DN")]), 10: ("CH1_THRU", [("net", "USB1_C_DP")])})
 BRAIN["U17"] = dict(DISPLAY["U14"], pins=_pins)
+# 2026-11-06: each USB-C pair now goes through a common-mode choke, L2 and L3, so the arrays are on the connector side.
+_pins = dict(DISPLAY["U14"]["pins"])
+_pins.update({1: ("CH1", [("net", "USB2_C_DP")]), 2: ("CH2", [("net", "USB2_C_DN")])})
+BRAIN["U14"] = dict(DISPLAY["U14"], pins=_pins)
 # TSD panel board: the panel converters moved there with their designators.
 PANEL_TSD = {k: DISPLAY[k] for k in ("U6", "U7")}
 
